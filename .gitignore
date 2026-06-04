@@ -9,6 +9,8 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 dev-server*.log
+backend-dev*.log
+frontend-dev*.log
 data/
 public/uploads/
 frontend/public/uploads/

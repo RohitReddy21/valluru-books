@@ -579,6 +579,6 @@ app.use((error, _request, response, _next) => {
   response.status(500).json({ error: "Server error." });
 });
 
-app.listen(port, () => {
+app.listen(port, "0.0.0.0", () => {
   console.log(`Valluru backend running on port ${port}`);
 });
