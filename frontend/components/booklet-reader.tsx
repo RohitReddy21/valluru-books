@@ -4,6 +4,7 @@ import { Mail } from "lucide-react";
 import { BookOpen } from "lucide-react";
 import { useState } from "react";
 import { PdfBookModal } from "@/components/pdf-book-modal";
+import { apiUrl } from "@/lib/api";
 import type { Booklet } from "@/lib/site-content";
 
 type Props = {
@@ -23,9 +24,10 @@ export function BookletReader({ booklet }: Props) {
     event.preventDefault();
     setStatus("saving");
 
-    const response = await fetch("/api/subscribe", {
+    const response = await fetch(apiUrl("/api/subscribe"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({
         email,
         source: "booklet-reader",
@@ -133,7 +135,7 @@ export function BookletReader({ booklet }: Props) {
           numberLabel={booklet.numberLabel}
           onClose={() => setReaderOpen(false)}
           open={readerOpen}
-          pdfUrl={`/api/booklets/${booklet.slug}/pdf`}
+          pdfUrl={apiUrl(`/api/booklets/${booklet.slug}/pdf`)}
           title={booklet.title}
         />
       ) : null}

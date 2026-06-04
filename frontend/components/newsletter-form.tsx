@@ -2,6 +2,7 @@
 
 import { Mail } from "lucide-react";
 import { useState } from "react";
+import { apiUrl } from "@/lib/api";
 
 export function NewsletterForm({ microcopy }: { microcopy: string }) {
   const [email, setEmail] = useState("");
@@ -13,9 +14,10 @@ export function NewsletterForm({ microcopy }: { microcopy: string }) {
     event.preventDefault();
     setStatus("saving");
 
-    const response = await fetch("/api/subscribe", {
+    const response = await fetch(apiUrl("/api/subscribe"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ email })
     });
 

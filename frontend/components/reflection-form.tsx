@@ -2,6 +2,7 @@
 
 import { Star } from "lucide-react";
 import { useState } from "react";
+import { apiUrl } from "@/lib/api";
 
 export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
   const [rating, setRating] = useState(0);
@@ -14,9 +15,10 @@ export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
     event.preventDefault();
     setStatus("saving");
 
-    const response = await fetch("/api/reflections", {
+    const response = await fetch(apiUrl("/api/reflections"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      credentials: "include",
       body: JSON.stringify({ bookletSlug, rating, comment })
     });
 

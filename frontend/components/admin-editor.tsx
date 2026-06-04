@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Eye, ImageIcon, Plus, RefreshCw, RotateCcw, Save, Upload } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 import type { Booklet, Essay, SiteContent } from "@/lib/site-content";
 import { defaultSiteContent } from "@/lib/site-content";
 
@@ -137,12 +138,13 @@ export function AdminEditor({ initialContent, source }: Props) {
   }
 
   function persistContent() {
-    return fetch("/api/content", {
+    return fetch(apiUrl("/api/content"), {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
         "X-Admin-Password": password
       },
+      credentials: "include",
       body: JSON.stringify({ content })
     });
   }
@@ -168,11 +170,12 @@ export function AdminEditor({ initialContent, source }: Props) {
     formData.append("bookletSlug", selectedBooklet.slug);
     formData.append("pdf", pdfFile);
 
-    const response = await fetch("/api/admin/upload-pdf", {
+    const response = await fetch(apiUrl("/api/admin/upload-pdf"), {
       method: "POST",
       headers: {
         "X-Admin-Password": password
       },
+      credentials: "include",
       body: formData
     });
 
@@ -192,7 +195,8 @@ export function AdminEditor({ initialContent, source }: Props) {
 
   async function loadAdminData() {
     setDataStatus("Loading database data...");
-    const response = await fetch("/api/admin/data", {
+    const response = await fetch(apiUrl("/api/admin/data"), {
+      credentials: "include",
       headers: {
         "X-Admin-Password": password
       }
@@ -221,11 +225,12 @@ export function AdminEditor({ initialContent, source }: Props) {
     const formData = new FormData();
     formData.append("media", mediaFile);
 
-    const response = await fetch("/api/admin/upload-media", {
+    const response = await fetch(apiUrl("/api/admin/upload-media"), {
       method: "POST",
       headers: {
         "X-Admin-Password": password
       },
+      credentials: "include",
       body: formData
     });
 
@@ -239,12 +244,14 @@ export function AdminEditor({ initialContent, source }: Props) {
       return;
     }
 
+    const uploadedUrl = apiUrl(payload.url);
+
     setContent((current) => ({
       ...current,
       media: {
         ...defaultSiteContent.media,
         ...(current.media || {}),
-        [mediaTarget]: payload.url
+        [mediaTarget]: uploadedUrl
       }
     }));
     setMediaStatus(`Uploaded and applied to ${mediaTarget}. Save content to keep it.`);

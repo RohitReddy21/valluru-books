@@ -11,3 +11,8 @@ pnpm-debug.log*
 dev-server*.log
 data/
 public/uploads/
+frontend/public/uploads/
+frontend/.next
+frontend/out
+backend/.env
+backend/.env.local
