@@ -4,6 +4,7 @@ const express = require("express");
 const { GridFSBucket, MongoClient, ObjectId } = require("mongodb");
 const multer = require("multer");
 const { Resend } = require("resend");
+const crypto = require("node:crypto");
 const { Readable } = require("node:stream");
 
 dotenv.config();
@@ -123,6 +124,56 @@ function getCookies(request) {
       .filter(([key]) => key)
       .map(([key, value]) => [key, decodeURIComponent(value || "")])
   );
+}
+
+function getAccessTokenSecret() {
+  return process.env.ACCESS_TOKEN_SECRET || process.env.ADMIN_PASSWORD || "valluru-local-token";
+}
+
+function toBase64Url(value) {
+  return Buffer.from(value).toString("base64url");
+}
+
+function signAccessPayload(encodedPayload) {
+  return crypto
+    .createHmac("sha256", getAccessTokenSecret())
+    .update(encodedPayload)
+    .digest("base64url");
+}
+
+function createAccessToken(slug = "*") {
+  const payload = {
+    slug,
+    exp: Date.now() + 1000 * 60 * 60 * 24 * 365
+  };
+  const encodedPayload = toBase64Url(JSON.stringify(payload));
+
+  return `${encodedPayload}.${signAccessPayload(encodedPayload)}`;
+}
+
+function verifyAccessToken(token, slug) {
+  if (!token || !token.includes(".")) {
+    return false;
+  }
+
+  const [encodedPayload, signature] = token.split(".");
+  const expectedSignature = signAccessPayload(encodedPayload);
+
+  if (
+    !signature ||
+    signature.length !== expectedSignature.length ||
+    !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))
+  ) {
+    return false;
+  }
+
+  try {
+    const payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8"));
+
+    return payload.exp > Date.now() && (payload.slug === "*" || payload.slug === slug);
+  } catch {
+    return false;
+  }
 }
 
 function pdfFilename(slug) {
@@ -332,7 +383,35 @@ app.post("/api/subscribe", async (request, response, next) => {
       );
     }
 
-    response.json({ ok: true });
+    response.json({ ok: true, accessToken: createAccessToken("*") });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/reflections", async (request, response, next) => {
+  try {
+    if (!requireMongo(response)) {
+      return;
+    }
+
+    const bookletSlug = String(request.query.bookletSlug || "");
+
+    if (!bookletSlug) {
+      response.status(400).json({ error: "Booklet slug is required." });
+      return;
+    }
+
+    const db = await getDb();
+    const comments = await db
+      .collection("comments")
+      .find({ bookletSlug })
+      .sort({ createdAt: -1 })
+      .limit(25)
+      .project({ _id: 0, bookletSlug: 1, rating: 1, comment: 1, createdAt: 1 })
+      .toArray();
+
+    response.json({ comments });
   } catch (error) {
     next(error);
   }
@@ -504,10 +583,15 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
     }
 
     const cookies = getCookies(request);
+    const authorization = request.get("Authorization") || "";
+    const bearerToken = authorization.startsWith("Bearer ")
+      ? authorization.slice("Bearer ".length)
+      : "";
     const hasAccess =
       slug === "booklet-one" ||
       cookies.valluru_subscribed === "true" ||
-      cookies[`valluru_booklet_${slug}`] === "true";
+      cookies[`valluru_booklet_${slug}`] === "true" ||
+      verifyAccessToken(bearerToken, slug);
 
     if (!hasAccess) {
       response.status(403).json({ error: "Subscribe before reading this booklet." });

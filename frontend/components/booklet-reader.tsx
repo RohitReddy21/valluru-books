@@ -13,8 +13,13 @@ type Props = {
 
 export function BookletReader({ booklet }: Props) {
   const isFree = booklet.slug === "booklet-one";
+  const storedAccessToken =
+    typeof window !== "undefined"
+      ? window.localStorage.getItem("valluru_access_token") || ""
+      : "";
   const [email, setEmail] = useState("");
-  const [hasAccess, setHasAccess] = useState(isFree);
+  const [hasAccess, setHasAccess] = useState(isFree || Boolean(storedAccessToken));
+  const [accessToken, setAccessToken] = useState(storedAccessToken);
   const [readerOpen, setReaderOpen] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">(
     "idle"
@@ -36,7 +41,15 @@ export function BookletReader({ booklet }: Props) {
       })
     });
 
+    const payload = (await response.json().catch(() => null)) as {
+      accessToken?: string;
+    } | null;
+
     if (response.ok) {
+      if (payload?.accessToken) {
+        setAccessToken(payload.accessToken);
+        window.localStorage.setItem("valluru_access_token", payload.accessToken);
+      }
       setHasAccess(true);
       setStatus("success");
       return;
@@ -132,6 +145,7 @@ export function BookletReader({ booklet }: Props) {
 
       {readerOpen ? (
         <PdfBookModal
+          accessToken={accessToken}
           numberLabel={booklet.numberLabel}
           onClose={() => setReaderOpen(false)}
           open={readerOpen}

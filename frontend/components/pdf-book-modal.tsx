@@ -10,6 +10,7 @@ type Props = {
   pdfUrl: string;
   title: string;
   numberLabel: string;
+  accessToken?: string;
 };
 
 type PdfPage = {
@@ -19,7 +20,14 @@ type PdfPage = {
   height: number;
 };
 
-export function PdfBookModal({ open, onClose, pdfUrl, title, numberLabel }: Props) {
+export function PdfBookModal({
+  open,
+  onClose,
+  pdfUrl,
+  title,
+  numberLabel,
+  accessToken
+}: Props) {
   const [pages, setPages] = useState<PdfPage[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
   const [message, setMessage] = useState("Preparing the book...");
@@ -39,6 +47,11 @@ export function PdfBookModal({ open, onClose, pdfUrl, title, numberLabel }: Prop
 
         const loadingParams = {
           url: pdfUrl,
+          httpHeaders: accessToken
+            ? {
+                Authorization: `Bearer ${accessToken}`
+              }
+            : undefined,
           withCredentials: true
         } as Parameters<typeof pdfjs.getDocument>[0];
         const pdf = await pdfjs.getDocument(loadingParams).promise;
@@ -97,7 +110,7 @@ export function PdfBookModal({ open, onClose, pdfUrl, title, numberLabel }: Prop
     return () => {
       cancelledRef.current = true;
     };
-  }, [open, pdfUrl]);
+  }, [accessToken, open, pdfUrl]);
 
   useEffect(() => {
     if (!open) {
