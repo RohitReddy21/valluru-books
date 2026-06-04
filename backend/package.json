@@ -6,7 +6,7 @@
   },
   "scripts": {
     "build": "node --check server.js",
-    "dev": "node server.js",
+    "dev": "node --watch server.js",
     "start": "node server.js",
     "lint": "node --check server.js"
   },
