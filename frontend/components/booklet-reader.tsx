@@ -13,9 +13,10 @@ type Props = {
 
 export function BookletReader({ booklet }: Props) {
   const isFree = booklet.slug === "booklet-one";
+  const accessStorageKey = `valluru_access_token_${booklet.slug}`;
   const storedAccessToken =
     typeof window !== "undefined"
-      ? window.localStorage.getItem("valluru_access_token") || ""
+      ? window.localStorage.getItem(accessStorageKey) || ""
       : "";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -50,7 +51,7 @@ export function BookletReader({ booklet }: Props) {
     if (response.ok) {
       if (payload?.accessToken) {
         setAccessToken(payload.accessToken);
-        window.localStorage.setItem("valluru_access_token", payload.accessToken);
+        window.localStorage.setItem(accessStorageKey, payload.accessToken);
       }
       setHasAccess(true);
       setStatus("success");

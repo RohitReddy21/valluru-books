@@ -179,7 +179,7 @@ function verifyAccessToken(token, slug) {
   try {
     const payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8"));
 
-    return payload.exp > Date.now() && (payload.slug === "*" || payload.slug === slug);
+    return payload.exp > Date.now() && payload.slug === slug;
   } catch {
     return false;
   }
@@ -325,6 +325,9 @@ app.post("/api/subscribe", async (request, response, next) => {
 
     const email = String(request.body?.email || "").trim().toLowerCase();
     const name = String(request.body?.name || "").trim();
+    const bookletSlug = String(request.body.bookletSlug || "").trim();
+    const bookletTitle = request.body.bookletTitle || null;
+    const source = request.body.source || "newsletter";
 
     if (!name) {
       response.status(400).json({ error: "Name is required." });
@@ -337,21 +340,51 @@ app.post("/api/subscribe", async (request, response, next) => {
     }
 
     const db = await getDb();
-    await db.collection("subscribers").updateOne(
-      { email },
-      {
-        $set: {
-          email,
-          name,
-          lastSource: request.body.source || "newsletter",
-          lastBookletSlug: request.body.bookletSlug || null,
-          lastBookletTitle: request.body.bookletTitle || null,
-          updatedAt: new Date()
-        },
-        $setOnInsert: { createdAt: new Date() }
+    const subscriberUpdate = {
+      $set: {
+        email,
+        name,
+        lastSource: source,
+        lastBookletSlug: bookletSlug || null,
+        lastBookletTitle: bookletTitle,
+        updatedAt: new Date()
       },
-      { upsert: true }
-    );
+      $setOnInsert: { createdAt: new Date() }
+    };
+
+    if (bookletSlug) {
+      subscriberUpdate.$addToSet = {
+        subscribedBooklets: bookletSlug
+      };
+    }
+
+    await db.collection("subscribers").updateOne({ email }, subscriberUpdate, {
+      upsert: true
+    });
+
+    if (bookletSlug) {
+      await db.collection("booklet_readers").updateOne(
+        { email, bookletSlug },
+        {
+          $set: {
+            email,
+            name,
+            bookletSlug,
+            bookletTitle,
+            source,
+            updatedAt: new Date(),
+            lastReadAt: new Date()
+          },
+          $inc: {
+            readCount: 1
+          },
+          $setOnInsert: {
+            createdAt: new Date()
+          }
+        },
+        { upsert: true }
+      );
+    }
 
     const resend = getResend();
     if (resend) {
@@ -359,10 +392,10 @@ app.post("/api/subscribe", async (request, response, next) => {
       const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
       const safeName = escapeHtml(name);
       const safeEmail = escapeHtml(email);
-      const bookletLine = request.body.bookletTitle
-        ? `<p>Requested booklet: <strong>${escapeHtml(request.body.bookletTitle)}</strong></p>`
+      const bookletLine = bookletTitle
+        ? `<p>Requested booklet: <strong>${escapeHtml(bookletTitle)}</strong></p>`
         : "";
-      const safeSource = escapeHtml(request.body.source || "newsletter");
+      const safeSource = escapeHtml(source);
 
       await resend.emails.send({
         from,
@@ -393,16 +426,18 @@ app.post("/api/subscribe", async (request, response, next) => {
       }
     }
 
-    response.cookie("valluru_subscribed", "true", cookieOptions(request));
-    if (request.body.bookletSlug) {
+    if (bookletSlug) {
       response.cookie(
-        `valluru_booklet_${request.body.bookletSlug}`,
+        `valluru_booklet_${bookletSlug}`,
         "true",
         cookieOptions(request)
       );
     }
 
-    response.json({ ok: true, accessToken: createAccessToken("*") });
+    response.json({
+      ok: true,
+      accessToken: bookletSlug ? createAccessToken(bookletSlug) : undefined
+    });
   } catch (error) {
     next(error);
   }
@@ -482,15 +517,17 @@ app.get("/api/admin/data", verifyAdmin, async (_request, response, next) => {
     }
 
     const db = await getDb();
-    const [subscribers, comments, counts] = await Promise.all([
+    const [subscribers, comments, bookletReaders, counts] = await Promise.all([
       db.collection("subscribers").find({}).sort({ updatedAt: -1 }).limit(100).project({ _id: 0 }).toArray(),
       db.collection("comments").find({}).sort({ createdAt: -1 }).limit(100).project({ _id: 0 }).toArray(),
+      db.collection("booklet_readers").find({}).sort({ updatedAt: -1 }).limit(150).project({ _id: 0 }).toArray(),
       Promise.all([
         db.collection("content").countDocuments({}),
         db.collection("subscribers").countDocuments({}),
         db.collection("comments").countDocuments({}),
         db.collection("booklet_pdfs.files").countDocuments({}),
-        db.collection("media_uploads.files").countDocuments({})
+        db.collection("media_uploads.files").countDocuments({}),
+        db.collection("booklet_readers").countDocuments({})
       ])
     ]);
 
@@ -500,9 +537,11 @@ app.get("/api/admin/data", verifyAdmin, async (_request, response, next) => {
         subscribers: counts[1],
         comments: counts[2],
         pdfs: counts[3],
-        media: counts[4]
+        media: counts[4],
+        bookReaders: counts[5]
       },
       subscribers,
+      bookletReaders,
       comments
     });
   } catch (error) {
@@ -615,7 +654,6 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
       : "";
     const hasAccess =
       slug === "booklet-one" ||
-      cookies.valluru_subscribed === "true" ||
       cookies[`valluru_booklet_${slug}`] === "true" ||
       verifyAccessToken(bearerToken, slug);
 

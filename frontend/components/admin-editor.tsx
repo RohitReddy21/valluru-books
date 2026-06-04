@@ -21,6 +21,7 @@ type AdminData = {
     comments: number;
     pdfs: number;
     media: number;
+    bookReaders: number;
   };
   subscribers: Array<{
     name?: string;
@@ -35,6 +36,16 @@ type AdminData = {
     rating?: number;
     comment?: string;
     createdAt?: string;
+  }>;
+  bookletReaders: Array<{
+    name?: string;
+    email?: string;
+    bookletSlug?: string;
+    bookletTitle?: string | null;
+    source?: string;
+    readCount?: number;
+    updatedAt?: string;
+    lastReadAt?: string;
   }>;
 };
 
@@ -511,7 +522,7 @@ function DashboardPanel({
 
       {adminData ? (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
             {Object.entries(adminData.counts).map(([label, count]) => (
               <div className="rounded-md border border-gold/15 bg-ink p-4" key={label}>
                 <p className="font-label text-xs uppercase tracking-[0.22em] text-muted">
@@ -544,6 +555,39 @@ function DashboardPanel({
                       <td className="px-4 py-3 text-muted">
                         {subscriber.updatedAt
                           ? new Date(subscriber.updatedAt).toLocaleString()
+                          : "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </FieldGroup>
+
+          <FieldGroup title="Book Readers">
+            <div className="overflow-x-auto rounded-md border border-gold/15">
+              <table className="w-full min-w-[820px] text-left text-base">
+                <thead className="bg-ink text-muted">
+                  <tr>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Email</th>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Reads</th>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Last Read</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adminData.bookletReaders.map((reader, index) => (
+                    <tr className="border-t border-gold/10" key={`${reader.email}-${reader.bookletSlug}-${index}`}>
+                      <td className="px-4 py-3 text-parchment">{reader.name || "-"}</td>
+                      <td className="px-4 py-3 text-parchment">{reader.email || "-"}</td>
+                      <td className="px-4 py-3 text-muted">
+                        {reader.bookletTitle || reader.bookletSlug || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-muted">{reader.readCount || 1}</td>
+                      <td className="px-4 py-3 text-muted">
+                        {reader.lastReadAt || reader.updatedAt
+                          ? new Date(reader.lastReadAt || reader.updatedAt || "").toLocaleString()
                           : "-"}
                       </td>
                     </tr>
