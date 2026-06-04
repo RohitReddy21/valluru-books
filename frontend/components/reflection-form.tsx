@@ -5,12 +5,14 @@ import { useCallback, useEffect, useState } from "react";
 import { apiUrl } from "@/lib/api";
 
 type ReaderComment = {
+  name?: string;
   rating?: number;
   comment?: string;
   createdAt?: string;
 };
 
 export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
+  const [name, setName] = useState("");
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [comments, setComments] = useState<ReaderComment[]>([]);
@@ -61,11 +63,12 @@ export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ bookletSlug, rating, comment })
+      body: JSON.stringify({ bookletSlug, name, rating, comment })
     });
 
     setStatus(response.ok ? "success" : "error");
     if (response.ok) {
+      setName("");
       setComment("");
       setRating(0);
       await loadComments();
@@ -78,6 +81,17 @@ export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
         <h2 className="font-display text-2xl text-parchment sm:text-3xl">
           Reader Reflection
         </h2>
+        <label className="mt-5 block text-base uppercase tracking-[0.18em] text-muted">
+          Name
+          <input
+            className="mt-3 min-h-12 w-full rounded-md border border-gold/20 bg-surface px-4 py-3 text-lg normal-case tracking-normal text-parchment outline-none transition placeholder:text-muted/70 focus:border-gold/60"
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Your name"
+            required
+            type="text"
+            value={name}
+          />
+        </label>
         <div className="mt-5 flex gap-2">
           {[1, 2, 3, 4, 5].map((value) => (
             <button
@@ -106,7 +120,7 @@ export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
         </label>
         <button
           className="mt-4 rounded-md border border-gold/60 px-5 py-3 font-label text-sm uppercase tracking-[0.2em] text-parchment transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-60"
-          disabled={status === "saving" || rating === 0}
+          disabled={status === "saving" || rating === 0 || !name.trim()}
           type="submit"
         >
           Save Reflection
@@ -156,9 +170,10 @@ export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
                     ))}
                   </div>
                   <p className="font-label text-xs uppercase tracking-[0.18em] text-muted">
+                    {item.name || "Reader"}
                     {item.createdAt
-                      ? new Date(item.createdAt).toLocaleDateString()
-                      : "Reader"}
+                      ? ` · ${new Date(item.createdAt).toLocaleDateString()}`
+                      : ""}
                   </p>
                 </div>
                 <p className="mt-3 text-lg leading-7 text-parchment/82">

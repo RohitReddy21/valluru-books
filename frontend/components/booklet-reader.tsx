@@ -17,6 +17,7 @@ export function BookletReader({ booklet }: Props) {
     typeof window !== "undefined"
       ? window.localStorage.getItem("valluru_access_token") || ""
       : "";
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [hasAccess, setHasAccess] = useState(isFree || Boolean(storedAccessToken));
   const [accessToken, setAccessToken] = useState(storedAccessToken);
@@ -34,6 +35,7 @@ export function BookletReader({ booklet }: Props) {
       headers: { "Content-Type": "application/json" },
       credentials: "include",
       body: JSON.stringify({
+        name,
         email,
         source: "booklet-reader",
         bookletSlug: booklet.slug,
@@ -82,12 +84,24 @@ export function BookletReader({ booklet }: Props) {
           subscription, so readers can receive updates and future reading notes.
         </p>
         <form className="mt-7" onSubmit={subscribe}>
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+            <label className="sr-only" htmlFor="booklet-subscribe-name">
+              Name
+            </label>
+            <input
+              className="min-h-12 rounded-md border border-gold/20 bg-ink px-4 py-3 text-lg text-parchment outline-none transition placeholder:text-muted/70 focus:border-gold/60"
+              id="booklet-subscribe-name"
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Your name"
+              required
+              type="text"
+              value={name}
+            />
             <label className="sr-only" htmlFor="booklet-subscribe-email">
               Email address
             </label>
             <input
-              className="min-h-12 flex-1 rounded-md border border-gold/20 bg-ink px-4 py-3 text-lg text-parchment outline-none transition placeholder:text-muted/70 focus:border-gold/60"
+              className="min-h-12 rounded-md border border-gold/20 bg-ink px-4 py-3 text-lg text-parchment outline-none transition placeholder:text-muted/70 focus:border-gold/60"
               id="booklet-subscribe-email"
               onChange={(event) => setEmail(event.target.value)}
               placeholder="you@example.com"

@@ -23,12 +23,14 @@ type AdminData = {
     media: number;
   };
   subscribers: Array<{
+    name?: string;
     email?: string;
     lastSource?: string;
     lastBookletTitle?: string | null;
     updatedAt?: string;
   }>;
   comments: Array<{
+    name?: string;
     bookletSlug?: string;
     rating?: number;
     comment?: string;
@@ -525,6 +527,7 @@ function DashboardPanel({
               <table className="w-full min-w-[680px] text-left text-base">
                 <thead className="bg-ink text-muted">
                   <tr>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
                     <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Email</th>
                     <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Source</th>
                     <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
@@ -534,6 +537,7 @@ function DashboardPanel({
                 <tbody>
                   {adminData.subscribers.map((subscriber, index) => (
                     <tr className="border-t border-gold/10" key={`${subscriber.email}-${index}`}>
+                      <td className="px-4 py-3 text-parchment">{subscriber.name || "-"}</td>
                       <td className="px-4 py-3 text-parchment">{subscriber.email}</td>
                       <td className="px-4 py-3 text-muted">{subscriber.lastSource}</td>
                       <td className="px-4 py-3 text-muted">{subscriber.lastBookletTitle || "-"}</td>
@@ -554,6 +558,7 @@ function DashboardPanel({
               {adminData.comments.map((comment, index) => (
                 <article className="rounded-md border border-gold/15 bg-ink p-4" key={index}>
                   <div className="flex flex-wrap gap-3 font-label text-xs uppercase tracking-[0.2em] text-gold">
+                    <span>{comment.name || "Reader"}</span>
                     <span>{comment.bookletSlug}</span>
                     <span>{comment.rating || 0} stars</span>
                     <span>

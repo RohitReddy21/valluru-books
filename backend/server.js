@@ -130,6 +130,15 @@ function getAccessTokenSecret() {
   return process.env.ACCESS_TOKEN_SECRET || process.env.ADMIN_PASSWORD || "valluru-local-token";
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function toBase64Url(value) {
   return Buffer.from(value).toString("base64url");
 }
@@ -315,6 +324,12 @@ app.post("/api/subscribe", async (request, response, next) => {
     }
 
     const email = String(request.body?.email || "").trim().toLowerCase();
+    const name = String(request.body?.name || "").trim();
+
+    if (!name) {
+      response.status(400).json({ error: "Name is required." });
+      return;
+    }
 
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       response.status(400).json({ error: "A valid email is required." });
@@ -327,6 +342,7 @@ app.post("/api/subscribe", async (request, response, next) => {
       {
         $set: {
           email,
+          name,
           lastSource: request.body.source || "newsletter",
           lastBookletSlug: request.body.bookletSlug || null,
           lastBookletTitle: request.body.bookletTitle || null,
@@ -341,9 +357,12 @@ app.post("/api/subscribe", async (request, response, next) => {
     if (resend) {
       const from = process.env.RESEND_FROM || "The Valluru <onboarding@resend.dev>";
       const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
+      const safeName = escapeHtml(name);
+      const safeEmail = escapeHtml(email);
       const bookletLine = request.body.bookletTitle
-        ? `<p>Requested booklet: <strong>${request.body.bookletTitle}</strong></p>`
+        ? `<p>Requested booklet: <strong>${escapeHtml(request.body.bookletTitle)}</strong></p>`
         : "";
+      const safeSource = escapeHtml(request.body.source || "newsletter");
 
       await resend.emails.send({
         from,
@@ -351,7 +370,7 @@ app.post("/api/subscribe", async (request, response, next) => {
         subject: "The Inward Fire Letter",
         html: `
           <div style="font-family: Georgia, serif; line-height: 1.7; color: #1a1815;">
-            <p>Thank you for subscribing to The Inward Fire Letter.</p>
+            <p>Dear ${safeName}, thank you for subscribing to The Inward Fire Letter.</p>
             ${bookletLine}
             <p>You will hear from us quietly.</p>
           </div>
@@ -365,8 +384,8 @@ app.post("/api/subscribe", async (request, response, next) => {
           subject: "New Valluru subscriber",
           html: `
             <div style="font-family: Georgia, serif; line-height: 1.7; color: #1a1815;">
-              <p>New subscriber: <strong>${email}</strong></p>
-              <p>Source: ${request.body.source || "newsletter"}</p>
+              <p>New subscriber: <strong>${safeName}</strong> (${safeEmail})</p>
+              <p>Source: ${safeSource}</p>
               ${bookletLine}
             </div>
           `
@@ -406,9 +425,9 @@ app.get("/api/reflections", async (request, response, next) => {
     const comments = await db
       .collection("comments")
       .find({ bookletSlug })
-      .sort({ createdAt: -1 })
-      .limit(25)
-      .project({ _id: 0, bookletSlug: 1, rating: 1, comment: 1, createdAt: 1 })
+        .sort({ createdAt: -1 })
+        .limit(25)
+      .project({ _id: 0, bookletSlug: 1, name: 1, rating: 1, comment: 1, createdAt: 1 })
       .toArray();
 
     response.json({ comments });
@@ -425,6 +444,12 @@ app.post("/api/reflections", async (request, response, next) => {
 
     const rating = Number(request.body?.rating);
     const bookletSlug = String(request.body?.bookletSlug || "");
+    const name = String(request.body?.name || "").trim();
+
+    if (!name) {
+      response.status(400).json({ error: "Name is required." });
+      return;
+    }
 
     if (!bookletSlug || !rating || rating < 1 || rating > 5) {
       response.status(400).json({
@@ -435,6 +460,7 @@ app.post("/api/reflections", async (request, response, next) => {
 
     const comment = {
       bookletSlug,
+      name,
       rating,
       comment: String(request.body.comment || "").trim(),
       createdAt: new Date()
