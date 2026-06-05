@@ -4,6 +4,10 @@ import { BookletCard, PageHeader, PageShell, Section, WideSection } from "@/comp
 import { getSiteContent } from "@/lib/content-store";
 import { defaultSiteContent, getBookletMovementIndex, isPublished } from "@/lib/site-content";
 
+function slugifyMovement(title: string) {
+  return title.toLowerCase().replace(/\s+/g, "-");
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function MovementsPage() {
@@ -38,7 +42,7 @@ export default async function MovementsPage() {
         <div className="mt-12 grid gap-8">
           {groupedBooklets.map((group, index) => (
             <section key={group.movement.title} className="rounded-md border border-gold/15 bg-surface/50 p-8">
-              <Link href={`/series#movement-${index + 1}`}>
+              <Link href={`/movements/${slugifyMovement(group.movement.title)}`}>
                 <h2 className="responsive-section-title mb-2 font-display font-semibold text-parchment hover:text-gold transition">
                   {group.movement.title}
                 </h2>
