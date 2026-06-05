@@ -1177,6 +1177,10 @@ app.post(
       }
 
       const content = await getSiteContent();
+      if (!content) {
+        response.status(400).json({ error: "Please save site content first via the admin editor before uploading PDFs." });
+        return;
+      }
       const movement = content?.home?.seriesOverview?.movements?.[movementIndex];
 
       if (!movement) {
