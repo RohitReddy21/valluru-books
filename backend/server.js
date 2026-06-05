@@ -1149,6 +1149,59 @@ app.post(
 );
 
 app.post(
+  "/api/admin/upload-movement-pdf",
+  verifyAdmin,
+  upload.single("pdf"),
+  async (request, response, next) => {
+    try {
+      if (!requireMongo(response)) {
+        return;
+      }
+
+      const movementIndex = Number(request.body.movementIndex || "-1");
+      const file = request.file;
+
+      if (!Number.isInteger(movementIndex) || movementIndex < 0) {
+        response.status(400).json({ error: "Invalid movement index." });
+        return;
+      }
+
+      if (!file) {
+        response.status(400).json({ error: "Choose a PDF file." });
+        return;
+      }
+
+      if (file.mimetype !== "application/pdf" && !file.originalname.toLowerCase().endsWith(".pdf")) {
+        response.status(400).json({ error: "Only PDF files are allowed." });
+        return;
+      }
+
+      const content = await getSiteContent();
+      const movement = content?.home?.seriesOverview?.movements?.[movementIndex];
+
+      if (!movement) {
+        response.status(404).json({ error: "Movement not found." });
+        return;
+      }
+
+      await saveGridFile("movement_pdfs", `movement-${movementIndex}.pdf`, file, "application/pdf", {
+        movementIndex,
+        originalName: file.originalname,
+        uploadedAt: new Date()
+      }, true);
+
+      const publicUrl = `/api/movements/${movementIndex}/pdf`;
+      movement.pdf = publicUrl;
+      await saveSiteContent(content);
+
+      response.json({ ok: true, pdf: publicUrl, movementIndex });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+app.post(
   "/api/admin/upload-media",
   verifyAdmin,
   upload.single("media"),
@@ -1248,6 +1301,57 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
     }
 
     response.status(404).json({ error: "No uploaded PDF is available for this booklet yet." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/movements/:index/pdf", async (request, response, next) => {
+  try {
+    const index = Number(request.params.index);
+    const content = await getSiteContent();
+    const movement = content?.home?.seriesOverview?.movements?.[index];
+
+    if (!movement) {
+      response.status(404).json({ error: "Movement not found." });
+      return;
+    }
+
+    const dbFile = hasMongoConfig()
+      ? await readGridFileByName("movement_pdfs", `movement-${index}.pdf`)
+      : null;
+
+    if (dbFile) {
+      response
+        .set({
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="movement-${index}.pdf"`,
+          "Cache-Control": "private, max-age=0, no-store"
+        })
+        .send(dbFile.file);
+      return;
+    }
+
+    if (movement.pdf && /^https?:\/\//.test(movement.pdf)) {
+      const remote = await fetch(movement.pdf);
+
+      if (!remote.ok) {
+        response.status(remote.status).json({ error: "The remote PDF could not be loaded." });
+        return;
+      }
+
+      const file = Buffer.from(await remote.arrayBuffer());
+      response
+        .set({
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename="movement-${index}.pdf"`,
+          "Cache-Control": "private, max-age=0, no-store"
+        })
+        .send(file);
+      return;
+    }
+
+    response.status(404).json({ error: "No uploaded PDF is available for this movement yet." });
   } catch (error) {
     next(error);
   }

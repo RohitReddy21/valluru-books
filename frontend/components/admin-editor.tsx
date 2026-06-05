@@ -254,6 +254,41 @@ export function AdminEditor({ initialContent, source }: Props) {
     setUploadStatus(`Uploaded and attached to ${selectedBooklet.title}.`);
   }
 
+  async function uploadMovementPdf(movementIndex: number, movementPdfFile: File, setMovementUploadStatus: (status: string) => void) {
+    setMovementUploadStatus("Saving content...");
+    const saveResponse = await persistContent();
+    if (!saveResponse.ok) {
+      const payload = (await saveResponse.json().catch(() => null)) as { error?: string } | null;
+      setMovementUploadStatus(payload?.error || "Save content before uploading failed.");
+      return;
+    }
+
+    setMovementUploadStatus("Uploading PDF...");
+    const formData = new FormData();
+    formData.append("movementIndex", String(movementIndex));
+    formData.append("pdf", movementPdfFile);
+
+    const response = await fetch(apiUrl("/api/admin/upload-movement-pdf"), {
+      method: "POST",
+      headers: adminHeaders(),
+      credentials: "include",
+      body: formData
+    });
+
+    const payload = (await response.json().catch(() => null)) as {
+      error?: string;
+      pdf?: string;
+    } | null;
+
+    if (!response.ok || !payload?.pdf) {
+      setMovementUploadStatus(payload?.error || "PDF upload failed.");
+      return;
+    }
+
+    updateMovement(movementIndex, { pdf: payload.pdf });
+    setMovementUploadStatus("PDF uploaded and attached to this movement.");
+  }
+
   async function loadAdminData() {
     setDataStatus("Loading database data...");
     const response = await fetch(apiUrl("/api/admin/data"), {
@@ -601,6 +636,7 @@ export function AdminEditor({ initialContent, source }: Props) {
                 }}
                 movements={content.home.seriesOverview.movements}
                 updateMovement={updateMovement}
+                uploadMovementPdf={uploadMovementPdf}
               />
             ) : null}
 
@@ -1124,14 +1160,35 @@ function MovementsPanel({
   booklets,
   editBooklet,
   movements,
-  updateMovement
+  updateMovement,
+  uploadMovementPdf
 }: {
   addBooklet: (movementIndex?: number) => void;
   booklets: Booklet[];
   editBooklet: (slug: string) => void;
   movements: Movement[];
   updateMovement: (index: number, patch: Partial<Movement>) => void;
+  uploadMovementPdf: (movementIndex: number, file: File, setStatus: (status: string) => void) => void;
 }) {
+  const [movementPdfFiles, setMovementPdfFiles] = useState<(File | null)[]>(movements.map(() => null));
+  const [movementUploadStatuses, setMovementUploadStatuses] = useState<string[]>(movements.map(() => "Upload a PDF for this movement."));
+
+  function handleMovementPdfFileChange(index: number, file: File | null) {
+    setMovementPdfFiles((prev) => {
+      const next = [...prev];
+      next[index] = file;
+      return next;
+    });
+  }
+
+  function handleMovementUploadStatusChange(index: number, status: string) {
+    setMovementUploadStatuses((prev) => {
+      const next = [...prev];
+      next[index] = status;
+      return next;
+    });
+  }
+
   return (
     <div className="grid gap-6">
       <h2 className="font-display text-2xl text-parchment sm:text-3xl">
@@ -1143,6 +1200,32 @@ function MovementsPanel({
           <TextField label="Booklets Label" onChange={(value) => updateMovement(index, { booklets: value })} value={movement.booklets} />
           <TextField label="Link" onChange={(value) => updateMovement(index, { href: value })} value={movement.href || ""} />
           <TextAreaField label="Description" onChange={(value) => updateMovement(index, { description: value })} value={movement.description} />
+          <TextField label="PDF Path" onChange={(value) => updateMovement(index, { pdf: value })} value={movement.pdf || ""} />
+          <div className="rounded-md border border-gold/15 bg-ink p-5">
+            <p className="font-label text-sm uppercase tracking-[0.2em] text-gold">
+              Movement PDF Upload
+            </p>
+            <input
+              accept="application/pdf,.pdf"
+              className="mt-4 w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-sm text-parchment file:mr-3 file:rounded-md file:border-0 file:bg-gold/15 file:px-3 file:py-2 file:text-parchment"
+              onChange={(event) => handleMovementPdfFileChange(index, event.target.files?.[0] || null)}
+              type="file"
+            />
+            <button
+              className="mt-4 inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold disabled:opacity-50"
+              disabled={!movementPdfFiles[index]}
+              onClick={() => {
+                if (movementPdfFiles[index]) {
+                  uploadMovementPdf(index, movementPdfFiles[index]!, (status) => handleMovementUploadStatusChange(index, status));
+                }
+              }}
+              type="button"
+            >
+              <Upload size={16} />
+              Upload PDF
+            </button>
+            <p className="mt-3 text-base italic text-muted">{movementUploadStatuses[index]}</p>
+          </div>
           <div className="rounded-md border border-gold/15 bg-ink p-4">
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <div>
