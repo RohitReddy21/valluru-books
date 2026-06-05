@@ -4,10 +4,15 @@ export type Cta = {
 };
 
 export type Movement = {
+  slug: string;
   title: string;
   booklets: string;
   description: string;
   href?: string;
+  status?: PublishStatus;
+  pdf?: string;
+  coverImage?: string;
+  seo?: SeoMetadata;
 };
 
 export type PublishStatus = "draft" | "published" | "archived";
@@ -95,6 +100,9 @@ export type SiteContent = {
     booklets: Booklet[];
     closing: string[];
   };
+  movements: {
+    items: Movement[];
+  };
   about: {
     title: string;
     subtitle: string;
@@ -175,6 +183,7 @@ export const defaultSiteContent: SiteContent = {
         "Nine booklets on dharma, māyā, nāda, language, surrender, memory, and the long inward journey. Each booklet takes one doorway. Each one returns, in its own way, to surrender.",
       movements: [
         {
+          slug: "the-inward-map",
           title: "The Inward Map",
           booklets: "1-3",
           href: "/series/booklet-one",
@@ -182,6 +191,7 @@ export const defaultSiteContent: SiteContent = {
             "Dharma is tested. Silence becomes sound. Language learns to bow."
         },
         {
+          slug: "the-seeker-and-the-long-work",
           title: "The Seeker and the Long Work of Bhagavān",
           booklets: "4-5",
           href: "/series/booklet-four",
@@ -189,6 +199,7 @@ export const defaultSiteContent: SiteContent = {
             "Māyā, responsibility, surrender, and the Chiranjeevis as witnesses."
         },
         {
+          slug: "grief-as-fire",
           title: "Grief as Fire",
           booklets: "6-7",
           href: "/series/booklet-six",
@@ -196,6 +207,7 @@ export const defaultSiteContent: SiteContent = {
             "Grief enters as fire, becomes nāda, becomes vow, becomes offering."
         },
         {
+          slug: "nada-as-offering",
           title: "Nāda as Offering",
           booklets: "8",
           href: "/series/booklet-eight",
@@ -203,6 +215,7 @@ export const defaultSiteContent: SiteContent = {
             "The seeker turns toward Nādeśvara. The bow becomes rhythm."
         },
         {
+          slug: "the-child-returns",
           title: "The Child Returns",
           booklets: "9",
           href: "/series/booklet-nine",
@@ -357,6 +370,50 @@ export const defaultSiteContent: SiteContent = {
     closing: [
       "The Inward Fire Series is not meant to create followers. It is meant to give the seeker a place to sit with difficult things. Dharma. Grief. Language. Responsibility. Death. Memory. Surrender. Bhagavān.",
       "Read slowly. Return when needed."
+    ]
+  },
+  movements: {
+    items: [
+      {
+        slug: "the-inward-map",
+        title: "The Inward Map",
+        booklets: "1-3",
+        description:
+          "Dharma is tested. Silence becomes sound. Language learns to bow.",
+        status: "published"
+      },
+      {
+        slug: "the-seeker-and-the-long-work",
+        title: "The Seeker and the Long Work of Bhagavān",
+        booklets: "4-5",
+        description:
+          "Māyā, responsibility, surrender, and the Chiranjeevis as witnesses.",
+        status: "published"
+      },
+      {
+        slug: "grief-as-fire",
+        title: "Grief as Fire",
+        booklets: "6-7",
+        description:
+          "Grief enters as fire, becomes nāda, becomes vow, becomes offering.",
+        status: "published"
+      },
+      {
+        slug: "nada-as-offering",
+        title: "Nāda as Offering",
+        booklets: "8",
+        description:
+          "The seeker turns toward Nādeśvara. The bow becomes rhythm.",
+        status: "published"
+      },
+      {
+        slug: "the-child-returns",
+        title: "The Child Returns",
+        booklets: "9",
+        description:
+          "Bhakti becomes childlike again. The child asks to be held.",
+        status: "published"
+      }
     ]
   },
   about: {

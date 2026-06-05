@@ -40,10 +40,11 @@ a {
 
 .hero-texture {
   background-image:
-    linear-gradient(180deg, rgba(15, 14, 12, 0.34), rgba(15, 14, 12, 0.92)),
+    linear-gradient(90deg, rgba(15, 14, 12, 0.94) 0%, rgba(15, 14, 12, 0.82) 42%, rgba(15, 14, 12, 0.2) 72%),
+    linear-gradient(180deg, rgba(15, 14, 12, 0.18), rgba(15, 14, 12, 0.88)),
     url("https://thevalluru.org/wp-content/uploads/2026/05/chatgpt-image-may-22-2026-02_43_16-pm-1.png?w=1800");
   background-size: cover;
-  background-position: center;
+  background-position: center right;
 }
 
 .valluru-hero-image {

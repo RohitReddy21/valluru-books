@@ -2,6 +2,15 @@ import { apiUrl } from "@/lib/api";
 import { defaultSiteContent, type SiteContent } from "@/lib/site-content";
 
 function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
+  const nav = {
+    ...defaultSiteContent.nav,
+    ...(content?.nav || {})
+  };
+  const footer = {
+    ...defaultSiteContent.footer,
+    ...(content?.footer || {})
+  };
+
   return {
     ...defaultSiteContent,
     ...(content || {}),
@@ -18,8 +27,8 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
       }
     },
     nav: {
-      ...defaultSiteContent.nav,
-      ...(content?.nav || {})
+      ...nav,
+      links: (nav.links || []).filter((link) => link.href !== "/essays")
     },
     home: {
       ...defaultSiteContent.home,
@@ -29,13 +38,17 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
       ...defaultSiteContent.series,
       ...(content?.series || {})
     },
+    movements: {
+      ...defaultSiteContent.movements,
+      ...(content?.movements || {})
+    },
     about: {
       ...defaultSiteContent.about,
       ...(content?.about || {})
     },
     footer: {
-      ...defaultSiteContent.footer,
-      ...(content?.footer || {})
+      ...footer,
+      links: (footer.links || []).filter((link) => link.href !== "/essays")
     }
   } as SiteContent;
 }

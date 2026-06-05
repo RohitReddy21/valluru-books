@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { NewsletterForm } from "@/components/newsletter-form";
-import { BookletCard, PageHeader, PageShell, ProseBlocks, Section, WideSection } from "@/components/ui";
+import { BookletCard, PageHeader, PageShell, Section, WideSection } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
 import { defaultSiteContent, getBookletMovementIndex, isPublished } from "@/lib/site-content";
 
@@ -38,7 +38,7 @@ export default async function MovementsPage() {
         <div className="mt-12 grid gap-8">
           {groupedBooklets.map((group, index) => (
             <section key={group.movement.title} className="rounded-md border border-gold/15 bg-surface/50 p-8">
-              <Link href={`/movements/${group.movement.title.toLowerCase().replace(/\s+/g, "-")}`}>
+              <Link href={`/series#movement-${index + 1}`}>
                 <h2 className="responsive-section-title mb-2 font-display font-semibold text-parchment hover:text-gold transition">
                   {group.movement.title}
                 </h2>
@@ -58,7 +58,7 @@ export default async function MovementsPage() {
       </WideSection>
 
       <Section>
-        <NewsletterForm />
+        <NewsletterForm microcopy={home.newsletter.microcopy} />
       </Section>
     </PageShell>
   );

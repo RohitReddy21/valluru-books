@@ -314,13 +314,13 @@ export function AdminEditor({ initialContent, source }: Props) {
     setMediaStatus(`Uploaded and applied to ${mediaTarget}. Save content to keep it.`);
   }
 
-  function addBooklet() {
+  function addBooklet(movementIndex = 0) {
     const nextNumber = content.series.booklets.length + 1;
     const newBooklet: Booklet = {
       slug: `booklet-${nextNumber}`,
       numberLabel: `Booklet ${nextNumber}`,
       title: "New Booklet",
-      movementIndex: 0,
+      movementIndex,
       status: "draft",
       subtitle: "Subtitle",
       description: "Add the full booklet description here.",
@@ -593,6 +593,12 @@ export function AdminEditor({ initialContent, source }: Props) {
 
             {tab === "movements" ? (
               <MovementsPanel
+                addBooklet={addBooklet}
+                booklets={content.series.booklets}
+                editBooklet={(slug) => {
+                  setSelectedBookletSlug(slug);
+                  setTab("booklets");
+                }}
                 movements={content.home.seriesOverview.movements}
                 updateMovement={updateMovement}
               />
@@ -1114,9 +1120,15 @@ function MediaPanel({
 }
 
 function MovementsPanel({
+  addBooklet,
+  booklets,
+  editBooklet,
   movements,
   updateMovement
 }: {
+  addBooklet: (movementIndex?: number) => void;
+  booklets: Booklet[];
+  editBooklet: (slug: string) => void;
   movements: Movement[];
   updateMovement: (index: number, patch: Partial<Movement>) => void;
 }) {
@@ -1131,6 +1143,50 @@ function MovementsPanel({
           <TextField label="Booklets Label" onChange={(value) => updateMovement(index, { booklets: value })} value={movement.booklets} />
           <TextField label="Link" onChange={(value) => updateMovement(index, { href: value })} value={movement.href || ""} />
           <TextAreaField label="Description" onChange={(value) => updateMovement(index, { description: value })} value={movement.description} />
+          <div className="rounded-md border border-gold/15 bg-ink p-4">
+            <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+              <div>
+                <p className="font-label text-xs uppercase tracking-[0.2em] text-gold">
+                  Books in this movement
+                </p>
+                <p className="mt-2 text-base text-muted">
+                  Add a book here, then upload its PDF in the book editor.
+                </p>
+              </div>
+              <button
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
+                onClick={() => addBooklet(index)}
+                type="button"
+              >
+                <Plus size={16} />
+                Add Book
+              </button>
+            </div>
+            <div className="mt-4 grid gap-3">
+              {booklets
+                .filter((booklet, bookletIndex) => getBookletMovementIndex(booklet, bookletIndex) === index)
+                .map((booklet) => (
+                  <div
+                    className="flex flex-col justify-between gap-3 rounded-md border border-gold/10 bg-surface px-4 py-3 sm:flex-row sm:items-center"
+                    key={booklet.slug}
+                  >
+                    <div>
+                      <p className="text-lg text-parchment">{booklet.title}</p>
+                      <p className="font-label text-xs uppercase tracking-[0.18em] text-muted">
+                        {booklet.numberLabel} - {booklet.status || "published"}
+                      </p>
+                    </div>
+                    <button
+                      className="rounded-md border border-gold/25 px-3 py-2 font-label text-xs uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
+                      onClick={() => editBooklet(booklet.slug)}
+                      type="button"
+                    >
+                      Edit / Upload
+                    </button>
+                  </div>
+                ))}
+            </div>
+          </div>
         </FieldGroup>
       ))}
     </div>
