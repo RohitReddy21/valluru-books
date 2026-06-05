@@ -137,6 +137,7 @@ export const defaultSiteContent: SiteContent = {
     links: [
       { label: "Home", href: "/" },
       { label: "The Series", href: "/series" },
+      { label: "Movements", href: "/movements" },
       { label: "About", href: "/about" }
     ],
     button: { label: "Begin Reading", href: "/series/booklet-one" }
