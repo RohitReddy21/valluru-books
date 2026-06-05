@@ -60,7 +60,7 @@ export default async function HomePage() {
 
       <WideSection>
         <div className="mx-auto max-w-3xl text-center">
-          <SectionTitle>{home.seriesOverview.title}</SectionTitle>
+          <SectionTitle>The Series in Five Movements</SectionTitle>
           <p className="responsive-prose text-parchment/86">
             {home.seriesOverview.intro}
           </p>
@@ -69,7 +69,7 @@ export default async function HomePage() {
           {home.seriesOverview.movements.map((movement) => (
             <Link
               className="group block rounded-md border border-gold/15 bg-surface/72 p-5 transition hover:border-gold/40"
-              href="/series"
+              href={movement.href || "/series"}
               key={movement.title}
             >
               <p className="font-label text-xs uppercase tracking-[0.23em] text-gold/80">

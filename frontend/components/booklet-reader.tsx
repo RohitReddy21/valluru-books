@@ -1,7 +1,7 @@
 "use client";
 
 import { Mail } from "lucide-react";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Download } from "lucide-react";
 import { useState } from "react";
 import { PdfBookModal } from "@/components/pdf-book-modal";
 import { apiUrl } from "@/lib/api";
@@ -143,14 +143,25 @@ export function BookletReader({ booklet }: Props) {
             Open the booklet in an on-page reading window.
           </p>
         </div>
-        <button
-          className="mt-6 inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
-          onClick={() => setReaderOpen(true)}
-          type="button"
-        >
-          <BookOpen size={17} />
-          Read Book
-        </button>
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
+            onClick={() => setReaderOpen(true)}
+            type="button"
+          >
+            <BookOpen size={17} />
+            Read Book
+          </button>
+          <button
+            aria-disabled="true"
+            className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-md border border-gold/25 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted opacity-75"
+            title="Download functionality will be added later."
+            type="button"
+          >
+            <Download size={17} />
+            Download
+          </button>
+        </div>
         {!isFree && status === "success" ? (
           <p className="text-base italic text-muted">
             Thank you. You will hear from us quietly.
