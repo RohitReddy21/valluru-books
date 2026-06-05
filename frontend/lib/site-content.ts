@@ -10,27 +10,49 @@ export type Movement = {
   href?: string;
 };
 
+export type PublishStatus = "draft" | "published" | "archived";
+
+export type SeoMetadata = {
+  title?: string;
+  description?: string;
+  keywords?: string;
+};
+
 export type Booklet = {
   slug: string;
   numberLabel: string;
   title: string;
   subtitle: string;
+  movementIndex?: number;
+  status?: PublishStatus;
   sourcesNote?: string;
   authorNote?: string;
   note?: string;
   description: string;
   pdf?: string;
+  samplePdf?: string;
+  coverImage?: string;
+  galleryImages?: string[];
+  categories?: string[];
+  tags?: string[];
+  price?: number;
+  currency?: string;
+  seo?: SeoMetadata;
   badge?: string;
   tag: string;
 };
 
 export type Essay = {
   slug: string;
+  status?: PublishStatus;
   date: string;
   category: string;
   readingTime: string;
   title: string;
   excerpt: string;
+  content?: string[];
+  featuredImage?: string;
+  seo?: SeoMetadata;
 };
 
 export type SiteMedia = {
@@ -105,6 +127,20 @@ export type SiteContent = {
     };
   };
   media: SiteMedia;
+  settings: {
+    whatsappNumber: string;
+    websiteName: string;
+    contactEmail: string;
+    contactPhone: string;
+    address: string;
+    socialLinks: {
+      website?: string;
+      linkedin?: string;
+      instagram?: string;
+      youtube?: string;
+    };
+    seo: SeoMetadata;
+  };
   footer: {
     title: string;
     links: Array<Cta>;
@@ -120,7 +156,6 @@ export const defaultSiteContent: SiteContent = {
     links: [
       { label: "Home", href: "/" },
       { label: "The Series", href: "/series" },
-      { label: "Essays", href: "/essays" },
       { label: "About", href: "/about" }
     ],
     button: { label: "Begin Reading", href: "/series/booklet-one" }
@@ -438,11 +473,23 @@ export const defaultSiteContent: SiteContent = {
       "https://thevalluru.org/wp-content/uploads/2026/05/chatgpt-image-may-22-2026-02_43_16-pm-1.png?w=1600",
     authorImage: ""
   },
+  settings: {
+    whatsappNumber: "",
+    websiteName: "The Valluru",
+    contactEmail: "sasi@theValluru.org",
+    contactPhone: "",
+    address: "",
+    socialLinks: {},
+    seo: {
+      title: "The Valluru — The Inward Fire Series",
+      description:
+        "Writings on dharma, grief, language, surrender, and the inner life."
+    }
+  },
   footer: {
     title: "The Valluru — The Inward Fire Series",
     links: [
       { label: "The Books", href: "/series" },
-      { label: "Essays", href: "/essays" },
       { label: "About the Author", href: "/about" },
       { label: "Newsletter", href: "/#newsletter" }
     ],
@@ -452,6 +499,34 @@ export const defaultSiteContent: SiteContent = {
       "A quiet archive of writings on dharma, grief, language, surrender, and the inner life. © Sasidhar Valluru 2026"
   }
 };
+
+export function isPublished(status?: PublishStatus) {
+  return !status || status === "published";
+}
+
+export function getBookletMovementIndex(booklet: Booklet, fallbackIndex = 0) {
+  if (typeof booklet.movementIndex === "number") {
+    return Math.min(4, Math.max(0, booklet.movementIndex));
+  }
+
+  if (fallbackIndex < 3) {
+    return 0;
+  }
+
+  if (fallbackIndex < 5) {
+    return 1;
+  }
+
+  if (fallbackIndex < 7) {
+    return 2;
+  }
+
+  if (fallbackIndex < 8) {
+    return 3;
+  }
+
+  return 4;
+}
 
 export function getBookletNeighbors(booklets: Booklet[], slug: string) {
   const index = booklets.findIndex((booklet) => booklet.slug === slug);

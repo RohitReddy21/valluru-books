@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { BackLink, PageShell } from "@/components/ui";
-import { defaultSiteContent } from "@/lib/site-content";
+import { defaultSiteContent, isPublished } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
 
 export const dynamic = "force-dynamic";
@@ -16,11 +16,18 @@ export default async function EssayDetailPage({
 }) {
   const { slug } = await params;
   const content = await getSiteContent();
-  const essay = content.essays.items.find((item) => item.slug === slug);
+  const essay = content.essays.items.find(
+    (item) => item.slug === slug && isPublished(item.status)
+  );
 
   if (!essay) {
     notFound();
   }
+
+  const paragraphs =
+    essay.content && essay.content.length > 0
+      ? essay.content
+      : ["This essay page is ready for the full reflection."];
 
   return (
     <PageShell>
@@ -33,11 +40,9 @@ export default async function EssayDetailPage({
         </h1>
         <p className="responsive-prose mt-6 text-parchment/86">{essay.excerpt}</p>
         <div className="responsive-prose mt-10 space-y-6 text-parchment/84">
-          <p>
-            This essay page is ready for the full reflection. Use the admin page to
-            replace this placeholder with complete essay text when the draft is
-            available.
-          </p>
+          {paragraphs.map((paragraph) => (
+            <p key={paragraph}>{paragraph}</p>
+          ))}
           <p>
             The archive is intentionally quiet: each essay can become a slow entry
             point into the same inward questions carried by the booklets.

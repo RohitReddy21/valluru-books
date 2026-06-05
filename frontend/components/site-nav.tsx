@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import type { SiteContent } from "@/lib/site-content";
+import { CartLink } from "@/components/cart-actions";
 
 type Props = {
   nav: SiteContent["nav"];
@@ -39,6 +40,7 @@ export function SiteNav({ nav }: Props) {
           >
             {nav.button.label}
           </Link>
+          <CartLink />
         </nav>
 
         <button
@@ -70,6 +72,13 @@ export function SiteNav({ nav }: Props) {
               onClick={() => setOpen(false)}
             >
               {nav.button.label}
+            </Link>
+            <Link
+              className="mt-3 rounded-md border border-gold/20 px-4 py-3 text-center font-label text-sm uppercase tracking-[0.2em] text-muted"
+              href="/checkout"
+              onClick={() => setOpen(false)}
+            >
+              Cart
             </Link>
           </nav>
         </div>

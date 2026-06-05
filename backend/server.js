@@ -14,7 +14,7 @@ const app = express();
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 50 * 1024 * 1024
+    fileSize: 100 * 1024 * 1024
   }
 });
 
@@ -81,13 +81,20 @@ function getResend() {
 
 function verifyAdmin(request, response, next) {
   const configuredPassword = process.env.ADMIN_PASSWORD;
+  const authorization = request.get("Authorization") || "";
+  const bearerToken = authorization.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length)
+    : "";
 
   if (!configuredPassword) {
     response.status(500).json({ error: "ADMIN_PASSWORD is not configured." });
     return;
   }
 
-  if (request.get("X-Admin-Password") !== configuredPassword) {
+  if (
+    request.get("X-Admin-Password") !== configuredPassword &&
+    !verifyAdminToken(bearerToken)
+  ) {
     response.status(401).json({ error: "Invalid admin password." });
     return;
   }
@@ -139,28 +146,18 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
-function toBase64Url(value) {
-  return Buffer.from(value).toString("base64url");
-}
-
-function signAccessPayload(encodedPayload) {
-  return crypto
-    .createHmac("sha256", getAccessTokenSecret())
-    .update(encodedPayload)
-    .digest("base64url");
-}
-
-function createAccessToken(slug = "*") {
-  const payload = {
-    slug,
-    exp: Date.now() + 1000 * 60 * 60 * 24 * 365
-  };
-  const encodedPayload = toBase64Url(JSON.stringify(payload));
+function createSignedToken(payload, maxAgeMs = 1000 * 60 * 60 * 8) {
+  const encodedPayload = toBase64Url(
+    JSON.stringify({
+      ...payload,
+      exp: Date.now() + maxAgeMs
+    })
+  );
 
   return `${encodedPayload}.${signAccessPayload(encodedPayload)}`;
 }
 
-function verifyAccessToken(token, slug) {
+function verifySignedToken(token, predicate) {
   if (!token || !token.includes(".")) {
     return false;
   }
@@ -179,10 +176,37 @@ function verifyAccessToken(token, slug) {
   try {
     const payload = JSON.parse(Buffer.from(encodedPayload, "base64url").toString("utf8"));
 
-    return payload.exp > Date.now() && payload.slug === slug;
+    return payload.exp > Date.now() && predicate(payload);
   } catch {
     return false;
   }
+}
+
+function createAdminToken() {
+  return createSignedToken({ role: "admin", scope: "admin" });
+}
+
+function verifyAdminToken(token) {
+  return verifySignedToken(token, (payload) => payload.role === "admin");
+}
+
+function toBase64Url(value) {
+  return Buffer.from(value).toString("base64url");
+}
+
+function signAccessPayload(encodedPayload) {
+  return crypto
+    .createHmac("sha256", getAccessTokenSecret())
+    .update(encodedPayload)
+    .digest("base64url");
+}
+
+function createAccessToken(slug = "*") {
+  return createSignedToken({ slug }, 1000 * 60 * 60 * 24 * 365);
+}
+
+function verifyAccessToken(token, slug) {
+  return verifySignedToken(token, (payload) => payload.slug === slug);
 }
 
 function pdfFilename(slug) {
@@ -287,8 +311,177 @@ async function saveSiteContent(content) {
   );
 }
 
+async function getSettings() {
+  if (!hasMongoConfig()) {
+    return {};
+  }
+
+  const db = await getDb();
+  const doc = await db.collection("settings").findOne({ key: "admin-settings" });
+  return doc?.settings || {};
+}
+
+async function saveSettings(settings) {
+  const db = await getDb();
+  await db.collection("settings").updateOne(
+    { key: "admin-settings" },
+    {
+      $set: { settings, updatedAt: new Date() },
+      $setOnInsert: { key: "admin-settings", createdAt: new Date() }
+    },
+    { upsert: true }
+  );
+}
+
+function getMediaKind(contentType = "") {
+  if (contentType.startsWith("image/")) {
+    return "image";
+  }
+
+  if (contentType === "application/pdf") {
+    return "pdf";
+  }
+
+  if (contentType.startsWith("video/")) {
+    return "video";
+  }
+
+  return "document";
+}
+
+function validateUpload(file) {
+  const allowedTypes = new Set([
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/plain"
+  ]);
+
+  return (
+    file.mimetype.startsWith("image/") ||
+    file.mimetype.startsWith("video/") ||
+    allowedTypes.has(file.mimetype)
+  );
+}
+
+function hasCloudinaryConfig() {
+  return Boolean(
+    process.env.CLOUDINARY_CLOUD_NAME &&
+      process.env.CLOUDINARY_API_KEY &&
+      process.env.CLOUDINARY_API_SECRET
+  );
+}
+
+async function uploadToCloudinary(file, folder) {
+  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+  const apiKey = process.env.CLOUDINARY_API_KEY;
+  const apiSecret = process.env.CLOUDINARY_API_SECRET;
+  const timestamp = Math.floor(Date.now() / 1000);
+  const paramsToSign = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
+  const signature = crypto.createHash("sha1").update(paramsToSign).digest("hex");
+  const formData = new FormData();
+
+  formData.append("file", new Blob([file.buffer], { type: file.mimetype }), file.originalname);
+  formData.append("api_key", apiKey);
+  formData.append("timestamp", String(timestamp));
+  formData.append("folder", folder);
+  formData.append("signature", signature);
+
+  const response = await fetch(
+    `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
+    {
+      method: "POST",
+      body: formData
+    }
+  );
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(payload.error?.message || "Cloudinary upload failed.");
+  }
+
+  return payload;
+}
+
+async function saveMediaAsset(file, { folder = "valluru/media", source = "library" } = {}) {
+  const db = await getDb();
+  const kind = getMediaKind(file.mimetype);
+  let asset;
+
+  if (hasCloudinaryConfig()) {
+    const cloudinary = await uploadToCloudinary(file, folder);
+    asset = {
+      provider: "cloudinary",
+      publicId: cloudinary.public_id,
+      url: cloudinary.secure_url,
+      resourceType: cloudinary.resource_type,
+      format: cloudinary.format
+    };
+  } else {
+    const id = await saveGridFile("media_uploads", file.originalname, file, file.mimetype, {
+      originalName: file.originalname,
+      uploadedAt: new Date(),
+      source
+    });
+    asset = {
+      provider: "gridfs",
+      gridFsId: id,
+      url: `/api/media/${id}`
+    };
+  }
+
+  const record = {
+    ...asset,
+    name: file.originalname,
+    folder,
+    source,
+    kind,
+    contentType: file.mimetype,
+    size: file.size,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  const result = await db.collection("media_assets").insertOne(record);
+
+  return {
+    ...record,
+    id: String(result.insertedId)
+  };
+}
+
+function normalizePhoneNumber(value = "") {
+  return String(value).replace(/[^\d]/g, "");
+}
+
+function formatCurrency(amount, currency = "INR") {
+  return `${currency} ${Number(amount || 0).toFixed(2)}`;
+}
+
 app.get("/health", (_request, response) => {
   response.json({ ok: true });
+});
+
+app.post("/api/admin/login", (request, response) => {
+  const configuredPassword = process.env.ADMIN_PASSWORD;
+
+  if (!configuredPassword) {
+    response.status(500).json({ error: "ADMIN_PASSWORD is not configured." });
+    return;
+  }
+
+  if (request.body?.password !== configuredPassword) {
+    response.status(401).json({ error: "Invalid admin password." });
+    return;
+  }
+
+  response.json({
+    token: createAdminToken(),
+    user: {
+      role: "admin"
+    }
+  });
 });
 
 app.get("/api/content", async (_request, response, next) => {
@@ -443,6 +636,325 @@ app.post("/api/subscribe", async (request, response, next) => {
   }
 });
 
+app.get("/api/settings", async (_request, response, next) => {
+  try {
+    const content = await getSiteContent();
+    const savedSettings = await getSettings();
+
+    response.json({
+      settings: {
+        ...(content?.settings || {}),
+        ...savedSettings
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/admin/settings", verifyAdmin, async (_request, response, next) => {
+  try {
+    if (!requireMongo(response)) {
+      return;
+    }
+
+    response.json({ settings: await getSettings() });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put("/api/admin/settings", verifyAdmin, async (request, response, next) => {
+  try {
+    if (!requireMongo(response)) {
+      return;
+    }
+
+    if (!request.body?.settings || typeof request.body.settings !== "object") {
+      response.status(400).json({ error: "Missing settings object." });
+      return;
+    }
+
+    await saveSettings(request.body.settings);
+    response.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/admin/media", verifyAdmin, async (request, response, next) => {
+  try {
+    if (!requireMongo(response)) {
+      return;
+    }
+
+    const search = String(request.query.search || "").trim();
+    const kind = String(request.query.kind || "").trim();
+    const query = {};
+
+    if (kind && kind !== "all") {
+      query.kind = kind;
+    }
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { folder: { $regex: search, $options: "i" } },
+        { contentType: { $regex: search, $options: "i" } }
+      ];
+    }
+
+    const db = await getDb();
+    const media = await db
+      .collection("media_assets")
+      .find(query)
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .toArray();
+
+    response.json({
+      media: media.map(({ _id, ...item }) => ({
+        ...item,
+        id: String(_id)
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post(
+  "/api/admin/media",
+  verifyAdmin,
+  upload.single("media"),
+  async (request, response, next) => {
+    try {
+      if (!requireMongo(response)) {
+        return;
+      }
+
+      const file = request.file;
+
+      if (!file) {
+        response.status(400).json({ error: "Choose a file." });
+        return;
+      }
+
+      if (!validateUpload(file)) {
+        response.status(400).json({ error: "Unsupported file type." });
+        return;
+      }
+
+      const media = await saveMediaAsset(file, {
+        folder: request.body.folder || "valluru/media",
+        source: "media-library"
+      });
+
+      response.json({ ok: true, media });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+app.delete("/api/admin/media/:id", verifyAdmin, async (request, response, next) => {
+  try {
+    if (!requireMongo(response)) {
+      return;
+    }
+
+    const db = await getDb();
+    const id = new ObjectId(request.params.id);
+    const media = await db.collection("media_assets").findOne({ _id: id });
+
+    if (!media) {
+      response.status(404).json({ error: "Media not found." });
+      return;
+    }
+
+    if (media.provider === "gridfs" && media.gridFsId) {
+      try {
+        const bucket = await getBucket("media_uploads");
+        await bucket.delete(new ObjectId(media.gridFsId));
+      } catch {
+        // Keep deletion best-effort for older GridFS records.
+      }
+    }
+
+    await db.collection("media_assets").deleteOne({ _id: id });
+    response.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/admin/orders", verifyAdmin, async (request, response, next) => {
+  try {
+    if (!requireMongo(response)) {
+      return;
+    }
+
+    const search = String(request.query.search || "").trim();
+    const status = String(request.query.status || "").trim();
+    const query = {};
+
+    if (status && status !== "all") {
+      query.status = status;
+    }
+
+    if (search) {
+      query.$or = [
+        { orderNumber: { $regex: search, $options: "i" } },
+        { "customer.name": { $regex: search, $options: "i" } },
+        { "customer.email": { $regex: search, $options: "i" } },
+        { "customer.phone": { $regex: search, $options: "i" } }
+      ];
+    }
+
+    const db = await getDb();
+    const orders = await db
+      .collection("orders")
+      .find(query)
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .toArray();
+
+    response.json({
+      orders: orders.map(({ _id, ...item }) => ({ ...item, id: String(_id) }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch("/api/admin/orders/:id", verifyAdmin, async (request, response, next) => {
+  try {
+    if (!requireMongo(response)) {
+      return;
+    }
+
+    const allowedStatuses = new Set([
+      "pending",
+      "confirmed",
+      "processing",
+      "shipped",
+      "delivered",
+      "cancelled"
+    ]);
+    const status = String(request.body?.status || "").toLowerCase();
+
+    if (!allowedStatuses.has(status)) {
+      response.status(400).json({ error: "Invalid order status." });
+      return;
+    }
+
+    const db = await getDb();
+    await db.collection("orders").updateOne(
+      { _id: new ObjectId(request.params.id) },
+      {
+        $set: {
+          status,
+          updatedAt: new Date()
+        }
+      }
+    );
+
+    const updatedOrder = await db.collection("orders").findOne({ _id: new ObjectId(request.params.id) });
+
+    if (!updatedOrder) {
+      response.status(404).json({ error: "Order not found." });
+      return;
+    }
+
+    const { _id, ...order } = updatedOrder || {};
+    response.json({ ok: true, order: { ...order, id: String(_id) } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/orders", async (request, response, next) => {
+  try {
+    if (!requireMongo(response)) {
+      return;
+    }
+
+    const customer = request.body?.customer || {};
+    const items = Array.isArray(request.body?.items) ? request.body.items : [];
+    const name = String(customer.name || "").trim();
+    const phone = String(customer.phone || "").trim();
+    const email = String(customer.email || "").trim().toLowerCase();
+    const address = String(customer.address || "").trim();
+    const notes = String(customer.notes || "").trim();
+
+    if (!name || !phone || !email || !address) {
+      response.status(400).json({ error: "Name, phone, email, and address are required." });
+      return;
+    }
+
+    if (items.length === 0) {
+      response.status(400).json({ error: "Cart is empty." });
+      return;
+    }
+
+    const normalizedItems = items.map((item) => ({
+      slug: String(item.slug || ""),
+      title: String(item.title || "Book"),
+      quantity: Math.max(1, Number(item.quantity || 1)),
+      price: Number(item.price || 0),
+      currency: item.currency || "INR"
+    }));
+    const currency = normalizedItems[0]?.currency || "INR";
+    const total = normalizedItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+    const orderNumber = `VAL-${Date.now()}`;
+    const db = await getDb();
+    const order = {
+      orderNumber,
+      status: "pending",
+      customer: { name, phone, email, address, notes },
+      items: normalizedItems,
+      total,
+      currency,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const result = await db.collection("orders").insertOne(order);
+    const savedSettings = await getSettings();
+    const content = await getSiteContent();
+    const whatsappNumber = normalizePhoneNumber(
+      savedSettings.whatsappNumber || content?.settings?.whatsappNumber || ""
+    );
+    const messageLines = [
+      `New order ${orderNumber}`,
+      `Customer: ${name}`,
+      `Phone: ${phone}`,
+      `Email: ${email}`,
+      "Books:",
+      ...normalizedItems.map(
+        (item) => `- ${item.title} x ${item.quantity} (${formatCurrency(item.price, item.currency)} each)`
+      ),
+      `Total: ${formatCurrency(total, currency)}`,
+      `Address: ${address}`,
+      notes ? `Notes: ${notes}` : ""
+    ].filter(Boolean);
+    const whatsappUrl = whatsappNumber
+      ? `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(messageLines.join("\n"))}`
+      : "";
+
+    response.json({
+      ok: true,
+      order: { ...order, id: String(result.insertedId) },
+      whatsappUrl
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/reflections", async (request, response, next) => {
   try {
     if (!requireMongo(response)) {
@@ -517,19 +1029,28 @@ app.get("/api/admin/data", verifyAdmin, async (_request, response, next) => {
     }
 
     const db = await getDb();
-    const [subscribers, comments, bookletReaders, counts] = await Promise.all([
+    const content = await getSiteContent();
+    const booklets = content?.series?.booklets || [];
+    const essays = content?.essays?.items || [];
+    const [subscribers, comments, bookletReaders, orders, recentMedia, counts] = await Promise.all([
       db.collection("subscribers").find({}).sort({ updatedAt: -1 }).limit(100).project({ _id: 0 }).toArray(),
       db.collection("comments").find({}).sort({ createdAt: -1 }).limit(100).project({ _id: 0 }).toArray(),
       db.collection("booklet_readers").find({}).sort({ updatedAt: -1 }).limit(150).project({ _id: 0 }).toArray(),
+      db.collection("orders").find({}).sort({ createdAt: -1 }).limit(100).project({ _id: 0 }).toArray(),
+      db.collection("media_assets").find({}).sort({ createdAt: -1 }).limit(12).project({ _id: 0 }).toArray(),
       Promise.all([
         db.collection("content").countDocuments({}),
         db.collection("subscribers").countDocuments({}),
         db.collection("comments").countDocuments({}),
         db.collection("booklet_pdfs.files").countDocuments({}),
         db.collection("media_uploads.files").countDocuments({}),
-        db.collection("booklet_readers").countDocuments({})
+        db.collection("booklet_readers").countDocuments({}),
+        db.collection("orders").countDocuments({}),
+        db.collection("media_assets").countDocuments({})
       ])
     ]);
+    const statusCount = (items, status) =>
+      items.filter((item) => (item.status || "published") === status).length;
 
     response.json({
       counts: {
@@ -537,12 +1058,40 @@ app.get("/api/admin/data", verifyAdmin, async (_request, response, next) => {
         subscribers: counts[1],
         comments: counts[2],
         pdfs: counts[3],
-        media: counts[4],
-        bookReaders: counts[5]
+        media: Math.max(counts[4], counts[7]),
+        bookReaders: counts[5],
+        orders: counts[6],
+        draftBooks: statusCount(booklets, "draft"),
+        publishedBooks: statusCount(booklets, "published"),
+        archivedBooks: statusCount(booklets, "archived"),
+        draftPosts: statusCount(essays, "draft"),
+        publishedPosts: statusCount(essays, "published")
       },
       subscribers,
       bookletReaders,
-      comments
+      orders,
+      comments,
+      recentMedia,
+      recentActivity: [
+        ...orders.slice(0, 5).map((order) => ({
+          type: "order",
+          label: `${order.orderNumber} - ${order.customer?.name || "Customer"}`,
+          createdAt: order.createdAt
+        })),
+        ...comments.slice(0, 5).map((comment) => ({
+          type: "comment",
+          label: `${comment.name || "Reader"} commented on ${comment.bookletSlug}`,
+          createdAt: comment.createdAt
+        })),
+        ...bookletReaders.slice(0, 5).map((reader) => ({
+          type: "reader",
+          label: `${reader.name || "Reader"} opened ${reader.bookletTitle || reader.bookletSlug}`,
+          createdAt: reader.updatedAt
+        }))
+      ]
+        .filter((item) => item.createdAt)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 10)
     });
   } catch (error) {
     next(error);
@@ -624,12 +1173,12 @@ app.post(
         return;
       }
 
-      const id = await saveGridFile("media_uploads", file.originalname, file, file.mimetype, {
-        originalName: file.originalname,
-        uploadedAt: new Date()
+      const media = await saveMediaAsset(file, {
+        folder: "valluru/images",
+        source: "legacy-admin-media"
       });
 
-      response.json({ ok: true, id, url: `/api/media/${id}` });
+      response.json({ ok: true, id: media.id, url: media.url, media });
     } catch (error) {
       next(error);
     }
@@ -643,6 +1192,11 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
     const booklet = content?.series?.booklets?.find((item) => item.slug === slug);
 
     if (!booklet) {
+      response.status(404).json({ error: "Booklet not found." });
+      return;
+    }
+
+    if (booklet.status && booklet.status !== "published") {
       response.status(404).json({ error: "Booklet not found." });
       return;
     }

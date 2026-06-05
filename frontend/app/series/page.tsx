@@ -2,13 +2,24 @@ import Link from "next/link";
 import { NewsletterForm } from "@/components/newsletter-form";
 import { BookletCard, PageHeader, PageShell, ProseBlocks, Section, WideSection } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
-import { defaultSiteContent } from "@/lib/site-content";
+import { defaultSiteContent, getBookletMovementIndex, isPublished } from "@/lib/site-content";
 
 export const dynamic = "force-dynamic";
 
 export default async function SeriesPage() {
   const content = await getSiteContent();
   const { series, home } = content;
+  const publishedBooklets = series.booklets.filter((booklet) =>
+    isPublished(booklet.status)
+  );
+  const groupedBooklets = home.seriesOverview.movements.map((movement, movementIndex) => ({
+    movement,
+    booklets: publishedBooklets.filter((booklet) => {
+      const sourceIndex = series.booklets.findIndex((item) => item.slug === booklet.slug);
+
+      return getBookletMovementIndex(booklet, sourceIndex) === movementIndex;
+    })
+  }));
   const media = { ...defaultSiteContent.media, ...(content.media || {}) };
 
   return (
@@ -34,10 +45,10 @@ export default async function SeriesPage() {
           </p>
         </div>
         <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          {home.seriesOverview.movements.map((movement) => (
+          {home.seriesOverview.movements.map((movement, index) => (
             <Link
               className="group block rounded-md border border-gold/15 bg-surface/72 p-5 transition hover:border-gold/40"
-              href={movement.href || "/series"}
+              href={`#movement-${index + 1}`}
               key={movement.title}
             >
               <p className="font-label text-xs uppercase tracking-[0.23em] text-gold/80">
@@ -49,6 +60,9 @@ export default async function SeriesPage() {
               <p className="mt-4 text-lg leading-7 text-muted">
                 {movement.description}
               </p>
+              <span className="mt-6 inline-flex font-label text-xs uppercase tracking-[0.2em] text-gold">
+                View Books
+              </span>
             </Link>
           ))}
         </div>
@@ -63,9 +77,32 @@ export default async function SeriesPage() {
               Explore every single booklet in the reading order.
             </p>
           </div>
-          {series.booklets.map((booklet) => (
-            <BookletCard booklet={booklet} key={booklet.slug} />
-          ))}
+          <div className="grid gap-12">
+            {groupedBooklets.map(({ movement, booklets }, movementIndex) => (
+              <section className="scroll-mt-28" id={`movement-${movementIndex + 1}`} key={movement.title}>
+                <div className="border-b border-gold/15 pb-5">
+                  <p className="font-label text-xs uppercase tracking-[0.24em] text-gold">
+                    Booklets {movement.booklets}
+                  </p>
+                  <h3 className="mt-3 font-display text-3xl text-parchment">
+                    {movement.title}
+                  </h3>
+                  <p className="mt-3 text-lg leading-7 text-muted">
+                    {movement.description}
+                  </p>
+                </div>
+                {booklets.length > 0 ? (
+                  booklets.map((booklet) => (
+                    <BookletCard booklet={booklet} key={booklet.slug} />
+                  ))
+                ) : (
+                  <p className="py-8 text-lg italic text-muted">
+                    No published books in this movement yet.
+                  </p>
+                )}
+              </section>
+            ))}
+          </div>
         </div>
       </WideSection>
       <Section>

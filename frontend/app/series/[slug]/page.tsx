@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { BookletReader } from "@/components/booklet-reader";
 import { ReflectionForm } from "@/components/reflection-form";
 import { BackLink, PageShell, PrimaryLink } from "@/components/ui";
-import { defaultSiteContent, getBookletNeighbors } from "@/lib/site-content";
+import { defaultSiteContent, getBookletNeighbors, isPublished } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,9 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const content = await getSiteContent();
-  const booklet = content.series.booklets.find((item) => item.slug === slug);
+  const booklet = content.series.booklets.find(
+    (item) => item.slug === slug && isPublished(item.status)
+  );
 
   return {
     title: booklet
@@ -37,13 +39,16 @@ export default async function BookletPage({
   const { slug } = await params;
   const content = await getSiteContent();
   const media = { ...defaultSiteContent.media, ...(content.media || {}) };
-  const booklet = content.series.booklets.find((item) => item.slug === slug);
+  const publishedBooklets = content.series.booklets.filter((item) =>
+    isPublished(item.status)
+  );
+  const booklet = publishedBooklets.find((item) => item.slug === slug);
 
   if (!booklet) {
     notFound();
   }
 
-  const neighbors = getBookletNeighbors(content.series.booklets, slug);
+  const neighbors = getBookletNeighbors(publishedBooklets, slug);
 
   return (
     <PageShell>

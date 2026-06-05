@@ -9,6 +9,14 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
       ...defaultSiteContent.media,
       ...(content?.media || {})
     },
+    settings: {
+      ...defaultSiteContent.settings,
+      ...(content?.settings || {}),
+      seo: {
+        ...defaultSiteContent.settings.seo,
+        ...(content?.settings?.seo || {})
+      }
+    },
     nav: {
       ...defaultSiteContent.nav,
       ...(content?.nav || {})

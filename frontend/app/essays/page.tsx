@@ -2,13 +2,14 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { PageHeader, PageShell, WideSection } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
-import { defaultSiteContent } from "@/lib/site-content";
+import { defaultSiteContent, isPublished } from "@/lib/site-content";
 
 export const dynamic = "force-dynamic";
 
 export default async function EssaysPage() {
   const content = await getSiteContent();
   const { essays } = content;
+  const publishedEssays = essays.items.filter((essay) => isPublished(essay.status));
   const media = { ...defaultSiteContent.media, ...(content.media || {}) };
 
   return (
@@ -20,7 +21,7 @@ export default async function EssaysPage() {
       />
       <WideSection className="pt-0">
         <div className="mx-auto max-w-4xl">
-          {essays.items.map((essay) => (
+          {publishedEssays.map((essay) => (
             <article
               className="border-t border-gold/15 py-9 first:border-t-0"
               key={essay.slug}

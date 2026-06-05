@@ -1,17 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Eye, ImageIcon, Plus, RefreshCw, RotateCcw, Save, Upload } from "lucide-react";
+import { Eye, ImageIcon, Package, Plus, RefreshCw, RotateCcw, Save, Upload } from "lucide-react";
 import { apiUrl } from "@/lib/api";
-import type { Booklet, Essay, SiteContent } from "@/lib/site-content";
-import { defaultSiteContent } from "@/lib/site-content";
+import type { Booklet, Essay, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
+import { defaultSiteContent, getBookletMovementIndex } from "@/lib/site-content";
 
 type Props = {
   initialContent: SiteContent;
   source: string;
 };
 
-type Tab = "dashboard" | "booklets" | "pages" | "essays" | "media" | "navigation";
+type Tab = "dashboard" | "booklets" | "movements" | "pages" | "essays" | "media" | "orders" | "settings" | "navigation";
 type MediaTarget = "homeHeroImage" | "pageHeroImage" | "authorImage";
 
 type AdminData = {
@@ -22,6 +22,12 @@ type AdminData = {
     pdfs: number;
     media: number;
     bookReaders: number;
+    orders: number;
+    draftBooks: number;
+    publishedBooks: number;
+    archivedBooks: number;
+    draftPosts: number;
+    publishedPosts: number;
   };
   subscribers: Array<{
     name?: string;
@@ -47,6 +53,38 @@ type AdminData = {
     updatedAt?: string;
     lastReadAt?: string;
   }>;
+  orders: Array<{
+    id?: string;
+    orderNumber?: string;
+    status?: string;
+    total?: number;
+    currency?: string;
+    customer?: {
+      name?: string;
+      phone?: string;
+      email?: string;
+      address?: string;
+    };
+    items?: Array<{ title?: string; quantity?: number }>;
+    createdAt?: string;
+  }>;
+  recentMedia?: Array<MediaAsset>;
+  recentActivity?: Array<{
+    type?: string;
+    label?: string;
+    createdAt?: string;
+  }>;
+};
+
+type MediaAsset = {
+  id?: string;
+  name?: string;
+  url?: string;
+  kind?: string;
+  folder?: string;
+  contentType?: string;
+  size?: number;
+  createdAt?: string;
 };
 
 function slugify(value: string) {
@@ -80,6 +118,7 @@ export function AdminEditor({ initialContent, source }: Props) {
     }
   }));
   const [password, setPassword] = useState("");
+  const [adminToken, setAdminToken] = useState("");
   const [tab, setTab] = useState<Tab>("dashboard");
   const [selectedBookletSlug, setSelectedBookletSlug] = useState(
     initialContent.series.booklets[0]?.slug || ""
@@ -97,6 +136,12 @@ export function AdminEditor({ initialContent, source }: Props) {
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaTarget, setMediaTarget] = useState<MediaTarget>("homeHeroImage");
   const [mediaStatus, setMediaStatus] = useState("Upload images into MongoDB.");
+  const [mediaItems, setMediaItems] = useState<MediaAsset[]>([]);
+  const [mediaSearch, setMediaSearch] = useState("");
+  const [mediaKind, setMediaKind] = useState("all");
+  const [mediaFolder, setMediaFolder] = useState("valluru/media");
+  const [orders, setOrders] = useState<AdminData["orders"]>([]);
+  const [ordersStatus, setOrdersStatus] = useState("Load orders from the database.");
 
   const selectedBooklet = useMemo(
     () =>
@@ -150,13 +195,39 @@ export function AdminEditor({ initialContent, source }: Props) {
     setStatus(payload?.error || "Save failed.");
   }
 
+  async function login() {
+    setStatus("Signing in...");
+    const response = await fetch(apiUrl("/api/admin/login"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password })
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      token?: string;
+      error?: string;
+    } | null;
+
+    if (!response.ok || !payload?.token) {
+      setStatus(payload?.error || "Admin login failed.");
+      return;
+    }
+
+    setAdminToken(payload.token);
+    setStatus("Admin signed in.");
+  }
+
+  function adminHeaders(extra?: Record<string, string>) {
+    return {
+      ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+      "X-Admin-Password": password,
+      ...(extra || {})
+    };
+  }
+
   function persistContent() {
     return fetch(apiUrl("/api/content"), {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Admin-Password": password
-      },
+      headers: adminHeaders({ "Content-Type": "application/json" }),
       credentials: "include",
       body: JSON.stringify({ content })
     });
@@ -185,9 +256,7 @@ export function AdminEditor({ initialContent, source }: Props) {
 
     const response = await fetch(apiUrl("/api/admin/upload-pdf"), {
       method: "POST",
-      headers: {
-        "X-Admin-Password": password
-      },
+      headers: adminHeaders(),
       credentials: "include",
       body: formData
     });
@@ -210,9 +279,7 @@ export function AdminEditor({ initialContent, source }: Props) {
     setDataStatus("Loading database data...");
     const response = await fetch(apiUrl("/api/admin/data"), {
       credentials: "include",
-      headers: {
-        "X-Admin-Password": password
-      }
+      headers: adminHeaders()
     });
 
     const payload = (await response.json().catch(() => null)) as
@@ -240,9 +307,7 @@ export function AdminEditor({ initialContent, source }: Props) {
 
     const response = await fetch(apiUrl("/api/admin/upload-media"), {
       method: "POST",
-      headers: {
-        "X-Admin-Password": password
-      },
+      headers: adminHeaders(),
       credentials: "include",
       body: formData
     });
@@ -276,6 +341,8 @@ export function AdminEditor({ initialContent, source }: Props) {
       slug: `booklet-${nextNumber}`,
       numberLabel: `Booklet ${nextNumber}`,
       title: "New Booklet",
+      movementIndex: 0,
+      status: "draft",
       subtitle: "Subtitle",
       description: "Add the full booklet description here.",
       tag: "Available"
@@ -295,6 +362,7 @@ export function AdminEditor({ initialContent, source }: Props) {
   function addEssay() {
     const newEssay: Essay = {
       slug: "new-essay",
+      status: "draft",
       date: "June 2026",
       category: "Dharma",
       readingTime: "5 min",
@@ -311,6 +379,155 @@ export function AdminEditor({ initialContent, source }: Props) {
     }));
     setSelectedEssaySlug(newEssay.slug);
     setTab("essays");
+  }
+
+  function updateMovement(index: number, patch: Partial<Movement>) {
+    setContent((current) => ({
+      ...current,
+      home: {
+        ...current.home,
+        seriesOverview: {
+          ...current.home.seriesOverview,
+          movements: current.home.seriesOverview.movements.map((movement, movementIndex) =>
+            movementIndex === index ? { ...movement, ...patch } : movement
+          )
+        }
+      }
+    }));
+  }
+
+  function updateBookStatus(slug: string, statusValue: PublishStatus) {
+    updateBooklet(slug, { status: statusValue });
+  }
+
+  function bulkBookStatus(statusValue: PublishStatus) {
+    setContent((current) => ({
+      ...current,
+      series: {
+        ...current.series,
+        booklets: current.series.booklets.map((booklet) => ({
+          ...booklet,
+          status: statusValue
+        }))
+      }
+    }));
+  }
+
+  async function loadMedia() {
+    setMediaStatus("Loading media library...");
+    const response = await fetch(
+      apiUrl(`/api/admin/media?search=${encodeURIComponent(mediaSearch)}&kind=${mediaKind}`),
+      {
+        credentials: "include",
+        headers: adminHeaders()
+      }
+    );
+    const payload = (await response.json().catch(() => null)) as {
+      media?: MediaAsset[];
+      error?: string;
+    } | null;
+
+    if (!response.ok || !payload?.media) {
+      setMediaStatus(payload?.error || "Could not load media.");
+      return;
+    }
+
+    setMediaItems(payload.media);
+    setMediaStatus("Media library loaded.");
+  }
+
+  async function uploadLibraryMedia(file: File | null) {
+    if (!file) {
+      setMediaStatus("Choose a file first.");
+      return;
+    }
+
+    setMediaStatus("Uploading to media library...");
+    const formData = new FormData();
+    formData.append("media", file);
+    formData.append("folder", mediaFolder);
+    const response = await fetch(apiUrl("/api/admin/media"), {
+      method: "POST",
+      headers: adminHeaders(),
+      credentials: "include",
+      body: formData
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      media?: MediaAsset;
+      error?: string;
+    } | null;
+
+    if (!response.ok || !payload?.media) {
+      setMediaStatus(payload?.error || "Media upload failed.");
+      return;
+    }
+
+    setMediaItems((current) => [payload.media as MediaAsset, ...current]);
+    setMediaStatus("Uploaded to media library.");
+  }
+
+  async function deleteMedia(id?: string) {
+    if (!id) {
+      return;
+    }
+
+    const response = await fetch(apiUrl(`/api/admin/media/${id}`), {
+      method: "DELETE",
+      credentials: "include",
+      headers: adminHeaders()
+    });
+
+    if (response.ok) {
+      setMediaItems((current) => current.filter((item) => item.id !== id));
+    }
+  }
+
+  async function loadOrders() {
+    setOrdersStatus("Loading orders...");
+    const response = await fetch(apiUrl("/api/admin/orders"), {
+      credentials: "include",
+      headers: adminHeaders()
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      orders?: AdminData["orders"];
+      error?: string;
+    } | null;
+
+    if (!response.ok || !payload?.orders) {
+      setOrdersStatus(payload?.error || "Could not load orders.");
+      return;
+    }
+
+    setOrders(payload.orders);
+    setOrdersStatus("Orders loaded.");
+  }
+
+  async function updateOrderStatus(id: string | undefined, nextStatus: string) {
+    if (!id) {
+      return;
+    }
+
+    setOrdersStatus("Updating order...");
+    const response = await fetch(apiUrl(`/api/admin/orders/${id}`), {
+      method: "PATCH",
+      credentials: "include",
+      headers: adminHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({ status: nextStatus })
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      order?: AdminData["orders"][number];
+      error?: string;
+    } | null;
+
+    if (!response.ok || !payload?.order) {
+      setOrdersStatus(payload?.error || "Order update failed.");
+      return;
+    }
+
+    setOrders((current) =>
+      current.map((order) => (order.id === id ? { ...order, ...payload.order } : order))
+    );
+    setOrdersStatus("Order status updated.");
   }
 
   return (
@@ -345,9 +562,16 @@ export function AdminEditor({ initialContent, source }: Props) {
                 value={password}
               />
             </label>
+            <button
+              className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-gold/30 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
+              onClick={login}
+              type="button"
+            >
+              Sign In
+            </button>
 
             <div className="mt-5 grid gap-2">
-              {(["dashboard", "booklets", "pages", "essays", "media", "navigation"] as Tab[]).map((item) => (
+              {(["dashboard", "booklets", "movements", "pages", "essays", "media", "orders", "settings", "navigation"] as Tab[]).map((item) => (
                 <button
                   className={`rounded-md border px-4 py-3 text-left font-label text-sm uppercase tracking-[0.18em] transition ${
                     tab === item
@@ -396,13 +620,24 @@ export function AdminEditor({ initialContent, source }: Props) {
                 addBooklet={addBooklet}
                 booklet={selectedBooklet}
                 booklets={content.series.booklets}
+                bulkBookStatus={bulkBookStatus}
+                mediaItems={mediaItems}
+                movements={content.home.seriesOverview.movements}
                 pdfFile={pdfFile}
                 selectedSlug={selectedBookletSlug}
                 setPdfFile={setPdfFile}
                 setSelectedSlug={setSelectedBookletSlug}
                 updateBooklet={updateBooklet}
+                updateBookStatus={updateBookStatus}
                 uploadPdf={uploadPdf}
                 uploadStatus={uploadStatus}
+              />
+            ) : null}
+
+            {tab === "movements" ? (
+              <MovementsPanel
+                movements={content.home.seriesOverview.movements}
+                updateMovement={updateMovement}
               />
             ) : null}
 
@@ -415,6 +650,7 @@ export function AdminEditor({ initialContent, source }: Props) {
                 addEssay={addEssay}
                 essay={selectedEssay}
                 essays={content.essays.items}
+                mediaItems={mediaItems}
                 selectedSlug={selectedEssaySlug}
                 setSelectedSlug={setSelectedEssaySlug}
                 updateEssay={updateEssay}
@@ -425,13 +661,36 @@ export function AdminEditor({ initialContent, source }: Props) {
               <MediaPanel
                 content={content}
                 mediaFile={mediaFile}
+                mediaFolder={mediaFolder}
+                mediaItems={mediaItems}
+                mediaKind={mediaKind}
+                mediaSearch={mediaSearch}
                 mediaStatus={mediaStatus}
                 mediaTarget={mediaTarget}
+                deleteMedia={deleteMedia}
+                loadMedia={loadMedia}
                 setContent={setContent}
                 setMediaFile={setMediaFile}
+                setMediaFolder={setMediaFolder}
+                setMediaKind={setMediaKind}
+                setMediaSearch={setMediaSearch}
                 setMediaTarget={setMediaTarget}
+                uploadLibraryMedia={uploadLibraryMedia}
                 uploadMedia={uploadMedia}
               />
+            ) : null}
+
+            {tab === "orders" ? (
+              <OrdersPanel
+                loadOrders={loadOrders}
+                orders={orders}
+                ordersStatus={ordersStatus}
+                updateOrderStatus={updateOrderStatus}
+              />
+            ) : null}
+
+            {tab === "settings" ? (
+              <SettingsPanel content={content} setContent={setContent} />
             ) : null}
 
             {tab === "navigation" ? (
@@ -522,6 +781,34 @@ function DashboardPanel({
 
       {adminData ? (
         <>
+          <div className="grid gap-4 xl:grid-cols-3">
+            <div className="rounded-md border border-gold/15 bg-ink p-5">
+              <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
+                Books Overview
+              </p>
+              <p className="mt-3 text-lg text-parchment">
+                {adminData.counts.publishedBooks} published, {adminData.counts.draftBooks} drafts,
+                {" "}{adminData.counts.archivedBooks} archived.
+              </p>
+            </div>
+            <div className="rounded-md border border-gold/15 bg-ink p-5">
+              <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
+                Orders Overview
+              </p>
+              <p className="mt-3 text-lg text-parchment">
+                {adminData.counts.orders} total orders in the database.
+              </p>
+            </div>
+            <div className="rounded-md border border-gold/15 bg-ink p-5">
+              <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
+                Media Overview
+              </p>
+              <p className="mt-3 text-lg text-parchment">
+                {adminData.counts.media} reusable media files and {adminData.counts.pdfs} PDFs.
+              </p>
+            </div>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
             {Object.entries(adminData.counts).map(([label, count]) => (
               <div className="rounded-md border border-gold/15 bg-ink p-4" key={label}>
@@ -561,6 +848,25 @@ function DashboardPanel({
                   ))}
                 </tbody>
               </table>
+            </div>
+          </FieldGroup>
+
+          <FieldGroup title="Recent Activity">
+            <div className="grid gap-3 md:grid-cols-2">
+              {(adminData.recentActivity || []).map((activity, index) => (
+                <article className="rounded-md border border-gold/15 bg-ink p-4" key={`${activity.type}-${index}`}>
+                  <p className="font-label text-xs uppercase tracking-[0.18em] text-gold">
+                    {activity.type || "Activity"}
+                  </p>
+                  <p className="mt-2 text-lg text-parchment">{activity.label || "Updated record"}</p>
+                  <p className="mt-1 text-sm text-muted">
+                    {activity.createdAt ? new Date(activity.createdAt).toLocaleString() : "-"}
+                  </p>
+                </article>
+              ))}
+              {(adminData.recentActivity || []).length === 0 ? (
+                <p className="text-muted">No recent activity found.</p>
+              ) : null}
             </div>
           </FieldGroup>
 
@@ -624,21 +930,41 @@ function DashboardPanel({
 
 function MediaPanel({
   content,
+  deleteMedia,
+  loadMedia,
   mediaFile,
+  mediaFolder,
+  mediaItems,
+  mediaKind,
+  mediaSearch,
   mediaStatus,
   mediaTarget,
   setContent,
   setMediaFile,
+  setMediaFolder,
+  setMediaKind,
+  setMediaSearch,
   setMediaTarget,
+  uploadLibraryMedia,
   uploadMedia
 }: {
   content: SiteContent;
+  deleteMedia: (id?: string) => void;
+  loadMedia: () => void;
   mediaFile: File | null;
+  mediaFolder: string;
+  mediaItems: MediaAsset[];
+  mediaKind: string;
+  mediaSearch: string;
   mediaStatus: string;
   mediaTarget: MediaTarget;
   setContent: React.Dispatch<React.SetStateAction<SiteContent>>;
   setMediaFile: (file: File | null) => void;
+  setMediaFolder: (value: string) => void;
+  setMediaKind: (value: string) => void;
+  setMediaSearch: (value: string) => void;
   setMediaTarget: (target: MediaTarget) => void;
+  uploadLibraryMedia: (file: File | null) => void;
   uploadMedia: () => void;
 }) {
   const media = {
@@ -713,7 +1039,97 @@ function MediaPanel({
 
       <div className="rounded-md border border-gold/15 bg-ink p-5">
         <p className="font-label text-sm uppercase tracking-[0.2em] text-gold">
-          Upload Image
+          Media Library Upload
+        </p>
+        <div className="mt-4 grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+          <TextField label="Folder" onChange={setMediaFolder} value={mediaFolder} />
+          <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted">
+            File
+            <input
+              className="mt-3 w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-sm normal-case tracking-normal text-parchment file:mr-3 file:rounded-md file:border-0 file:bg-gold/15 file:px-3 file:py-2 file:text-parchment"
+              onChange={(event) => setMediaFile(event.target.files?.[0] || null)}
+              type="file"
+            />
+          </label>
+          <button
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold disabled:opacity-50"
+            disabled={!mediaFile}
+            onClick={() => uploadLibraryMedia(mediaFile)}
+            type="button"
+          >
+            <Upload size={16} />
+            Upload File
+          </button>
+        </div>
+        <div className="mt-5 grid gap-4 md:grid-cols-[1fr_12rem_auto] md:items-end">
+          <TextField label="Search Media" onChange={setMediaSearch} value={mediaSearch} />
+          <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted">
+            Filter
+            <select
+              className="mt-3 w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-base normal-case tracking-normal text-parchment outline-none focus:border-gold/60"
+              onChange={(event) => setMediaKind(event.target.value)}
+              value={mediaKind}
+            >
+              <option value="all">All</option>
+              <option value="image">Images</option>
+              <option value="pdf">PDFs</option>
+              <option value="video">Videos</option>
+              <option value="document">Documents</option>
+            </select>
+          </label>
+          <button
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/30 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
+            onClick={loadMedia}
+            type="button"
+          >
+            <RefreshCw size={16} />
+            Load Media
+          </button>
+        </div>
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {mediaItems.map((item) => (
+            <article className="rounded-md border border-gold/15 bg-surface p-4" key={item.id || item.url}>
+              <div className="aspect-video overflow-hidden rounded-md border border-gold/10 bg-ink">
+                {item.kind === "image" && item.url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img alt={item.name || "Media"} className="h-full w-full object-cover" src={item.url} />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-muted">
+                    <Package size={28} />
+                  </div>
+                )}
+              </div>
+              <p className="mt-3 truncate text-base text-parchment">{item.name}</p>
+              <p className="mt-1 font-label text-xs uppercase tracking-[0.18em] text-muted">
+                {item.kind} · {item.folder}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {item.url ? (
+                  <button
+                    className="rounded-md border border-gold/20 px-3 py-2 text-sm text-muted"
+                    onClick={() => navigator.clipboard?.writeText(item.url || "")}
+                    type="button"
+                  >
+                    Copy URL
+                  </button>
+                ) : null}
+                <button
+                  className="rounded-md border border-gold/20 px-3 py-2 text-sm text-muted"
+                  onClick={() => deleteMedia(item.id)}
+                  type="button"
+                >
+                  Delete
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
+        <p className="mt-3 text-base italic text-muted">{mediaStatus}</p>
+      </div>
+
+      <div className="rounded-md border border-gold/15 bg-ink p-5">
+        <p className="font-label text-sm uppercase tracking-[0.2em] text-gold">
+          Quick Apply Image
         </p>
         <div className="mt-4 grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
           <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted">
@@ -747,8 +1163,203 @@ function MediaPanel({
             Upload
           </button>
         </div>
-        <p className="mt-3 text-base italic text-muted">{mediaStatus}</p>
       </div>
+    </div>
+  );
+}
+
+function MovementsPanel({
+  movements,
+  updateMovement
+}: {
+  movements: Movement[];
+  updateMovement: (index: number, patch: Partial<Movement>) => void;
+}) {
+  return (
+    <div className="grid gap-6">
+      <h2 className="font-display text-2xl text-parchment sm:text-3xl">
+        Five Movements
+      </h2>
+      {movements.map((movement, index) => (
+        <FieldGroup key={`${movement.title}-${index}`} title={`Movement ${index + 1}`}>
+          <TextField label="Title" onChange={(value) => updateMovement(index, { title: value })} value={movement.title} />
+          <TextField label="Booklets Label" onChange={(value) => updateMovement(index, { booklets: value })} value={movement.booklets} />
+          <TextField label="Link" onChange={(value) => updateMovement(index, { href: value })} value={movement.href || ""} />
+          <TextAreaField label="Description" onChange={(value) => updateMovement(index, { description: value })} value={movement.description} />
+        </FieldGroup>
+      ))}
+    </div>
+  );
+}
+
+function OrdersPanel({
+  loadOrders,
+  orders,
+  ordersStatus,
+  updateOrderStatus
+}: {
+  loadOrders: () => void;
+  orders: AdminData["orders"];
+  ordersStatus: string;
+  updateOrderStatus: (id: string | undefined, status: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const filteredOrders = orders.filter((order) => {
+    const haystack = [
+      order.orderNumber,
+      order.status,
+      order.customer?.name,
+      order.customer?.phone,
+      order.customer?.email,
+      order.customer?.address,
+      ...(order.items || []).map((item) => item.title)
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(search.toLowerCase());
+  });
+
+  return (
+    <div className="grid gap-6">
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+        <div>
+          <h2 className="font-display text-2xl text-parchment sm:text-3xl">
+            Orders
+          </h2>
+          <p className="mt-2 text-lg text-muted">Search and status updates can be handled from this order list.</p>
+        </div>
+        <button
+          className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
+          onClick={loadOrders}
+          type="button"
+        >
+          <RefreshCw size={16} />
+          Load Orders
+        </button>
+      </div>
+      <TextField label="Search Orders" onChange={setSearch} value={search} />
+      <p className="text-base italic text-muted">{ordersStatus}</p>
+      <div className="grid gap-3">
+        {filteredOrders.map((order, index) => (
+          <article className="rounded-md border border-gold/15 bg-ink p-4" key={`${order.orderNumber}-${index}`}>
+            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+              <div className="flex flex-wrap gap-3 font-label text-xs uppercase tracking-[0.18em] text-gold">
+                <span>{order.orderNumber}</span>
+                <span>{order.status}</span>
+                <span>{order.currency} {Number(order.total || 0).toFixed(2)}</span>
+              </div>
+              <select
+                className="rounded-md border border-gold/20 bg-surface px-3 py-2 text-base text-parchment outline-none focus:border-gold/60"
+                onChange={(event) => updateOrderStatus(order.id, event.target.value)}
+                value={order.status || "pending"}
+              >
+                {["pending", "confirmed", "processing", "shipped", "delivered", "cancelled"].map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="mt-3 text-lg text-parchment">
+              {order.customer?.name || "Customer"} · {order.customer?.phone || "-"} · {order.customer?.email || "-"}
+            </p>
+            <p className="mt-2 text-muted">
+              {(order.items || []).map((item) => `${item.title} x ${item.quantity}`).join(", ")}
+            </p>
+            <p className="mt-2 text-sm text-muted">
+              {order.customer?.address || "No address"}
+            </p>
+          </article>
+        ))}
+        {filteredOrders.length === 0 ? (
+          <p className="text-muted">No matching orders.</p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+/*
+              <span>{order.currency} {Number(order.total || 0).toFixed(2)}</span>
+            </div>
+            <p className="mt-3 text-lg text-parchment">
+              {order.customer?.name} · {order.customer?.phone} · {order.customer?.email}
+            </p>
+            <p className="mt-2 text-muted">
+              {(order.items || []).map((item) => `${item.title} x ${item.quantity}`).join(", ")}
+            </p>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+*/
+
+function SettingsPanel({
+  content,
+  setContent
+}: {
+  content: SiteContent;
+  setContent: React.Dispatch<React.SetStateAction<SiteContent>>;
+}) {
+  const settings = {
+    ...defaultSiteContent.settings,
+    ...(content.settings || {}),
+    seo: {
+      ...defaultSiteContent.settings.seo,
+      ...(content.settings?.seo || {})
+    }
+  };
+
+  function updateSettings(patch: Partial<SiteContent["settings"]>) {
+    setContent((current) => ({
+      ...current,
+      settings: {
+        ...settings,
+        ...patch
+      }
+    }));
+  }
+
+  return (
+    <div className="grid gap-7">
+      <FieldGroup title="Checkout Settings">
+        <TextField label="WhatsApp Number" onChange={(value) => updateSettings({ whatsappNumber: value })} value={settings.whatsappNumber} />
+        <TextField label="Website Name" onChange={(value) => updateSettings({ websiteName: value })} value={settings.websiteName} />
+      </FieldGroup>
+      <FieldGroup title="Contact Information">
+        <TextField label="Contact Email" onChange={(value) => updateSettings({ contactEmail: value })} value={settings.contactEmail} />
+        <TextField label="Contact Phone" onChange={(value) => updateSettings({ contactPhone: value })} value={settings.contactPhone} />
+        <TextAreaField label="Address" onChange={(value) => updateSettings({ address: value })} value={settings.address} />
+      </FieldGroup>
+      <FieldGroup title="Social Media Links">
+        <TextField
+          label="Website"
+          onChange={(value) => updateSettings({ socialLinks: { ...(settings.socialLinks || {}), website: value } })}
+          value={settings.socialLinks?.website || ""}
+        />
+        <TextField
+          label="LinkedIn"
+          onChange={(value) => updateSettings({ socialLinks: { ...(settings.socialLinks || {}), linkedin: value } })}
+          value={settings.socialLinks?.linkedin || ""}
+        />
+        <TextField
+          label="Instagram"
+          onChange={(value) => updateSettings({ socialLinks: { ...(settings.socialLinks || {}), instagram: value } })}
+          value={settings.socialLinks?.instagram || ""}
+        />
+        <TextField
+          label="YouTube"
+          onChange={(value) => updateSettings({ socialLinks: { ...(settings.socialLinks || {}), youtube: value } })}
+          value={settings.socialLinks?.youtube || ""}
+        />
+      </FieldGroup>
+      <FieldGroup title="SEO Settings">
+        <TextField label="SEO Title" onChange={(value) => updateSettings({ seo: { ...settings.seo, title: value } })} value={settings.seo.title || ""} />
+        <TextAreaField label="SEO Description" onChange={(value) => updateSettings({ seo: { ...settings.seo, description: value } })} value={settings.seo.description || ""} />
+        <TextField label="SEO Keywords" onChange={(value) => updateSettings({ seo: { ...settings.seo, keywords: value } })} value={settings.seo.keywords || ""} />
+      </FieldGroup>
     </div>
   );
 }
@@ -759,7 +1370,11 @@ function BookletPanel({
   selectedSlug,
   setSelectedSlug,
   updateBooklet,
+  updateBookStatus,
+  bulkBookStatus,
   addBooklet,
+  mediaItems,
+  movements,
   pdfFile,
   setPdfFile,
   uploadPdf,
@@ -770,12 +1385,21 @@ function BookletPanel({
   selectedSlug: string;
   setSelectedSlug: (slug: string) => void;
   updateBooklet: (slug: string, patch: Partial<Booklet>) => void;
+  updateBookStatus: (slug: string, status: PublishStatus) => void;
+  bulkBookStatus: (status: PublishStatus) => void;
   addBooklet: () => void;
+  mediaItems: MediaAsset[];
+  movements: Movement[];
   pdfFile: File | null;
   setPdfFile: (file: File | null) => void;
   uploadPdf: () => void;
   uploadStatus: string;
 }) {
+  const currentMovementIndex = getBookletMovementIndex(
+    booklet,
+    booklets.findIndex((item) => item.slug === booklet.slug)
+  );
+
   return (
     <div className="grid gap-6">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
@@ -802,6 +1426,57 @@ function BookletPanel({
           Add New Book
         </button>
       </div>
+      <div className="flex flex-wrap gap-3">
+        <button
+          className="rounded-md border border-gold/30 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
+          onClick={() => bulkBookStatus("published")}
+          type="button"
+        >
+          Bulk Publish
+        </button>
+        <button
+          className="rounded-md border border-gold/30 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
+          onClick={() => bulkBookStatus("archived")}
+          type="button"
+        >
+          Bulk Archive
+        </button>
+      </div>
+
+      <div className="rounded-md border border-gold/15 bg-ink p-5">
+        <p className="font-label text-sm uppercase tracking-[0.2em] text-gold">
+          Publishing
+        </p>
+        <div className="mt-4 grid gap-4 md:grid-cols-[1fr_auto_auto_auto_auto] md:items-end">
+          <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted">
+            Status
+            <select
+              className="mt-3 w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-base normal-case tracking-normal text-parchment outline-none focus:border-gold/60"
+              onChange={(event) => updateBookStatus(booklet.slug, event.target.value as PublishStatus)}
+              value={booklet.status || "published"}
+            >
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+              <option value="archived">Archived</option>
+            </select>
+          </label>
+          {([
+            ["Save as Draft", "draft"],
+            ["Publish", "published"],
+            ["Unpublish", "draft"],
+            ["Archive", "archived"]
+          ] as Array<[string, PublishStatus]>).map(([label, statusValue]) => (
+            <button
+              className="rounded-md border border-gold/30 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
+              key={label}
+              onClick={() => updateBookStatus(booklet.slug, statusValue)}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="grid gap-5 md:grid-cols-2">
         <TextField
@@ -819,6 +1494,22 @@ function BookletPanel({
           value={booklet.numberLabel}
         />
       </div>
+      <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted">
+        Movement
+        <select
+          className="mt-3 w-full rounded-md border border-gold/20 bg-ink px-3 py-2 text-base normal-case tracking-normal text-parchment outline-none focus:border-gold/60"
+          onChange={(event) =>
+            updateBooklet(booklet.slug, { movementIndex: Number(event.target.value) })
+          }
+          value={String(currentMovementIndex)}
+        >
+          {movements.map((movement, index) => (
+            <option key={`${movement.title}-${index}`} value={index}>
+              Movement {index + 1}: {movement.title}
+            </option>
+          ))}
+        </select>
+      </label>
       <TextField
         label="Title"
         onChange={(value) => updateBooklet(booklet.slug, { title: value })}
@@ -835,6 +1526,52 @@ function BookletPanel({
         rows={8}
         value={booklet.description}
       />
+      <div className="grid gap-5 md:grid-cols-3">
+        <TextField
+          label="Price"
+          onChange={(value) => updateBooklet(booklet.slug, { price: Number(value) || 0 })}
+          value={String(booklet.price ?? 0)}
+        />
+        <TextField
+          label="Currency"
+          onChange={(value) => updateBooklet(booklet.slug, { currency: value })}
+          value={booklet.currency || "INR"}
+        />
+        <TextField
+          label="Cover Image URL"
+          onChange={(value) => updateBooklet(booklet.slug, { coverImage: value })}
+          value={booklet.coverImage || ""}
+        />
+      </div>
+      <TextField
+        label="Gallery Image URLs (comma separated)"
+        onChange={(value) =>
+          updateBooklet(booklet.slug, {
+            galleryImages: value.split(",").map((item) => item.trim()).filter(Boolean)
+          })
+        }
+        value={(booklet.galleryImages || []).join(", ")}
+      />
+      <div className="grid gap-5 md:grid-cols-2">
+        <TextField
+          label="Categories (comma separated)"
+          onChange={(value) =>
+            updateBooklet(booklet.slug, {
+              categories: value.split(",").map((item) => item.trim()).filter(Boolean)
+            })
+          }
+          value={(booklet.categories || []).join(", ")}
+        />
+        <TextField
+          label="Tags (comma separated)"
+          onChange={(value) =>
+            updateBooklet(booklet.slug, {
+              tags: value.split(",").map((item) => item.trim()).filter(Boolean)
+            })
+          }
+          value={(booklet.tags || []).join(", ")}
+        />
+      </div>
       <div className="grid gap-5 md:grid-cols-2">
         <TextField
           label="Sources Note"
@@ -852,6 +1589,97 @@ function BookletPanel({
         onChange={(value) => updateBooklet(booklet.slug, { pdf: value })}
         value={booklet.pdf || ""}
       />
+      <TextField
+        label="PDF Sample Path"
+        onChange={(value) => updateBooklet(booklet.slug, { samplePdf: value })}
+        value={booklet.samplePdf || ""}
+      />
+      {mediaItems.length > 0 ? (
+        <FieldGroup title="Reuse Existing Media">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {mediaItems.map((item) => {
+              const mediaUrl = item.url?.startsWith("/") ? apiUrl(item.url) : item.url || "";
+
+              return (
+                <article className="rounded-md border border-gold/15 bg-surface p-4" key={item.id || item.url}>
+                  <p className="truncate text-base text-parchment">{item.name || "Media"}</p>
+                  <p className="mt-1 font-label text-xs uppercase tracking-[0.18em] text-muted">
+                    {item.kind}
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {item.kind === "image" ? (
+                      <>
+                        <button
+                          className="rounded-md border border-gold/20 px-3 py-2 text-sm text-muted"
+                          onClick={() => updateBooklet(booklet.slug, { coverImage: mediaUrl })}
+                          type="button"
+                        >
+                          Use Cover
+                        </button>
+                        <button
+                          className="rounded-md border border-gold/20 px-3 py-2 text-sm text-muted"
+                          onClick={() =>
+                            updateBooklet(booklet.slug, {
+                              galleryImages: [...(booklet.galleryImages || []), mediaUrl]
+                            })
+                          }
+                          type="button"
+                        >
+                          Add Gallery
+                        </button>
+                      </>
+                    ) : null}
+                    {item.kind === "pdf" ? (
+                      <>
+                        <button
+                          className="rounded-md border border-gold/20 px-3 py-2 text-sm text-muted"
+                          onClick={() => updateBooklet(booklet.slug, { pdf: mediaUrl })}
+                          type="button"
+                        >
+                          Use PDF
+                        </button>
+                        <button
+                          className="rounded-md border border-gold/20 px-3 py-2 text-sm text-muted"
+                          onClick={() => updateBooklet(booklet.slug, { samplePdf: mediaUrl })}
+                          type="button"
+                        >
+                          Use Sample
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+          <p className="text-sm text-muted">
+            Load media in the Media tab first, then reuse files here.
+          </p>
+        </FieldGroup>
+      ) : null}
+      <FieldGroup title="Book SEO">
+        <TextField
+          label="SEO Title"
+          onChange={(value) =>
+            updateBooklet(booklet.slug, { seo: { ...(booklet.seo || {}), title: value } })
+          }
+          value={booklet.seo?.title || ""}
+        />
+        <TextAreaField
+          label="SEO Description"
+          onChange={(value) =>
+            updateBooklet(booklet.slug, { seo: { ...(booklet.seo || {}), description: value } })
+          }
+          value={booklet.seo?.description || ""}
+        />
+        <TextField
+          label="SEO Keywords"
+          onChange={(value) =>
+            updateBooklet(booklet.slug, { seo: { ...(booklet.seo || {}), keywords: value } })
+          }
+          value={booklet.seo?.keywords || ""}
+        />
+      </FieldGroup>
 
       <div className="rounded-md border border-gold/15 bg-ink p-5">
         <p className="font-label text-sm uppercase tracking-[0.2em] text-gold">
@@ -986,7 +1814,8 @@ function EssaysPanel({
   selectedSlug,
   setSelectedSlug,
   updateEssay,
-  addEssay
+  addEssay,
+  mediaItems
 }: {
   essays: Essay[];
   essay: Essay;
@@ -994,6 +1823,7 @@ function EssaysPanel({
   setSelectedSlug: (slug: string) => void;
   updateEssay: (slug: string, patch: Partial<Essay>) => void;
   addEssay: () => void;
+  mediaItems: MediaAsset[];
 }) {
   return (
     <div className="grid gap-6">
@@ -1035,6 +1865,39 @@ function EssaysPanel({
         onChange={(value) => updateEssay(essay.slug, { title: value })}
         value={essay.title}
       />
+      <div className="rounded-md border border-gold/15 bg-ink p-5">
+        <p className="font-label text-sm uppercase tracking-[0.2em] text-gold">
+          Publishing
+        </p>
+        <div className="mt-4 grid gap-4 md:grid-cols-[1fr_auto_auto_auto] md:items-end">
+          <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted">
+            Status
+            <select
+              className="mt-3 w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-base normal-case tracking-normal text-parchment outline-none focus:border-gold/60"
+              onChange={(event) => updateEssay(essay.slug, { status: event.target.value as PublishStatus })}
+              value={essay.status || "published"}
+            >
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+              <option value="archived">Archived</option>
+            </select>
+          </label>
+          {([
+            ["Save Draft", "draft"],
+            ["Publish", "published"],
+            ["Archive", "archived"]
+          ] as Array<[string, PublishStatus]>).map(([label, statusValue]) => (
+            <button
+              className="rounded-md border border-gold/30 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
+              key={label}
+              onClick={() => updateEssay(essay.slug, { status: statusValue })}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="grid gap-5 md:grid-cols-3">
         <TextField
           label="Date"
@@ -1057,6 +1920,61 @@ function EssaysPanel({
         onChange={(value) => updateEssay(essay.slug, { excerpt: value })}
         value={essay.excerpt}
       />
+      <TextField
+        label="Featured Image URL"
+        onChange={(value) => updateEssay(essay.slug, { featuredImage: value })}
+        value={essay.featuredImage || ""}
+      />
+      {mediaItems.length > 0 ? (
+        <FieldGroup title="Reuse Existing Images">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {mediaItems
+              .filter((item) => item.kind === "image")
+              .map((item) => {
+                const mediaUrl = item.url?.startsWith("/") ? apiUrl(item.url) : item.url || "";
+
+                return (
+                  <article className="rounded-md border border-gold/15 bg-surface p-4" key={item.id || item.url}>
+                    <p className="truncate text-base text-parchment">{item.name || "Image"}</p>
+                    <button
+                      className="mt-3 rounded-md border border-gold/20 px-3 py-2 text-sm text-muted"
+                      onClick={() => updateEssay(essay.slug, { featuredImage: mediaUrl })}
+                      type="button"
+                    >
+                      Use Featured Image
+                    </button>
+                  </article>
+                );
+              })}
+          </div>
+          <p className="text-sm text-muted">
+            Load media in the Media tab first, then reuse images here.
+          </p>
+        </FieldGroup>
+      ) : null}
+      <TextAreaField
+        label="Rich Text Content"
+        onChange={(value) => updateEssay(essay.slug, { content: toParagraphs(value) })}
+        rows={12}
+        value={fromParagraphs(essay.content || [])}
+      />
+      <FieldGroup title="Post SEO">
+        <TextField
+          label="SEO Title"
+          onChange={(value) => updateEssay(essay.slug, { seo: { ...(essay.seo || {}), title: value } })}
+          value={essay.seo?.title || ""}
+        />
+        <TextAreaField
+          label="SEO Description"
+          onChange={(value) => updateEssay(essay.slug, { seo: { ...(essay.seo || {}), description: value } })}
+          value={essay.seo?.description || ""}
+        />
+        <TextField
+          label="SEO Keywords"
+          onChange={(value) => updateEssay(essay.slug, { seo: { ...(essay.seo || {}), keywords: value } })}
+          value={essay.seo?.keywords || ""}
+        />
+      </FieldGroup>
     </div>
   );
 }

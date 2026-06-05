@@ -66,10 +66,10 @@ export default async function HomePage() {
           </p>
         </div>
         <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          {home.seriesOverview.movements.map((movement) => (
+          {home.seriesOverview.movements.map((movement, index) => (
             <Link
               className="group block rounded-md border border-gold/15 bg-surface/72 p-5 transition hover:border-gold/40"
-              href={movement.href || "/series"}
+              href={`/series#movement-${index + 1}`}
               key={movement.title}
             >
               <p className="font-label text-xs uppercase tracking-[0.23em] text-gold/80">
@@ -81,6 +81,9 @@ export default async function HomePage() {
               <p className="mt-4 text-lg leading-7 text-muted">
                 {movement.description}
               </p>
+              <span className="mt-6 inline-flex font-label text-xs uppercase tracking-[0.2em] text-gold">
+                Explore Books
+              </span>
             </Link>
           ))}
         </div>
