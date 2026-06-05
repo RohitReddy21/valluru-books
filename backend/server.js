@@ -1131,13 +1131,19 @@ app.post(
         return;
       }
 
-      await saveGridFile("booklet_pdfs", pdfFilename(bookletSlug), file, "application/pdf", {
-        bookletSlug,
-        originalName: file.originalname,
-        uploadedAt: new Date()
-      }, true);
-
-      const publicUrl = `/api/booklets/${bookletSlug}/pdf`;
+      let publicUrl;
+      if (hasCloudinaryConfig()) {
+        const cloudinary = await uploadToCloudinary(file, "valluru/books/pdfs");
+        publicUrl = cloudinary.secure_url;
+      } else {
+        await saveGridFile("booklet_pdfs", pdfFilename(bookletSlug), file, "application/pdf", {
+          bookletSlug,
+          originalName: file.originalname,
+          uploadedAt: new Date()
+        }, true);
+        publicUrl = `/api/booklets/${bookletSlug}/pdf`;
+      }
+      
       booklet.pdf = publicUrl;
       await saveSiteContent(content);
 
@@ -1188,13 +1194,19 @@ app.post(
         return;
       }
 
-      await saveGridFile("movement_pdfs", `movement-${movementIndex}.pdf`, file, "application/pdf", {
-        movementIndex,
-        originalName: file.originalname,
-        uploadedAt: new Date()
-      }, true);
-
-      const publicUrl = `/api/movements/${movementIndex}/pdf`;
+      let publicUrl;
+      if (hasCloudinaryConfig()) {
+        const cloudinary = await uploadToCloudinary(file, "valluru/movements/pdfs");
+        publicUrl = cloudinary.secure_url;
+      } else {
+        await saveGridFile("movement_pdfs", `movement-${movementIndex}.pdf`, file, "application/pdf", {
+          movementIndex,
+          originalName: file.originalname,
+          uploadedAt: new Date()
+        }, true);
+        publicUrl = `/api/movements/${movementIndex}/pdf`;
+      }
+      
       movement.pdf = publicUrl;
       await saveSiteContent(content);
 
@@ -1270,6 +1282,11 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
       return;
     }
 
+    if (booklet.pdf && /^https?:\/\//.test(booklet.pdf)) {
+      response.redirect(302, booklet.pdf);
+      return;
+    }
+
     const dbFile = hasMongoConfig()
       ? await readGridFileByName("booklet_pdfs", pdfFilename(slug))
       : null;
@@ -1282,25 +1299,6 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
           "Cache-Control": "private, max-age=0, no-store"
         })
         .send(dbFile.file);
-      return;
-    }
-
-    if (booklet.pdf && /^https?:\/\//.test(booklet.pdf)) {
-      const remote = await fetch(booklet.pdf);
-
-      if (!remote.ok) {
-        response.status(remote.status).json({ error: "The remote PDF could not be loaded." });
-        return;
-      }
-
-      const file = Buffer.from(await remote.arrayBuffer());
-      response
-        .set({
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `inline; filename="${slug}.pdf"`,
-          "Cache-Control": "private, max-age=0, no-store"
-        })
-        .send(file);
       return;
     }
 
@@ -1321,6 +1319,11 @@ app.get("/api/movements/:index/pdf", async (request, response, next) => {
       return;
     }
 
+    if (movement.pdf && /^https?:\/\//.test(movement.pdf)) {
+      response.redirect(302, movement.pdf);
+      return;
+    }
+
     const dbFile = hasMongoConfig()
       ? await readGridFileByName("movement_pdfs", `movement-${index}.pdf`)
       : null;
@@ -1333,25 +1336,6 @@ app.get("/api/movements/:index/pdf", async (request, response, next) => {
           "Cache-Control": "private, max-age=0, no-store"
         })
         .send(dbFile.file);
-      return;
-    }
-
-    if (movement.pdf && /^https?:\/\//.test(movement.pdf)) {
-      const remote = await fetch(movement.pdf);
-
-      if (!remote.ok) {
-        response.status(remote.status).json({ error: "The remote PDF could not be loaded." });
-        return;
-      }
-
-      const file = Buffer.from(await remote.arrayBuffer());
-      response
-        .set({
-          "Content-Type": "application/pdf",
-          "Content-Disposition": `inline; filename="movement-${index}.pdf"`,
-          "Cache-Control": "private, max-age=0, no-store"
-        })
-        .send(file);
       return;
     }
 

@@ -45,14 +45,15 @@ export function PdfBookModal({
         const pdfjs = await import("pdfjs-dist");
         pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
 
+        const isExternal = /^https?:\/\//.test(pdfUrl);
         const loadingParams = {
           url: pdfUrl,
-          httpHeaders: accessToken
+          httpHeaders: (!isExternal && accessToken)
             ? {
                 Authorization: `Bearer ${accessToken}`
               }
             : undefined,
-          withCredentials: true
+          withCredentials: !isExternal
         } as Parameters<typeof pdfjs.getDocument>[0];
         const pdf = await pdfjs.getDocument(loadingParams).promise;
         const renderedPages: PdfPage[] = [];

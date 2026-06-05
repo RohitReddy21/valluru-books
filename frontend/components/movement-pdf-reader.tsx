@@ -18,6 +18,10 @@ export function MovementPdfReader({ movement, movementIndex }: Props) {
     return null;
   }
 
+  const pdfUrl = /^https?:\/\//.test(movement.pdf) 
+    ? movement.pdf 
+    : apiUrl(`/api/movements/${movementIndex}/pdf`);
+
   return (
     <>
       <div className="mt-12 rounded-md border border-gold/15 bg-surface/70 p-6 sm:p-8">
@@ -46,7 +50,7 @@ export function MovementPdfReader({ movement, movementIndex }: Props) {
           numberLabel={movement.booklets}
           onClose={() => setReaderOpen(false)}
           open={readerOpen}
-          pdfUrl={apiUrl(`/api/movements/${movementIndex}/pdf`)}
+          pdfUrl={pdfUrl}
           title={movement.title}
         />
       ) : null}
