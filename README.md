@@ -67,7 +67,7 @@ API_BASE_URL=http://127.0.0.1:4000
 
 ## Admin Editing
 
-Open `/admin`, enter `ADMIN_PASSWORD`, and edit the site through form fields. The admin page can edit text, navigation, home and page images, booklets, essays, and uploaded PDFs.
+Open `/admin`, enter `ADMIN_PASSWORD`, and edit the site through form fields. The admin page can edit text, navigation, home and page images, booklets, and uploaded PDFs.
 
 All saved data goes through the backend into MongoDB:
 

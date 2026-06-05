@@ -29,10 +29,6 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
       ...defaultSiteContent.series,
       ...(content?.series || {})
     },
-    essays: {
-      ...defaultSiteContent.essays,
-      ...(content?.essays || {})
-    },
     about: {
       ...defaultSiteContent.about,
       ...(content?.about || {})

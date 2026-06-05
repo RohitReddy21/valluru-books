@@ -42,19 +42,6 @@ export type Booklet = {
   tag: string;
 };
 
-export type Essay = {
-  slug: string;
-  status?: PublishStatus;
-  date: string;
-  category: string;
-  readingTime: string;
-  title: string;
-  excerpt: string;
-  content?: string[];
-  featuredImage?: string;
-  seo?: SeoMetadata;
-};
-
 export type SiteMedia = {
   homeHeroImage: string;
   pageHeroImage: string;
@@ -107,12 +94,6 @@ export type SiteContent = {
     readingOrderNote: string;
     booklets: Booklet[];
     closing: string[];
-  };
-  essays: {
-    title: string;
-    subtitle: string;
-    items: Essay[];
-    cta: Cta;
   };
   about: {
     title: string;
@@ -376,71 +357,6 @@ export const defaultSiteContent: SiteContent = {
       "The Inward Fire Series is not meant to create followers. It is meant to give the seeker a place to sit with difficult things. Dharma. Grief. Language. Responsibility. Death. Memory. Surrender. Bhagavān.",
       "Read slowly. Return when needed."
     ]
-  },
-  essays: {
-    title: "Essays & Reflections",
-    subtitle:
-      "Long-form writing on dharma, grief, bhakti, language, and the inner life.",
-    items: [
-      {
-        slug: "when-the-gods-fall-silent",
-        date: "June 2026",
-        category: "Dharma",
-        readingTime: "7 min",
-        title: "When the Gods Fall Silent",
-        excerpt:
-          "There are moments when prayer does not return as comfort. No answer comes. No sign appears. Yet in that silence, something deeper begins..."
-      },
-      {
-        slug: "grief-as-a-doorway-into-dharma",
-        date: "June 2026",
-        category: "Grief",
-        readingTime: "8 min",
-        title: "Grief as a Doorway into Dharma",
-        excerpt:
-          "Grief arrives without warning. It does not wait for an appropriate moment. It is not interested in our schedules or our composure..."
-      },
-      {
-        slug: "why-achievement-does-not-settle-the-heart",
-        date: "June 2026",
-        category: "Dharma",
-        readingTime: "6 min",
-        title: "Why Achievement Does Not Settle the Heart",
-        excerpt:
-          "The resume grows. The house grows. The reputation grows. And yet there is a particular exhaustion that no promotion ever touched..."
-      },
-      {
-        slug: "bhakti-without-performance",
-        date: "June 2026",
-        category: "Bhakti",
-        readingTime: "5 min",
-        title: "Bhakti Without Performance",
-        excerpt:
-          "We have learned to perform devotion. The pose, the shawl, the Sanskrit words dropped carefully into conversation. But Bhagavān is not impressed by costume..."
-      },
-      {
-        slug: "the-chiranjeevi-who-remained",
-        date: "June 2026",
-        category: "Dharma",
-        readingTime: "7 min",
-        title: "The Chiranjeevi Who Remained",
-        excerpt:
-          "Some beings remain. Not as ornaments. Not as myth. As witnesses to the long, patient work of grace in a world that keeps forgetting..."
-      },
-      {
-        slug: "what-the-gita-says-to-the-tired-professional",
-        date: "June 2026",
-        category: "Dharma",
-        readingTime: "6 min",
-        title: "What the Gita Says to the Tired Professional",
-        excerpt:
-          "You have optimized everything. And still, in the quiet between calls, there is a tiredness that no productivity system addresses..."
-      }
-    ],
-    cta: {
-      label: "Subscribe to The Inward Fire Letter for new essays",
-      href: "/#newsletter"
-    }
   },
   about: {
     title: "Sasidhar Valluru",

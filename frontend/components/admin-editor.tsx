@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Eye, ImageIcon, Package, Plus, RefreshCw, RotateCcw, Save, Upload } from "lucide-react";
 import { apiUrl } from "@/lib/api";
-import type { Booklet, Essay, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
+import type { Booklet, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
 import { defaultSiteContent, getBookletMovementIndex } from "@/lib/site-content";
 
 type Props = {
@@ -11,7 +11,7 @@ type Props = {
   source: string;
 };
 
-type Tab = "dashboard" | "booklets" | "movements" | "pages" | "essays" | "media" | "orders" | "settings" | "navigation";
+type Tab = "dashboard" | "booklets" | "movements" | "pages" | "media" | "orders" | "settings" | "navigation";
 type MediaTarget = "homeHeroImage" | "pageHeroImage" | "authorImage";
 
 type AdminData = {
@@ -123,9 +123,6 @@ export function AdminEditor({ initialContent, source }: Props) {
   const [selectedBookletSlug, setSelectedBookletSlug] = useState(
     initialContent.series.booklets[0]?.slug || ""
   );
-  const [selectedEssaySlug, setSelectedEssaySlug] = useState(
-    initialContent.essays.items[0]?.slug || ""
-  );
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [status, setStatus] = useState("Edit content and save.");
   const [uploadStatus, setUploadStatus] = useState(
@@ -149,12 +146,6 @@ export function AdminEditor({ initialContent, source }: Props) {
       content.series.booklets[0],
     [content.series.booklets, selectedBookletSlug]
   );
-  const selectedEssay = useMemo(
-    () =>
-      content.essays.items.find((essay) => essay.slug === selectedEssaySlug) ||
-      content.essays.items[0],
-    [content.essays.items, selectedEssaySlug]
-  );
 
   function updateBooklet(slug: string, patch: Partial<Booklet>) {
     setContent((current) => ({
@@ -163,18 +154,6 @@ export function AdminEditor({ initialContent, source }: Props) {
         ...current.series,
         booklets: current.series.booklets.map((booklet) =>
           booklet.slug === slug ? { ...booklet, ...patch } : booklet
-        )
-      }
-    }));
-  }
-
-  function updateEssay(slug: string, patch: Partial<Essay>) {
-    setContent((current) => ({
-      ...current,
-      essays: {
-        ...current.essays,
-        items: current.essays.items.map((essay) =>
-          essay.slug === slug ? { ...essay, ...patch } : essay
         )
       }
     }));
@@ -357,28 +336,6 @@ export function AdminEditor({ initialContent, source }: Props) {
     }));
     setSelectedBookletSlug(newBooklet.slug);
     setTab("booklets");
-  }
-
-  function addEssay() {
-    const newEssay: Essay = {
-      slug: "new-essay",
-      status: "draft",
-      date: "June 2026",
-      category: "Dharma",
-      readingTime: "5 min",
-      title: "New Essay",
-      excerpt: "Add the essay excerpt here."
-    };
-
-    setContent((current) => ({
-      ...current,
-      essays: {
-        ...current.essays,
-        items: [...current.essays.items, newEssay]
-      }
-    }));
-    setSelectedEssaySlug(newEssay.slug);
-    setTab("essays");
   }
 
   function updateMovement(index: number, patch: Partial<Movement>) {
@@ -571,7 +528,7 @@ export function AdminEditor({ initialContent, source }: Props) {
             </button>
 
             <div className="mt-5 grid gap-2">
-              {(["dashboard", "booklets", "movements", "pages", "essays", "media", "orders", "settings", "navigation"] as Tab[]).map((item) => (
+              {(["dashboard", "booklets", "movements", "pages", "media", "orders", "settings", "navigation"] as Tab[]).map((item) => (
                 <button
                   className={`rounded-md border px-4 py-3 text-left font-label text-sm uppercase tracking-[0.18em] transition ${
                     tab === item
@@ -643,18 +600,6 @@ export function AdminEditor({ initialContent, source }: Props) {
 
             {tab === "pages" ? (
               <PagesPanel content={content} setContent={setContent} />
-            ) : null}
-
-            {tab === "essays" && selectedEssay ? (
-              <EssaysPanel
-                addEssay={addEssay}
-                essay={selectedEssay}
-                essays={content.essays.items}
-                mediaItems={mediaItems}
-                selectedSlug={selectedEssaySlug}
-                setSelectedSlug={setSelectedEssaySlug}
-                updateEssay={updateEssay}
-              />
             ) : null}
 
             {tab === "media" ? (
@@ -1802,177 +1747,6 @@ function PagesPanel({
           }
           rows={7}
           value={fromParagraphs(content.about.bio)}
-        />
-      </FieldGroup>
-    </div>
-  );
-}
-
-function EssaysPanel({
-  essays,
-  essay,
-  selectedSlug,
-  setSelectedSlug,
-  updateEssay,
-  addEssay,
-  mediaItems
-}: {
-  essays: Essay[];
-  essay: Essay;
-  selectedSlug: string;
-  setSelectedSlug: (slug: string) => void;
-  updateEssay: (slug: string, patch: Partial<Essay>) => void;
-  addEssay: () => void;
-  mediaItems: MediaAsset[];
-}) {
-  return (
-    <div className="grid gap-6">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-        <label className="block flex-1 font-label text-sm uppercase tracking-[0.2em] text-muted">
-          Choose Essay
-          <select
-            className="mt-3 w-full rounded-md border border-gold/20 bg-ink px-3 py-2 text-base normal-case tracking-normal text-parchment outline-none focus:border-gold/60"
-            onChange={(event) => setSelectedSlug(event.target.value)}
-            value={selectedSlug}
-          >
-            {essays.map((item) => (
-              <option key={item.slug} value={item.slug}>
-                {item.title}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
-          onClick={addEssay}
-          type="button"
-        >
-          <Plus size={16} />
-          Add Essay
-        </button>
-      </div>
-      <TextField
-        label="Slug"
-        onChange={(value) => {
-          const nextSlug = slugify(value);
-          updateEssay(essay.slug, { slug: nextSlug });
-          setSelectedSlug(nextSlug);
-        }}
-        value={essay.slug}
-      />
-      <TextField
-        label="Title"
-        onChange={(value) => updateEssay(essay.slug, { title: value })}
-        value={essay.title}
-      />
-      <div className="rounded-md border border-gold/15 bg-ink p-5">
-        <p className="font-label text-sm uppercase tracking-[0.2em] text-gold">
-          Publishing
-        </p>
-        <div className="mt-4 grid gap-4 md:grid-cols-[1fr_auto_auto_auto] md:items-end">
-          <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted">
-            Status
-            <select
-              className="mt-3 w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-base normal-case tracking-normal text-parchment outline-none focus:border-gold/60"
-              onChange={(event) => updateEssay(essay.slug, { status: event.target.value as PublishStatus })}
-              value={essay.status || "published"}
-            >
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
-              <option value="archived">Archived</option>
-            </select>
-          </label>
-          {([
-            ["Save Draft", "draft"],
-            ["Publish", "published"],
-            ["Archive", "archived"]
-          ] as Array<[string, PublishStatus]>).map(([label, statusValue]) => (
-            <button
-              className="rounded-md border border-gold/30 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
-              key={label}
-              onClick={() => updateEssay(essay.slug, { status: statusValue })}
-              type="button"
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="grid gap-5 md:grid-cols-3">
-        <TextField
-          label="Date"
-          onChange={(value) => updateEssay(essay.slug, { date: value })}
-          value={essay.date}
-        />
-        <TextField
-          label="Category"
-          onChange={(value) => updateEssay(essay.slug, { category: value })}
-          value={essay.category}
-        />
-        <TextField
-          label="Reading Time"
-          onChange={(value) => updateEssay(essay.slug, { readingTime: value })}
-          value={essay.readingTime}
-        />
-      </div>
-      <TextAreaField
-        label="Excerpt"
-        onChange={(value) => updateEssay(essay.slug, { excerpt: value })}
-        value={essay.excerpt}
-      />
-      <TextField
-        label="Featured Image URL"
-        onChange={(value) => updateEssay(essay.slug, { featuredImage: value })}
-        value={essay.featuredImage || ""}
-      />
-      {mediaItems.length > 0 ? (
-        <FieldGroup title="Reuse Existing Images">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {mediaItems
-              .filter((item) => item.kind === "image")
-              .map((item) => {
-                const mediaUrl = item.url?.startsWith("/") ? apiUrl(item.url) : item.url || "";
-
-                return (
-                  <article className="rounded-md border border-gold/15 bg-surface p-4" key={item.id || item.url}>
-                    <p className="truncate text-base text-parchment">{item.name || "Image"}</p>
-                    <button
-                      className="mt-3 rounded-md border border-gold/20 px-3 py-2 text-sm text-muted"
-                      onClick={() => updateEssay(essay.slug, { featuredImage: mediaUrl })}
-                      type="button"
-                    >
-                      Use Featured Image
-                    </button>
-                  </article>
-                );
-              })}
-          </div>
-          <p className="text-sm text-muted">
-            Load media in the Media tab first, then reuse images here.
-          </p>
-        </FieldGroup>
-      ) : null}
-      <TextAreaField
-        label="Rich Text Content"
-        onChange={(value) => updateEssay(essay.slug, { content: toParagraphs(value) })}
-        rows={12}
-        value={fromParagraphs(essay.content || [])}
-      />
-      <FieldGroup title="Post SEO">
-        <TextField
-          label="SEO Title"
-          onChange={(value) => updateEssay(essay.slug, { seo: { ...(essay.seo || {}), title: value } })}
-          value={essay.seo?.title || ""}
-        />
-        <TextAreaField
-          label="SEO Description"
-          onChange={(value) => updateEssay(essay.slug, { seo: { ...(essay.seo || {}), description: value } })}
-          value={essay.seo?.description || ""}
-        />
-        <TextField
-          label="SEO Keywords"
-          onChange={(value) => updateEssay(essay.slug, { seo: { ...(essay.seo || {}), keywords: value } })}
-          value={essay.seo?.keywords || ""}
         />
       </FieldGroup>
     </div>

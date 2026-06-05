@@ -1031,7 +1031,6 @@ app.get("/api/admin/data", verifyAdmin, async (_request, response, next) => {
     const db = await getDb();
     const content = await getSiteContent();
     const booklets = content?.series?.booklets || [];
-    const essays = content?.essays?.items || [];
     const [subscribers, comments, bookletReaders, orders, recentMedia, counts] = await Promise.all([
       db.collection("subscribers").find({}).sort({ updatedAt: -1 }).limit(100).project({ _id: 0 }).toArray(),
       db.collection("comments").find({}).sort({ createdAt: -1 }).limit(100).project({ _id: 0 }).toArray(),
@@ -1063,9 +1062,7 @@ app.get("/api/admin/data", verifyAdmin, async (_request, response, next) => {
         orders: counts[6],
         draftBooks: statusCount(booklets, "draft"),
         publishedBooks: statusCount(booklets, "published"),
-        archivedBooks: statusCount(booklets, "archived"),
-        draftPosts: statusCount(essays, "draft"),
-        publishedPosts: statusCount(essays, "published")
+        archivedBooks: statusCount(booklets, "archived")
       },
       subscribers,
       bookletReaders,
