@@ -12,6 +12,10 @@ import {
 import { getSiteContent } from "@/lib/content-store";
 import { defaultSiteContent } from "@/lib/site-content";
 
+function slugifyMovement(title: string) {
+  return title.toLowerCase().replace(/\s+/g, "-");
+}
+
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
@@ -67,24 +71,21 @@ export default async function HomePage() {
             {home.seriesOverview.intro}
           </p>
         </div>
-        <div className="mt-12 grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          {home.seriesOverview.movements.map((movement, index) => (
+        <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {home.seriesOverview.movements.map((movement) => (
             <Link
-              className="group block rounded-md border border-gold/15 bg-surface/72 p-5 transition hover:border-gold/40"
-              href={`/series#movement-${index + 1}`}
+              className="group block rounded-md border border-gold/15 bg-surface/72 p-6 transition hover:border-gold/40"
+              href={`/movements/${slugifyMovement(movement.title)}`}
               key={movement.title}
             >
-              <p className="font-label text-xs uppercase tracking-[0.23em] text-gold/80">
-                Booklets {movement.booklets}
-              </p>
-              <h3 className="mt-4 font-display text-xl leading-tight text-parchment group-hover:text-gold sm:text-2xl">
+              <h3 className="font-display text-xl leading-tight text-parchment group-hover:text-gold sm:text-2xl">
                 {movement.title}
               </h3>
               <p className="mt-4 text-lg leading-7 text-muted">
                 {movement.description}
               </p>
               <span className="mt-6 inline-flex font-label text-xs uppercase tracking-[0.2em] text-gold">
-                Explore Books
+                Explore Movement
               </span>
             </Link>
           ))}

@@ -114,7 +114,7 @@ export function SecondaryLink({ cta }: { cta: Cta }) {
 
 export function BookletCard({ booklet }: { booklet: Booklet }) {
   return (
-    <article className="border-t border-gold/15 py-10 first:border-t-0">
+    <article className="rounded-md border border-gold/15 bg-surface/72 p-6 transition hover:border-gold/40">
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <span className="font-label text-sm uppercase tracking-[0.24em] text-gold">
           {booklet.numberLabel}
