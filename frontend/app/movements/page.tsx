@@ -32,8 +32,8 @@ export default async function MovementsPage() {
         <div className="mt-12 grid gap-4 md:grid-cols-3 lg:grid-cols-5">
           {movements.map((movement) => (
             <Link
-              key={movement.title}
-              href={`/movements/${slugifyMovement(movement.title)}`}
+              key={movement.slug}
+              href={`/movements/${movement.slug}`}
               className="group block rounded-md border border-gold/15 bg-surface/72 p-4 transition hover:border-gold/40"
             >
               <h3 className="font-display text-lg leading-tight text-parchment group-hover:text-gold">

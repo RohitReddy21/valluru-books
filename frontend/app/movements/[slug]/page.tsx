@@ -6,13 +6,9 @@ import { getSiteContent } from "@/lib/content-store";
 
 export const dynamic = "force-dynamic";
 
-function slugifyMovement(title: string) {
-  return title.toLowerCase().replace(/\s+/g, "-");
-}
-
 export function generateStaticParams() {
   return defaultSiteContent.home.seriesOverview.movements.map((movement) => ({
-    slug: slugifyMovement(movement.title)
+    slug: movement.slug
   }));
 }
 
@@ -24,7 +20,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const content = await getSiteContent();
   const movement = content.home.seriesOverview.movements.find(
-    (m) => slugifyMovement(m.title) === slug
+    (m) => m.slug === slug
   );
 
   return {
@@ -44,7 +40,7 @@ export default async function MovementDetailPage({
   const media = { ...defaultSiteContent.media, ...(content.media || {}) };
   
   const movementIndex = content.home.seriesOverview.movements.findIndex(
-    (m) => slugifyMovement(m.title) === slug
+    (m) => m.slug === slug
   );
 
   if (movementIndex === -1) {
