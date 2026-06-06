@@ -2,7 +2,7 @@ import Link from "next/link";
 import { NewsletterForm } from "@/components/newsletter-form";
 import { BookletCard, PageHeader, PageShell, ProseBlocks, Section, WideSection } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
-import { defaultSiteContent, getBookletMovementIndex, isPublished } from "@/lib/site-content";
+import { defaultSiteContent, isPublished } from "@/lib/site-content";
 
 export const dynamic = "force-dynamic";
 
@@ -12,14 +12,6 @@ export default async function SeriesPage() {
   const publishedBooklets = series.booklets.filter((booklet) =>
     isPublished(booklet.status)
   );
-  const groupedBooklets = home.seriesOverview.movements.map((movement, movementIndex) => ({
-    movement,
-    booklets: publishedBooklets.filter((booklet) => {
-      const sourceIndex = series.booklets.findIndex((item) => item.slug === booklet.slug);
-
-      return getBookletMovementIndex(booklet, sourceIndex) === movementIndex;
-    })
-  }));
   const media = { ...defaultSiteContent.media, ...(content.media || {}) };
 
   return (

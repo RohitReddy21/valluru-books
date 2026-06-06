@@ -1,20 +1,39 @@
 const cors = require("cors");
 const dotenv = require("dotenv");
 const express = require("express");
+const { v2: cloudinary } = require("cloudinary");
 const { GridFSBucket, MongoClient, ObjectId } = require("mongodb");
 const multer = require("multer");
 const { Resend } = require("resend");
 const crypto = require("node:crypto");
+const fs = require("node:fs");
+const fsp = require("node:fs/promises");
+const os = require("node:os");
+const path = require("node:path");
 const { Readable } = require("node:stream");
+const { pipeline } = require("node:stream/promises");
 
 dotenv.config();
 dotenv.config({ path: ".env.local", override: false });
 
 const app = express();
+const uploadTempDir = path.join(os.tmpdir(), "valluru-uploads");
+
+fs.mkdirSync(uploadTempDir, { recursive: true });
+
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage: multer.diskStorage({
+    destination(_request, _file, callback) {
+      callback(null, uploadTempDir);
+    },
+    filename(_request, file, callback) {
+      const extension = path.extname(file.originalname || "");
+      const safeName = crypto.randomBytes(16).toString("hex");
+      callback(null, `${Date.now()}-${safeName}${extension}`);
+    }
+  }),
   limits: {
-    fileSize: 500 * 1024 * 1024 // 500MB limit
+    fileSize: Number(process.env.MAX_UPLOAD_BYTES || 200 * 1024 * 1024)
   }
 });
 
@@ -213,79 +232,68 @@ function pdfFilename(slug) {
   return `${slug}.pdf`;
 }
 
-async function saveGridFile(
-  bucketName,
-  filename,
-  file,
-  contentType,
-  metadata = {},
-  replaceExisting = false
-) {
-  const db = await getDb();
-  const bucket = await getBucket(bucketName);
-  const filesCollection = `${bucketName}.files`;
-  const chunksCollection = `${bucketName}.chunks`;
-
-  if (replaceExisting) {
-    const existingFiles = await db
-      .collection(filesCollection)
-      .find({ filename })
-      .toArray();
-    const existingIds = existingFiles.map((fileDoc) => fileDoc._id);
-
-    if (existingIds.length > 0) {
-      await db.collection(chunksCollection).deleteMany({ files_id: { $in: existingIds } });
-      await db.collection(filesCollection).deleteMany({ _id: { $in: existingIds } });
-    }
-  }
-
-  return new Promise((resolve, reject) => {
-    const stream = bucket.openUploadStream(filename, { contentType, metadata });
-
-    Readable.from(file.buffer)
-      .pipe(stream)
-      .on("error", reject)
-      .on("finish", () => resolve(String(stream.id)));
-  });
-}
-
-async function readGridFileByName(bucketName, filename) {
+async function sendGridFileByName(bucketName, filename, response, headers = {}) {
   const bucket = await getBucket(bucketName);
   const file = await bucket.find({ filename }).sort({ uploadDate: -1 }).limit(1).next();
 
   if (!file) {
-    return null;
+    return false;
   }
 
-  return readGridFile(bucket, file._id, file.contentType);
+  response.set({
+    "Content-Type": file.contentType || "application/octet-stream",
+    ...headers
+  });
+  await pipeline(bucket.openDownloadStream(file._id), response);
+  return true;
 }
 
-async function readGridFileById(bucketName, id) {
+async function sendGridFileById(bucketName, id, response, headers = {}) {
   const bucket = await getBucket(bucketName);
   const objectId = new ObjectId(id);
   const file = await bucket.find({ _id: objectId }).next();
 
   if (!file) {
-    return null;
+    return false;
   }
 
-  return readGridFile(bucket, objectId, file.contentType);
+  response.set({
+    "Content-Type": file.contentType || "application/octet-stream",
+    ...headers
+  });
+  await pipeline(bucket.openDownloadStream(objectId), response);
+  return true;
 }
 
-async function readGridFile(bucket, id, contentType) {
-  const chunks = [];
+async function streamRemoteFile(url, response, headers = {}) {
+  const remote = await fetch(url);
 
-  await new Promise((resolve, reject) => {
-    bucket
-      .openDownloadStream(id)
-      .on("data", (chunk) => chunks.push(chunk))
-      .on("error", reject)
-      .on("end", resolve);
+  if (!remote.ok || !remote.body) {
+    return false;
+  }
+
+  response.set({
+    "Content-Type": remote.headers.get("content-type") || "application/octet-stream",
+    ...headers
   });
+  await pipeline(Readable.fromWeb(remote.body), response);
+  return true;
+}
+
+async function writeGridFileToTemp(bucket, file) {
+  const extension = path.extname(file.filename || "");
+  const tempPath = path.join(
+    uploadTempDir,
+    `migrate-${Date.now()}-${crypto.randomBytes(8).toString("hex")}${extension}`
+  );
+
+  await pipeline(bucket.openDownloadStream(file._id), fs.createWriteStream(tempPath));
 
   return {
-    contentType: contentType || "application/octet-stream",
-    file: Buffer.concat(chunks)
+    path: tempPath,
+    mimetype: file.contentType || "application/octet-stream",
+    originalname: file.filename,
+    size: file.length
   };
 }
 
@@ -374,86 +382,78 @@ function hasCloudinaryConfig() {
   );
 }
 
-async function uploadToCloudinary(file, folder) {
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  const apiKey = process.env.CLOUDINARY_API_KEY;
-  const apiSecret = process.env.CLOUDINARY_API_SECRET;
-  const timestamp = Math.floor(Date.now() / 1000);
-  const isPdf = file.mimetype === "application/pdf" || file.originalname?.toLowerCase().endsWith(".pdf");
-  const resourceType = isPdf ? "raw" : "auto";
-  
-  let paramsToSign = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
-  if (isPdf) {
-    paramsToSign = `folder=${folder}&resource_type=raw&timestamp=${timestamp}${apiSecret}`;
+function requireCloudinary(response) {
+  if (hasCloudinaryConfig()) {
+    return true;
   }
-  const signature = crypto.createHash("sha1").update(paramsToSign).digest("hex");
-  const formData = new FormData();
 
-  // Handle both Buffer (memory storage) and stream/file path (disk storage)
-  let fileData;
-  if (file.buffer) {
-    fileData = new Blob([file.buffer], { type: file.mimetype });
-  } else if (file.path) {
-    // If using disk storage, we'd need to read the file, but let's keep buffer for now (will adjust storage next)
-    const fs = require("fs/promises");
-    const buffer = await fs.readFile(file.path);
-    fileData = new Blob([buffer], { type: file.mimetype });
-  } else {
-    throw new Error("No file data available");
-  }
-  
-  formData.append("file", fileData, file.originalname);
-  formData.append("api_key", apiKey);
-  formData.append("timestamp", String(timestamp));
-  formData.append("folder", folder);
-  if (isPdf) {
-    formData.append("resource_type", "raw");
-  }
-  formData.append("signature", signature);
-
-  const endpoint = isPdf 
-    ? `https://api.cloudinary.com/v1_1/${cloudName}/raw/upload`
-    : `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
-
-  const response = await fetch(endpoint, {
-    method: "POST",
-    body: formData
+  response.status(500).json({
+    error:
+      "Cloudinary is required for file uploads. Configure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET."
   });
-  const payload = await response.json();
+  return false;
+}
 
-  if (!response.ok) {
-    throw new Error(payload.error?.message || "Cloudinary upload failed.");
+function configureCloudinary() {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+    secure: true
+  });
+}
+
+function cloudinaryResourceType(contentType = "") {
+  if (contentType.startsWith("image/")) {
+    return "image";
   }
 
-  return payload;
+  if (contentType.startsWith("video/")) {
+    return "video";
+  }
+
+  return "raw";
+}
+
+async function cleanupUploadedFile(file) {
+  if (!file?.path) {
+    return;
+  }
+
+  await fsp.unlink(file.path).catch(() => {});
+}
+
+async function uploadToCloudinary(file, folder) {
+  if (!hasCloudinaryConfig()) {
+    throw new Error("Cloudinary is not configured.");
+  }
+
+  if (!file?.path) {
+    throw new Error("Upload file path is missing.");
+  }
+
+  configureCloudinary();
+
+  return cloudinary.uploader.upload(file.path, {
+    folder,
+    resource_type: cloudinaryResourceType(file.mimetype),
+    use_filename: true,
+    unique_filename: true,
+    overwrite: false
+  });
 }
 
 async function saveMediaAsset(file, { folder = "valluru/media", source = "library" } = {}) {
   const db = await getDb();
   const kind = getMediaKind(file.mimetype);
-  let asset;
-
-  if (hasCloudinaryConfig()) {
-    const cloudinary = await uploadToCloudinary(file, folder);
-    asset = {
-      provider: "cloudinary",
-      publicId: cloudinary.public_id,
-      url: cloudinary.secure_url,
-      resourceType: cloudinary.resource_type,
-      format: cloudinary.format
-    };
-  } else {
-    const id = await saveGridFile("media_uploads", file.originalname, file, file.mimetype, {
-      originalName: file.originalname,
-      uploadedAt: new Date(),
-      source
-    });
-    asset = {
-      provider: "gridfs",
-      gridFsId: id,
-      url: `/api/media/${id}`
-    };
-  }
+  const uploaded = await uploadToCloudinary(file, folder);
+  const asset = {
+    provider: "cloudinary",
+    publicId: uploaded.public_id,
+    url: uploaded.secure_url,
+    resourceType: uploaded.resource_type,
+    format: uploaded.format
+  };
 
   const record = {
     ...asset,
@@ -756,6 +756,10 @@ app.post(
         return;
       }
 
+      if (!requireCloudinary(response)) {
+        return;
+      }
+
       const file = request.file;
 
       if (!file) {
@@ -776,6 +780,8 @@ app.post(
       response.json({ ok: true, media });
     } catch (error) {
       next(error);
+    } finally {
+      await cleanupUploadedFile(request.file);
     }
   }
 );
@@ -793,6 +799,17 @@ app.delete("/api/admin/media/:id", verifyAdmin, async (request, response, next) 
     if (!media) {
       response.status(404).json({ error: "Media not found." });
       return;
+    }
+
+    if (media.provider === "cloudinary" && media.publicId) {
+      try {
+        configureCloudinary();
+        await cloudinary.uploader.destroy(media.publicId, {
+          resource_type: media.resourceType || cloudinaryResourceType(media.contentType)
+        });
+      } catch {
+        // Cloudinary deletion is best-effort so metadata can still be cleaned up.
+      }
     }
 
     if (media.provider === "gridfs" && media.gridFsId) {
@@ -1128,6 +1145,10 @@ app.post(
         return;
       }
 
+      if (!requireCloudinary(response)) {
+        return;
+      }
+
       const bookletSlug = String(request.body.bookletSlug || "");
       const file = request.file;
 
@@ -1154,18 +1175,8 @@ app.post(
         return;
       }
 
-      let publicUrl;
-      if (hasCloudinaryConfig()) {
-        const cloudinary = await uploadToCloudinary(file, "valluru/books/pdfs");
-        publicUrl = cloudinary.secure_url;
-      } else {
-        await saveGridFile("booklet_pdfs", pdfFilename(bookletSlug), file, "application/pdf", {
-          bookletSlug,
-          originalName: file.originalname,
-          uploadedAt: new Date()
-        }, true);
-        publicUrl = `/api/booklets/${bookletSlug}/pdf`;
-      }
+      const uploaded = await uploadToCloudinary(file, "valluru/books/pdfs");
+      const publicUrl = uploaded.secure_url;
       
       booklet.pdf = publicUrl;
       await saveSiteContent(content);
@@ -1173,6 +1184,8 @@ app.post(
       response.json({ ok: true, pdf: publicUrl, bookletSlug });
     } catch (error) {
       next(error);
+    } finally {
+      await cleanupUploadedFile(request.file);
     }
   }
 );
@@ -1184,6 +1197,10 @@ app.post(
   async (request, response, next) => {
     try {
       if (!requireMongo(response)) {
+        return;
+      }
+
+      if (!requireCloudinary(response)) {
         return;
       }
 
@@ -1217,18 +1234,8 @@ app.post(
         return;
       }
 
-      let publicUrl;
-      if (hasCloudinaryConfig()) {
-        const cloudinary = await uploadToCloudinary(file, "valluru/movements/pdfs");
-        publicUrl = cloudinary.secure_url;
-      } else {
-        await saveGridFile("movement_pdfs", `movement-${movementIndex}.pdf`, file, "application/pdf", {
-          movementIndex,
-          originalName: file.originalname,
-          uploadedAt: new Date()
-        }, true);
-        publicUrl = `/api/movements/${movementIndex}/pdf`;
-      }
+      const uploaded = await uploadToCloudinary(file, "valluru/movements/pdfs");
+      const publicUrl = uploaded.secure_url;
       
       movement.pdf = publicUrl;
       await saveSiteContent(content);
@@ -1236,6 +1243,8 @@ app.post(
       response.json({ ok: true, pdf: publicUrl, movementIndex });
     } catch (error) {
       next(error);
+    } finally {
+      await cleanupUploadedFile(request.file);
     }
   }
 );
@@ -1247,6 +1256,10 @@ app.post(
   async (request, response, next) => {
     try {
       if (!requireMongo(response)) {
+        return;
+      }
+
+      if (!requireCloudinary(response)) {
         return;
       }
 
@@ -1270,6 +1283,8 @@ app.post(
       response.json({ ok: true, id: media.id, url: media.url, media });
     } catch (error) {
       next(error);
+    } finally {
+      await cleanupUploadedFile(request.file);
     }
   }
 );
@@ -1306,22 +1321,25 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
     }
 
     if (booklet.pdf && /^https?:\/\//.test(booklet.pdf)) {
-      response.redirect(302, booklet.pdf);
+      const streamed = await streamRemoteFile(booklet.pdf, response, {
+        "Content-Disposition": `inline; filename="${slug}.pdf"`,
+        "Cache-Control": "private, max-age=0, no-store"
+      });
+
+      if (!streamed) {
+        response.status(502).json({ error: "The remote PDF could not be loaded." });
+      }
       return;
     }
 
-    const dbFile = hasMongoConfig()
-      ? await readGridFileByName("booklet_pdfs", pdfFilename(slug))
-      : null;
-
-    if (dbFile) {
-      response
-        .set({
-          "Content-Type": "application/pdf",
+    const streamedLegacyPdf = hasMongoConfig()
+      ? await sendGridFileByName("booklet_pdfs", pdfFilename(slug), response, {
           "Content-Disposition": `inline; filename="${slug}.pdf"`,
           "Cache-Control": "private, max-age=0, no-store"
         })
-        .send(dbFile.file);
+      : false;
+
+    if (streamedLegacyPdf) {
       return;
     }
 
@@ -1343,22 +1361,25 @@ app.get("/api/movements/:index/pdf", async (request, response, next) => {
     }
 
     if (movement.pdf && /^https?:\/\//.test(movement.pdf)) {
-      response.redirect(302, movement.pdf);
+      const streamed = await streamRemoteFile(movement.pdf, response, {
+        "Content-Disposition": `inline; filename="movement-${index}.pdf"`,
+        "Cache-Control": "private, max-age=0, no-store"
+      });
+
+      if (!streamed) {
+        response.status(502).json({ error: "The remote PDF could not be loaded." });
+      }
       return;
     }
 
-    const dbFile = hasMongoConfig()
-      ? await readGridFileByName("movement_pdfs", `movement-${index}.pdf`)
-      : null;
-
-    if (dbFile) {
-      response
-        .set({
-          "Content-Type": "application/pdf",
+    const streamedLegacyPdf = hasMongoConfig()
+      ? await sendGridFileByName("movement_pdfs", `movement-${index}.pdf`, response, {
           "Content-Disposition": `inline; filename="movement-${index}.pdf"`,
           "Cache-Control": "private, max-age=0, no-store"
         })
-        .send(dbFile.file);
+      : false;
+
+    if (streamedLegacyPdf) {
       return;
     }
 
@@ -1370,19 +1391,13 @@ app.get("/api/movements/:index/pdf", async (request, response, next) => {
 
 app.get("/api/media/:id", async (request, response, next) => {
   try {
-    const media = await readGridFileById("media_uploads", request.params.id);
+    const streamed = await sendGridFileById("media_uploads", request.params.id, response, {
+      "Cache-Control": "public, max-age=31536000, immutable"
+    });
 
-    if (!media) {
+    if (!streamed) {
       response.status(404).json({ error: "Media not found." });
-      return;
     }
-
-    response
-      .set({
-        "Content-Type": media.contentType,
-        "Cache-Control": "public, max-age=31536000, immutable"
-      })
-      .send(media.file);
   } catch {
     response.status(404).json({ error: "Media not found." });
   }
@@ -1420,47 +1435,37 @@ app.post("/api/admin/migrate-gridfs-to-cloudinary", verifyAdmin, async (request,
           continue;
         }
 
-        // Read the file from GridFS
-        const chunks = [];
-        await new Promise((resolve, reject) => {
-          mediaBucket
-            .openDownloadStream(file._id)
-            .on("data", chunk => chunks.push(chunk))
-            .on("error", reject)
-            .on("end", resolve);
-        });
-        const buffer = Buffer.concat(chunks);
-        const fakeFile = {
-          buffer,
-          mimetype: file.contentType || "application/octet-stream",
-          originalname: file.filename
-        };
+        const tempFile = await writeGridFileToTemp(mediaBucket, file);
 
-        // Upload to Cloudinary
-        const cloudinaryResult = await uploadToCloudinary(
-          fakeFile, 
-          "valluru/migrated/media"
-        );
+        try {
+          // Upload to Cloudinary
+          const cloudinaryResult = await uploadToCloudinary(
+            tempFile,
+            "valluru/migrated/media"
+          );
         
-        // Update media_assets if exists, or create new
-        const assetUpdate = {
-          $set: {
-            provider: "cloudinary",
-            publicId: cloudinaryResult.public_id,
-            url: cloudinaryResult.secure_url,
-            resourceType: cloudinaryResult.resource_type,
-            format: cloudinaryResult.format,
-            updatedAt: new Date()
-          },
-          $unset: { gridFsId: "" }
-        };
-        await db.collection("media_assets").updateOne(
-          { gridFsId: String(file._id) },
-          assetUpdate,
-          { upsert: true }
-        );
+          // Update media_assets if exists, or create new
+          const assetUpdate = {
+            $set: {
+              provider: "cloudinary",
+              publicId: cloudinaryResult.public_id,
+              url: cloudinaryResult.secure_url,
+              resourceType: cloudinaryResult.resource_type,
+              format: cloudinaryResult.format,
+              updatedAt: new Date()
+            },
+            $unset: { gridFsId: "" }
+          };
+          await db.collection("media_assets").updateOne(
+            { gridFsId: String(file._id) },
+            assetUpdate,
+            { upsert: true }
+          );
 
-        results.media_uploads.migrated++;
+          results.media_uploads.migrated++;
+        } finally {
+          await cleanupUploadedFile(tempFile);
+        }
       } catch (err) {
         console.error("Failed to migrate media file", file._id, err);
         results.media_uploads.failed++;
@@ -1473,39 +1478,32 @@ app.post("/api/admin/migrate-gridfs-to-cloudinary", verifyAdmin, async (request,
     const bookletFiles = await bookletBucket.find({}).toArray();
     for (const file of bookletFiles) {
       try {
-        // Read the file
-        const chunks = [];
-        await new Promise((resolve, reject) => {
-          bookletBucket
-            .openDownloadStream(file._id)
-            .on("data", chunk => chunks.push(chunk))
-            .on("error", reject)
-            .on("end", resolve);
+        const tempFile = await writeGridFileToTemp(bookletBucket, {
+          ...file,
+          contentType: "application/pdf"
         });
-        const buffer = Buffer.concat(chunks);
-        const fakeFile = {
-          buffer,
-          mimetype: "application/pdf",
-          originalname: file.filename
-        };
 
-        // Upload to Cloudinary
-        const cloudinaryResult = await uploadToCloudinary(
-          fakeFile,
-          "valluru/migrated/books/pdfs"
-        );
+        try {
+          // Upload to Cloudinary
+          const cloudinaryResult = await uploadToCloudinary(
+            tempFile,
+            "valluru/migrated/books/pdfs"
+          );
 
-        // Update site content to use new URL
-        const content = await getSiteContent();
-        if (content?.series?.booklets) {
-          for (const booklet of content.series.booklets) {
-            const currentPdf = booklet.pdf;
-            if (currentPdf && currentPdf === `/api/booklets/${booklet.slug}/pdf`) {
-              booklet.pdf = cloudinaryResult.secure_url;
-              results.booklet_pdfs.migrated++;
+          // Update site content to use new URL
+          const content = await getSiteContent();
+          if (content?.series?.booklets) {
+            for (const booklet of content.series.booklets) {
+              const currentPdf = booklet.pdf;
+              if (currentPdf && currentPdf === `/api/booklets/${booklet.slug}/pdf`) {
+                booklet.pdf = cloudinaryResult.secure_url;
+                results.booklet_pdfs.migrated++;
+              }
             }
+            await saveSiteContent(content);
           }
-          await saveSiteContent(content);
+        } finally {
+          await cleanupUploadedFile(tempFile);
         }
       } catch (err) {
         console.error("Failed to migrate booklet PDF", file._id, err);
@@ -1519,39 +1517,32 @@ app.post("/api/admin/migrate-gridfs-to-cloudinary", verifyAdmin, async (request,
     const movementFiles = await movementBucket.find({}).toArray();
     for (const file of movementFiles) {
       try {
-        // Read the file
-        const chunks = [];
-        await new Promise((resolve, reject) => {
-          movementBucket
-            .openDownloadStream(file._id)
-            .on("data", chunk => chunks.push(chunk))
-            .on("error", reject)
-            .on("end", resolve);
+        const tempFile = await writeGridFileToTemp(movementBucket, {
+          ...file,
+          contentType: "application/pdf"
         });
-        const buffer = Buffer.concat(chunks);
-        const fakeFile = {
-          buffer,
-          mimetype: "application/pdf",
-          originalname: file.filename
-        };
 
-        // Upload to Cloudinary
-        const cloudinaryResult = await uploadToCloudinary(
-          fakeFile,
-          "valluru/migrated/movements/pdfs"
-        );
+        try {
+          // Upload to Cloudinary
+          const cloudinaryResult = await uploadToCloudinary(
+            tempFile,
+            "valluru/migrated/movements/pdfs"
+          );
 
-        // Update site content
-        const content = await getSiteContent();
-        if (content?.home?.seriesOverview?.movements) {
-          for (let i = 0; i < content.home.seriesOverview.movements.length; i++) {
-            const movement = content.home.seriesOverview.movements[i];
-            if (movement.pdf && movement.pdf === `/api/movements/${i}/pdf`) {
-              movement.pdf = cloudinaryResult.secure_url;
-              results.movement_pdfs.migrated++;
+          // Update site content
+          const content = await getSiteContent();
+          if (content?.home?.seriesOverview?.movements) {
+            for (let i = 0; i < content.home.seriesOverview.movements.length; i++) {
+              const movement = content.home.seriesOverview.movements[i];
+              if (movement.pdf && movement.pdf === `/api/movements/${i}/pdf`) {
+                movement.pdf = cloudinaryResult.secure_url;
+                results.movement_pdfs.migrated++;
+              }
             }
+            await saveSiteContent(content);
           }
-          await saveSiteContent(content);
+        } finally {
+          await cleanupUploadedFile(tempFile);
         }
       } catch (err) {
         console.error("Failed to migrate movement PDF", file._id, err);
@@ -1571,6 +1562,18 @@ app.post("/api/admin/migrate-gridfs-to-cloudinary", verifyAdmin, async (request,
 });
 
 app.use((error, _request, response, _next) => {
+  if (error instanceof multer.MulterError) {
+    if (error.code === "LIMIT_FILE_SIZE") {
+      response.status(413).json({
+        error: "File is too large. Reduce the file size or increase MAX_UPLOAD_BYTES."
+      });
+      return;
+    }
+
+    response.status(400).json({ error: error.message || "Upload failed." });
+    return;
+  }
+
   console.error(error);
   response.status(500).json({ error: "Server error." });
 });

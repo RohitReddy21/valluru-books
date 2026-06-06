@@ -12,10 +12,6 @@ import {
 import { getSiteContent } from "@/lib/content-store";
 import { defaultSiteContent } from "@/lib/site-content";
 
-function slugifyMovement(title: string) {
-  return title.toLowerCase().replace(/\s+/g, "-");
-}
-
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {

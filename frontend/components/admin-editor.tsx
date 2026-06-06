@@ -977,7 +977,7 @@ function MediaPanel({
           Media and Backgrounds
         </h2>
         <p className="mt-2 text-lg leading-7 text-muted">
-          Edit hero images, page background image, and author image. Uploads are stored in MongoDB.
+          Edit hero images, page background image, and author image. Uploads are stored in Cloudinary and reused through MongoDB metadata.
         </p>
       </div>
 
