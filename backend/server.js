@@ -2,6 +2,7 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const express = require("express");
 const { v2: cloudinary } = require("cloudinary");
+const B2 = require("backblaze-b2");
 const { GridFSBucket, MongoClient, ObjectId } = require("mongodb");
 const multer = require("multer");
 const { Resend } = require("resend");
@@ -12,6 +13,59 @@ const os = require("node:os");
 const path = require("node:path");
 const { Readable } = require("node:stream");
 const { pipeline } = require("node:stream/promises");
+
+// Backblaze B2 setup
+let b2;
+function hasB2Config() {
+  return !!(
+    process.env.B2_APPLICATION_KEY_ID &&
+    process.env.B2_APPLICATION_KEY &&
+    process.env.B2_BUCKET_ID &&
+    process.env.B2_BUCKET_NAME
+  );
+}
+
+async function getB2Client() {
+  if (!b2) {
+    b2 = new B2({
+      applicationKeyId: process.env.B2_APPLICATION_KEY_ID,
+      applicationKey: process.env.B2_APPLICATION_KEY
+    });
+    await b2.authorize();
+  }
+  return b2;
+}
+
+async function uploadToB2(file, folder) {
+  const client = await getB2Client();
+  const { data: { uploadUrl, authorizationToken } } = await client.getUploadUrl({
+    bucketId: process.env.B2_BUCKET_ID
+  });
+
+  const fileName = `${folder}/${Date.now()}-${file.originalname}`;
+
+  // Read file from disk or buffer
+  const fileBuffer = file.buffer || await fsp.readFile(file.path);
+
+  const { data: { fileId, fileName: b2FileName, contentLength, contentType } } = await client.uploadFile({
+    uploadUrl,
+    uploadAuthToken: authorizationToken,
+    fileName,
+    data: fileBuffer,
+    mime: file.mimetype
+  });
+
+  // B2 public URL format: https://f005.backblazeb2.com/file/{bucketName}/{fileName}
+  const publicUrl = `https://f005.backblazeb2.com/file/${process.env.B2_BUCKET_NAME}/${encodeURIComponent(fileName)}`;
+
+  return {
+    fileId,
+    fileName: b2FileName,
+    url: publicUrl,
+    size: contentLength,
+    contentType
+  };
+}
 
 dotenv.config();
 dotenv.config({ path: ".env.local", override: false });
@@ -377,8 +431,8 @@ function validateUpload(file) {
 function hasCloudinaryConfig() {
   return Boolean(
     process.env.CLOUDINARY_CLOUD_NAME &&
-      process.env.CLOUDINARY_API_KEY &&
-      process.env.CLOUDINARY_API_SECRET
+    process.env.CLOUDINARY_API_KEY &&
+    process.env.CLOUDINARY_API_SECRET
   );
 }
 
@@ -1198,8 +1252,8 @@ app.post(
         return;
       }
 
-      if (!requireCloudinary(response)) {
-        return;
+      if (!hasB2Config()) {
+        return response.status(400).json({ error: "Backblaze B2 config missing" });
       }
 
       const bookletSlug = String(request.body.bookletSlug || "");
@@ -1228,8 +1282,8 @@ app.post(
         return;
       }
 
-      const uploaded = await uploadToCloudinary(file, "valluru/books/pdfs");
-      const publicUrl = uploaded.secure_url;
+      const uploaded = await uploadToB2(file, "valluru/books/pdfs");
+      const publicUrl = uploaded.url;
       
       booklet.pdf = publicUrl;
       await saveSiteContent(content);
@@ -1253,8 +1307,8 @@ app.post(
         return;
       }
 
-      if (!requireCloudinary(response)) {
-        return;
+      if (!hasB2Config()) {
+        return response.status(400).json({ error: "Backblaze B2 config missing" });
       }
 
       const movementIndex = Number(request.body.movementIndex || "-1");
@@ -1287,8 +1341,8 @@ app.post(
         return;
       }
 
-      const uploaded = await uploadToCloudinary(file, "valluru/movements/pdfs");
-      const publicUrl = uploaded.secure_url;
+      const uploaded = await uploadToB2(file, "valluru/movements/pdfs");
+      const publicUrl = uploaded.url;
       
       movement.pdf = publicUrl;
       await saveSiteContent(content);

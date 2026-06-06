@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { Eye, ImageIcon, Package, Plus, RefreshCw, RotateCcw, Save, Upload } from "lucide-react";
 import { apiUrl } from "@/lib/api";
-import { uploadToCloudinary, getCloudinarySignature } from "@/lib/cloudinary";
 import type { Booklet, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
 import { defaultSiteContent, getBookletMovementIndex } from "@/lib/site-content";
 
@@ -221,14 +220,23 @@ export function AdminEditor({ initialContent, source }: Props) {
 
     try {
       setUploadStatus("Uploading PDF...");
-      const folder = "valluru/books/pdfs";
-      const cloudinaryResult = await uploadToCloudinary(
-        pdfFile,
-        folder,
-        (f) => getCloudinarySignature(adminHeaders(), f)
-      );
-      
-      updateBooklet(selectedBooklet.slug, { pdf: cloudinaryResult.secure_url });
+      const formData = new FormData();
+      formData.append("bookletSlug", selectedBooklet.slug);
+      formData.append("pdf", pdfFile);
+
+      const response = await fetch(apiUrl("/api/admin/upload-pdf"), {
+        method: "POST",
+        headers: adminHeaders(),
+        credentials: "include",
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+
+      const { pdf } = await response.json();
+      updateBooklet(selectedBooklet.slug, { pdf });
       setUploadStatus(`Uploaded and attached to ${selectedBooklet.title}.`);
     } catch (err) {
       console.error("Upload failed", err);
@@ -239,15 +247,23 @@ export function AdminEditor({ initialContent, source }: Props) {
   async function uploadMovementPdf(movementIndex: number, movementPdfFile: File, setMovementUploadStatus: (status: string) => void) {
     try {
       setMovementUploadStatus("Uploading PDF...");
-      // Upload directly to Cloudinary using signed upload
-      const folder = "valluru/movements/pdfs";
-      const cloudinaryResult = await uploadToCloudinary(
-        movementPdfFile,
-        folder,
-        (f) => getCloudinarySignature(adminHeaders(), f)
-      );
-      
-      updateMovement(movementIndex, { pdf: cloudinaryResult.secure_url });
+      const formData = new FormData();
+      formData.append("movementIndex", String(movementIndex));
+      formData.append("pdf", movementPdfFile);
+
+      const response = await fetch(apiUrl("/api/admin/upload-movement-pdf"), {
+        method: "POST",
+        headers: adminHeaders(),
+        credentials: "include",
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.statusText}`);
+      }
+
+      const { pdf } = await response.json();
+      updateMovement(movementIndex, { pdf });
       setMovementUploadStatus("PDF uploaded and attached to this movement.");
     } catch (err) {
       console.error("Upload failed", err);
