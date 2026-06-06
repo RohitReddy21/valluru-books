@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Eye, ImageIcon, Package, Plus, RefreshCw, RotateCcw, Save, Upload } from "lucide-react";
 import { apiUrl } from "@/lib/api";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 import type { Booklet, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
 import { defaultSiteContent, getBookletMovementIndex } from "@/lib/site-content";
 
@@ -218,75 +219,38 @@ export function AdminEditor({ initialContent, source }: Props) {
       return;
     }
 
-    setUploadStatus("Saving book content...");
-    const saveResponse = await persistContent();
-    if (!saveResponse.ok) {
-      const payload = (await saveResponse.json().catch(() => null)) as {
-        error?: string;
-      } | null;
-      setUploadStatus(payload?.error || "Save the book before uploading failed.");
-      return;
+    try {
+      setUploadStatus("Uploading PDF...");
+      const cloudinaryResult = await uploadToCloudinary(
+        pdfFile,
+        "valluru/books/pdfs",
+        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+      );
+      
+      updateBooklet(selectedBooklet.slug, { pdf: cloudinaryResult.secure_url });
+      setUploadStatus(`Uploaded and attached to ${selectedBooklet.title}.`);
+    } catch (err) {
+      console.error("Upload failed", err);
+      setUploadStatus(err instanceof Error ? err.message : "PDF upload failed");
     }
-
-    setUploadStatus("Uploading PDF...");
-    const formData = new FormData();
-    formData.append("bookletSlug", selectedBooklet.slug);
-    formData.append("pdf", pdfFile);
-
-    const response = await fetch(apiUrl("/api/admin/upload-pdf"), {
-      method: "POST",
-      headers: adminHeaders(),
-      credentials: "include",
-      body: formData
-    });
-
-    const payload = (await response.json().catch(() => null)) as {
-      error?: string;
-      pdf?: string;
-    } | null;
-
-    if (!response.ok || !payload?.pdf) {
-      setUploadStatus(payload?.error || "PDF upload failed.");
-      return;
-    }
-
-    updateBooklet(selectedBooklet.slug, { pdf: payload.pdf });
-    setUploadStatus(`Uploaded and attached to ${selectedBooklet.title}.`);
   }
 
   async function uploadMovementPdf(movementIndex: number, movementPdfFile: File, setMovementUploadStatus: (status: string) => void) {
-    setMovementUploadStatus("Saving content...");
-    const saveResponse = await persistContent();
-    if (!saveResponse.ok) {
-      const payload = (await saveResponse.json().catch(() => null)) as { error?: string } | null;
-      setMovementUploadStatus(payload?.error || "Save content before uploading failed.");
-      return;
+    try {
+      setMovementUploadStatus("Uploading PDF...");
+      // Upload directly to Cloudinary
+      const cloudinaryResult = await uploadToCloudinary(
+        movementPdfFile,
+        "valluru/movements/pdfs",
+        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+      );
+      
+      updateMovement(movementIndex, { pdf: cloudinaryResult.secure_url });
+      setMovementUploadStatus("PDF uploaded and attached to this movement.");
+    } catch (err) {
+      console.error("Upload failed", err);
+      setMovementUploadStatus(err instanceof Error ? err.message : "PDF upload failed");
     }
-
-    setMovementUploadStatus("Uploading PDF...");
-    const formData = new FormData();
-    formData.append("movementIndex", String(movementIndex));
-    formData.append("pdf", movementPdfFile);
-
-    const response = await fetch(apiUrl("/api/admin/upload-movement-pdf"), {
-      method: "POST",
-      headers: adminHeaders(),
-      credentials: "include",
-      body: formData
-    });
-
-    const payload = (await response.json().catch(() => null)) as {
-      error?: string;
-      pdf?: string;
-    } | null;
-
-    if (!response.ok || !payload?.pdf) {
-      setMovementUploadStatus(payload?.error || "PDF upload failed.");
-      return;
-    }
-
-    updateMovement(movementIndex, { pdf: payload.pdf });
-    setMovementUploadStatus("PDF uploaded and attached to this movement.");
   }
 
   async function loadAdminData() {
