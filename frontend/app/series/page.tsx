@@ -44,21 +44,21 @@ export default async function SeriesPage() {
             {home.seriesOverview.intro}
           </p>
         </div>
-        <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12 grid gap-4 md:grid-cols-3 lg:grid-cols-5">
           {home.seriesOverview.movements.map((movement) => (
             <Link
-              className="group block rounded-md border border-gold/15 bg-surface/72 p-6 transition hover:border-gold/40"
+              className="group block rounded-md border border-gold/15 bg-surface/72 p-4 transition hover:border-gold/40"
               href="/movements"
               key={movement.title}
             >
-              <h3 className="font-display text-xl leading-tight text-parchment group-hover:text-gold sm:text-2xl">
+              <h3 className="font-display text-lg leading-tight text-parchment group-hover:text-gold">
                 {movement.title}
               </h3>
-              <p className="mt-4 text-lg leading-7 text-muted">
+              <p className="mt-3 text-sm leading-6 text-muted">
                 {movement.description}
               </p>
-              <span className="mt-6 inline-flex font-label text-xs uppercase tracking-[0.2em] text-gold">
-                Explore All Movements
+              <span className="mt-4 inline-flex font-label text-[10px] uppercase tracking-[0.2em] text-gold">
+                Explore
               </span>
             </Link>
           ))}

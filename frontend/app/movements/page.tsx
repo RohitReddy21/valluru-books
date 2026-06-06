@@ -29,18 +29,23 @@ export default async function MovementsPage() {
             {home.seriesOverview.intro}
           </p>
         </div>
-        <div className="mt-12 grid gap-8">
+        <div className="mt-12 grid gap-4 md:grid-cols-3 lg:grid-cols-5">
           {movements.map((movement) => (
-            <section key={movement.title} className="rounded-md border border-gold/15 bg-surface/50 p-8">
-              <Link href={`/movements/${slugifyMovement(movement.title)}`}>
-                <h2 className="responsive-section-title mb-2 font-display font-semibold text-parchment hover:text-gold transition">
-                  {movement.title}
-                </h2>
-              </Link>
-              <p className="responsive-prose text-parchment/86">
+            <Link
+              key={movement.title}
+              href={`/movements/${slugifyMovement(movement.title)}`}
+              className="group block rounded-md border border-gold/15 bg-surface/72 p-4 transition hover:border-gold/40"
+            >
+              <h3 className="font-display text-lg leading-tight text-parchment group-hover:text-gold">
+                {movement.title}
+              </h3>
+              <p className="mt-3 text-sm leading-6 text-muted">
                 {movement.description}
               </p>
-            </section>
+              <span className="mt-4 inline-flex font-label text-[10px] uppercase tracking-[0.2em] text-gold">
+                View Details
+              </span>
+            </Link>
           ))}
         </div>
       </WideSection>
