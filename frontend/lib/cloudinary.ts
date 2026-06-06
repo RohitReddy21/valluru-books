@@ -5,9 +5,9 @@ import { apiUrl } from "@/lib/api";
 export async function uploadToCloudinary(
   file: File,
   folder: string,
-  getSignature: () => Promise<{ cloudName: string; apiKey: string; timestamp: number; signature: string }>
+  getSignature: (folder: string) => Promise<{ cloudName: string; apiKey: string; timestamp: number; signature: string }>
 ) {
-  const { cloudName, apiKey, timestamp, signature } = await getSignature();
+  const { cloudName, apiKey, timestamp, signature } = await getSignature(folder);
   if (!cloudName) throw new Error("Missing Cloudinary cloud name");
 
   const formData = new FormData();
@@ -38,8 +38,8 @@ export async function uploadToCloudinary(
 }
 
 // Helper function to get a signature from the backend
-export async function getCloudinarySignature(adminHeaders: Record<string, string>) {
-  const response = await fetch(apiUrl("/api/cloudinary/signature"), {
+export async function getCloudinarySignature(adminHeaders: Record<string, string>, folder: string) {
+  const response = await fetch(apiUrl(`/api/cloudinary/signature?folder=${encodeURIComponent(folder)}`), {
     credentials: "include",
     headers: adminHeaders
   });

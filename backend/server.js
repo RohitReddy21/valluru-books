@@ -682,7 +682,7 @@ app.post("/api/subscribe", async (request, response, next) => {
 });
 
 // Generate Cloudinary signed upload parameters
-app.get("/api/cloudinary/signature", verifyAdmin, async (_request, response, next) => {
+app.get("/api/cloudinary/signature", verifyAdmin, async (request, response, next) => {
   try {
     if (!hasCloudinaryConfig()) {
       return response.status(400).json({ error: "Cloudinary config missing" });
@@ -691,7 +691,14 @@ app.get("/api/cloudinary/signature", verifyAdmin, async (_request, response, nex
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
     const apiKey = process.env.CLOUDINARY_API_KEY;
     const timestamp = Math.floor(Date.now() / 1000);
-    const paramsToSign = `timestamp=${timestamp}${process.env.CLOUDINARY_API_SECRET}`;
+    const folder = request.query.folder as string || "";
+    
+    // Build the string to sign with all parameters in alphabetical order!
+    let paramsToSign = "";
+    if (folder) {
+      paramsToSign += `folder=${folder}&`;
+    }
+    paramsToSign += `timestamp=${timestamp}${process.env.CLOUDINARY_API_SECRET}`;
     const signature = crypto.createHash("sha1").update(paramsToSign).digest("hex");
 
     response.json({

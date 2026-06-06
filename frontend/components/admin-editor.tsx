@@ -221,10 +221,11 @@ export function AdminEditor({ initialContent, source }: Props) {
 
     try {
       setUploadStatus("Uploading PDF...");
+      const folder = "valluru/books/pdfs";
       const cloudinaryResult = await uploadToCloudinary(
         pdfFile,
-        "valluru/books/pdfs",
-        () => getCloudinarySignature(adminHeaders())
+        folder,
+        (f) => getCloudinarySignature(adminHeaders(), f)
       );
       
       updateBooklet(selectedBooklet.slug, { pdf: cloudinaryResult.secure_url });
@@ -239,10 +240,11 @@ export function AdminEditor({ initialContent, source }: Props) {
     try {
       setMovementUploadStatus("Uploading PDF...");
       // Upload directly to Cloudinary using signed upload
+      const folder = "valluru/movements/pdfs";
       const cloudinaryResult = await uploadToCloudinary(
         movementPdfFile,
-        "valluru/movements/pdfs",
-        () => getCloudinarySignature(adminHeaders())
+        folder,
+        (f) => getCloudinarySignature(adminHeaders(), f)
       );
       
       updateMovement(movementIndex, { pdf: cloudinaryResult.secure_url });
