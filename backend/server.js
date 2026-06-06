@@ -691,7 +691,7 @@ app.get("/api/cloudinary/signature", verifyAdmin, async (request, response, next
     const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
     const apiKey = process.env.CLOUDINARY_API_KEY;
     const timestamp = Math.floor(Date.now() / 1000);
-    const folder = request.query.folder as string || "";
+    const folder = request.query.folder || "";
     
     // Build the string to sign with all parameters in alphabetical order!
     let paramsToSign = "";
