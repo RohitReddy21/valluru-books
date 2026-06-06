@@ -379,23 +379,46 @@ async function uploadToCloudinary(file, folder) {
   const apiKey = process.env.CLOUDINARY_API_KEY;
   const apiSecret = process.env.CLOUDINARY_API_SECRET;
   const timestamp = Math.floor(Date.now() / 1000);
-  const paramsToSign = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
+  const isPdf = file.mimetype === "application/pdf" || file.originalname?.toLowerCase().endsWith(".pdf");
+  const resourceType = isPdf ? "raw" : "auto";
+  
+  let paramsToSign = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
+  if (isPdf) {
+    paramsToSign = `folder=${folder}&resource_type=raw&timestamp=${timestamp}${apiSecret}`;
+  }
   const signature = crypto.createHash("sha1").update(paramsToSign).digest("hex");
   const formData = new FormData();
 
-  formData.append("file", new Blob([file.buffer], { type: file.mimetype }), file.originalname);
+  // Handle both Buffer (memory storage) and stream/file path (disk storage)
+  let fileData;
+  if (file.buffer) {
+    fileData = new Blob([file.buffer], { type: file.mimetype });
+  } else if (file.path) {
+    // If using disk storage, we'd need to read the file, but let's keep buffer for now (will adjust storage next)
+    const fs = require("fs/promises");
+    const buffer = await fs.readFile(file.path);
+    fileData = new Blob([buffer], { type: file.mimetype });
+  } else {
+    throw new Error("No file data available");
+  }
+  
+  formData.append("file", fileData, file.originalname);
   formData.append("api_key", apiKey);
   formData.append("timestamp", String(timestamp));
   formData.append("folder", folder);
+  if (isPdf) {
+    formData.append("resource_type", "raw");
+  }
   formData.append("signature", signature);
 
-  const response = await fetch(
-    `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`,
-    {
-      method: "POST",
-      body: formData
-    }
-  );
+  const endpoint = isPdf 
+    ? `https://api.cloudinary.com/v1_1/${cloudName}/raw/upload`
+    : `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`;
+
+  const response = await fetch(endpoint, {
+    method: "POST",
+    body: formData
+  });
   const payload = await response.json();
 
   if (!response.ok) {
@@ -1362,6 +1385,188 @@ app.get("/api/media/:id", async (request, response, next) => {
       .send(media.file);
   } catch {
     response.status(404).json({ error: "Media not found." });
+  }
+});
+
+// Migration endpoint to move all GridFS files to Cloudinary
+app.post("/api/admin/migrate-gridfs-to-cloudinary", verifyAdmin, async (request, response, next) => {
+  try {
+    if (!hasMongoConfig() || !hasCloudinaryConfig()) {
+      response.status(400).json({ 
+        error: "Both MongoDB and Cloudinary configurations are required for migration." 
+      });
+      return;
+    }
+
+    const db = await getDb();
+    const results = {
+      media_uploads: { migrated: 0, failed: 0, skipped: 0 },
+      booklet_pdfs: { migrated: 0, failed: 0, skipped: 0 },
+      movement_pdfs: { migrated: 0, failed: 0, skipped: 0 }
+    };
+
+    // 1. Migrate media_uploads bucket
+    console.log("Migrating media_uploads...");
+    const mediaBucket = await getBucket("media_uploads");
+    const mediaFiles = await mediaBucket.find({}).toArray();
+    for (const file of mediaFiles) {
+      try {
+        // Check if already migrated in media_assets
+        const existingAsset = await db.collection("media_assets").findOne({ 
+          "gridFsId": String(file._id) 
+        });
+        if (existingAsset && existingAsset.provider === "cloudinary") {
+          results.media_uploads.skipped++;
+          continue;
+        }
+
+        // Read the file from GridFS
+        const chunks = [];
+        await new Promise((resolve, reject) => {
+          mediaBucket
+            .openDownloadStream(file._id)
+            .on("data", chunk => chunks.push(chunk))
+            .on("error", reject)
+            .on("end", resolve);
+        });
+        const buffer = Buffer.concat(chunks);
+        const fakeFile = {
+          buffer,
+          mimetype: file.contentType || "application/octet-stream",
+          originalname: file.filename
+        };
+
+        // Upload to Cloudinary
+        const cloudinaryResult = await uploadToCloudinary(
+          fakeFile, 
+          "valluru/migrated/media"
+        );
+        
+        // Update media_assets if exists, or create new
+        const assetUpdate = {
+          $set: {
+            provider: "cloudinary",
+            publicId: cloudinaryResult.public_id,
+            url: cloudinaryResult.secure_url,
+            resourceType: cloudinaryResult.resource_type,
+            format: cloudinaryResult.format,
+            updatedAt: new Date()
+          },
+          $unset: { gridFsId: "" }
+        };
+        await db.collection("media_assets").updateOne(
+          { gridFsId: String(file._id) },
+          assetUpdate,
+          { upsert: true }
+        );
+
+        results.media_uploads.migrated++;
+      } catch (err) {
+        console.error("Failed to migrate media file", file._id, err);
+        results.media_uploads.failed++;
+      }
+    }
+
+    // 2. Migrate booklet_pdfs bucket
+    console.log("Migrating booklet_pdfs...");
+    const bookletBucket = await getBucket("booklet_pdfs");
+    const bookletFiles = await bookletBucket.find({}).toArray();
+    for (const file of bookletFiles) {
+      try {
+        // Read the file
+        const chunks = [];
+        await new Promise((resolve, reject) => {
+          bookletBucket
+            .openDownloadStream(file._id)
+            .on("data", chunk => chunks.push(chunk))
+            .on("error", reject)
+            .on("end", resolve);
+        });
+        const buffer = Buffer.concat(chunks);
+        const fakeFile = {
+          buffer,
+          mimetype: "application/pdf",
+          originalname: file.filename
+        };
+
+        // Upload to Cloudinary
+        const cloudinaryResult = await uploadToCloudinary(
+          fakeFile,
+          "valluru/migrated/books/pdfs"
+        );
+
+        // Update site content to use new URL
+        const content = await getSiteContent();
+        if (content?.series?.booklets) {
+          for (const booklet of content.series.booklets) {
+            const currentPdf = booklet.pdf;
+            if (currentPdf && currentPdf === `/api/booklets/${booklet.slug}/pdf`) {
+              booklet.pdf = cloudinaryResult.secure_url;
+              results.booklet_pdfs.migrated++;
+            }
+          }
+          await saveSiteContent(content);
+        }
+      } catch (err) {
+        console.error("Failed to migrate booklet PDF", file._id, err);
+        results.booklet_pdfs.failed++;
+      }
+    }
+
+    // 3. Migrate movement_pdfs bucket
+    console.log("Migrating movement_pdfs...");
+    const movementBucket = await getBucket("movement_pdfs");
+    const movementFiles = await movementBucket.find({}).toArray();
+    for (const file of movementFiles) {
+      try {
+        // Read the file
+        const chunks = [];
+        await new Promise((resolve, reject) => {
+          movementBucket
+            .openDownloadStream(file._id)
+            .on("data", chunk => chunks.push(chunk))
+            .on("error", reject)
+            .on("end", resolve);
+        });
+        const buffer = Buffer.concat(chunks);
+        const fakeFile = {
+          buffer,
+          mimetype: "application/pdf",
+          originalname: file.filename
+        };
+
+        // Upload to Cloudinary
+        const cloudinaryResult = await uploadToCloudinary(
+          fakeFile,
+          "valluru/migrated/movements/pdfs"
+        );
+
+        // Update site content
+        const content = await getSiteContent();
+        if (content?.home?.seriesOverview?.movements) {
+          for (let i = 0; i < content.home.seriesOverview.movements.length; i++) {
+            const movement = content.home.seriesOverview.movements[i];
+            if (movement.pdf && movement.pdf === `/api/movements/${i}/pdf`) {
+              movement.pdf = cloudinaryResult.secure_url;
+              results.movement_pdfs.migrated++;
+            }
+          }
+          await saveSiteContent(content);
+        }
+      } catch (err) {
+        console.error("Failed to migrate movement PDF", file._id, err);
+        results.movement_pdfs.failed++;
+      }
+    }
+
+    response.json({ 
+      ok: true, 
+      results,
+      message: "Migration complete. Check server logs for details." 
+    });
+  } catch (err) {
+    console.error("Migration failed", err);
+    next(err);
   }
 });
 
