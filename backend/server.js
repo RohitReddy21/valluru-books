@@ -33,7 +33,7 @@ const upload = multer({
     }
   }),
   limits: {
-    fileSize: Number(process.env.MAX_UPLOAD_BYTES || 200 * 1024 * 1024)
+    fileSize: Number(process.env.MAX_UPLOAD_BYTES || 600 * 1024 * 1024)
   }
 });
 
@@ -434,13 +434,35 @@ async function uploadToCloudinary(file, folder) {
 
   configureCloudinary();
 
-  return cloudinary.uploader.upload(file.path, {
+  const options = {
     folder,
     resource_type: cloudinaryResourceType(file.mimetype),
     use_filename: true,
     unique_filename: true,
     overwrite: false
-  });
+  };
+
+  if (Number(file.size || 0) > 100 * 1024 * 1024 || options.resource_type === "raw") {
+    return new Promise((resolve, reject) => {
+      cloudinary.uploader.upload_large(
+        file.path,
+        {
+          ...options,
+          chunk_size: Number(process.env.CLOUDINARY_CHUNK_SIZE || 20 * 1024 * 1024)
+        },
+        (error, result) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          resolve(result);
+        }
+      );
+    });
+  }
+
+  return cloudinary.uploader.upload(file.path, options);
 }
 
 async function saveMediaAsset(file, { folder = "valluru/media", source = "library" } = {}) {
@@ -653,6 +675,30 @@ app.post("/api/subscribe", async (request, response, next) => {
     response.json({
       ok: true,
       accessToken: bookletSlug ? createAccessToken(bookletSlug) : undefined
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Generate Cloudinary signed upload parameters
+app.get("/api/cloudinary/signature", verifyAdmin, async (_request, response, next) => {
+  try {
+    if (!hasCloudinaryConfig()) {
+      return response.status(400).json({ error: "Cloudinary config missing" });
+    }
+
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const timestamp = Math.floor(Date.now() / 1000);
+    const paramsToSign = `timestamp=${timestamp}${process.env.CLOUDINARY_API_SECRET}`;
+    const signature = crypto.createHash("sha1").update(paramsToSign).digest("hex");
+
+    response.json({
+      cloudName,
+      apiKey,
+      timestamp,
+      signature
     });
   } catch (error) {
     next(error);

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Eye, ImageIcon, Package, Plus, RefreshCw, RotateCcw, Save, Upload } from "lucide-react";
 import { apiUrl } from "@/lib/api";
-import { uploadToCloudinary } from "@/lib/cloudinary";
+import { uploadToCloudinary, getCloudinarySignature } from "@/lib/cloudinary";
 import type { Booklet, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
 import { defaultSiteContent, getBookletMovementIndex } from "@/lib/site-content";
 
@@ -224,7 +224,7 @@ export function AdminEditor({ initialContent, source }: Props) {
       const cloudinaryResult = await uploadToCloudinary(
         pdfFile,
         "valluru/books/pdfs",
-        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+        () => getCloudinarySignature(adminHeaders())
       );
       
       updateBooklet(selectedBooklet.slug, { pdf: cloudinaryResult.secure_url });
@@ -238,11 +238,11 @@ export function AdminEditor({ initialContent, source }: Props) {
   async function uploadMovementPdf(movementIndex: number, movementPdfFile: File, setMovementUploadStatus: (status: string) => void) {
     try {
       setMovementUploadStatus("Uploading PDF...");
-      // Upload directly to Cloudinary
+      // Upload directly to Cloudinary using signed upload
       const cloudinaryResult = await uploadToCloudinary(
         movementPdfFile,
         "valluru/movements/pdfs",
-        process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET
+        () => getCloudinarySignature(adminHeaders())
       );
       
       updateMovement(movementIndex, { pdf: cloudinaryResult.secure_url });

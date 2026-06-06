@@ -1,25 +1,21 @@
 
-// Helper to generate a timestamp and signature for Cloudinary uploads
-// We'll add a backend endpoint to generate secure signatures later for production,
-// but for now we can use an unsigned preset OR a signature endpoint.
-// Let's first add an unsigned upload preset on Cloudinary (recommended for simple use case)
+import { apiUrl } from "@/lib/api";
 
+// Signed upload helper for large files (no size limit on free tier beyond Cloudinary's global limit!)
 export async function uploadToCloudinary(
   file: File,
   folder: string,
-  preset?: string
+  getSignature: () => Promise<{ cloudName: string; apiKey: string; timestamp: number; signature: string }>
 ) {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  if (!cloudName) throw new Error("Missing NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME");
+  const { cloudName, apiKey, timestamp, signature } = await getSignature();
+  if (!cloudName) throw new Error("Missing Cloudinary cloud name");
 
   const formData = new FormData();
   formData.append("file", file);
   formData.append("folder", folder);
-  
-  // Use unsigned preset if provided (create this in Cloudinary settings first!)
-  if (preset) {
-    formData.append("upload_preset", preset);
-  }
+  formData.append("api_key", apiKey);
+  formData.append("timestamp", String(timestamp));
+  formData.append("signature", signature);
 
   // Determine resource type based on file
   const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
@@ -38,5 +34,19 @@ export async function uploadToCloudinary(
     throw new Error(err.error?.message || "Cloudinary upload failed");
   }
 
+  return response.json();
+}
+
+// Helper function to get a signature from the backend
+export async function getCloudinarySignature(adminHeaders: Record<string, string>) {
+  const response = await fetch(apiUrl("/api/cloudinary/signature"), {
+    credentials: "include",
+    headers: adminHeaders
+  });
+  
+  if (!response.ok) {
+    throw new Error("Failed to get Cloudinary signature");
+  }
+  
   return response.json();
 }
