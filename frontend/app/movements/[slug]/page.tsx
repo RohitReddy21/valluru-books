@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
-import { BackLink, BookletCard, PageHeader, PageShell, Section, WideSection } from "@/components/ui";
+import { BackLink, PageHeader, PageShell, Section } from "@/components/ui";
 import { MovementPdfReader } from "@/components/movement-pdf-reader";
-import { defaultSiteContent, getBookletMovementIndex, isPublished } from "@/lib/site-content";
+import { defaultSiteContent } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
 
 export const dynamic = "force-dynamic";
@@ -52,14 +52,6 @@ export default async function MovementDetailPage({
   }
 
   const movement = content.home.seriesOverview.movements[movementIndex];
-  const publishedBooklets = content.series.booklets.filter((item) =>
-    isPublished(item.status)
-  );
-  
-  const movementBooklets = publishedBooklets.filter((booklet) => {
-    const sourceIndex = content.series.booklets.findIndex((item) => item.slug === booklet.slug);
-    return getBookletMovementIndex(booklet, sourceIndex) === movementIndex;
-  });
 
   return (
     <PageShell>
@@ -71,9 +63,6 @@ export default async function MovementDetailPage({
       
       <Section>
         <div className="mx-auto max-w-3xl">
-          <p className="text-lg italic leading-8 text-muted">
-            Booklets {movement.booklets}
-          </p>
           <div className="mt-8">
             <BackLink href="/movements" label="Back to all Movements" />
           </div>
@@ -86,14 +75,6 @@ export default async function MovementDetailPage({
           ) : null}
         </div>
       </Section>
-
-      <WideSection>
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {movementBooklets.map((booklet) => (
-            <BookletCard key={booklet.slug} booklet={booklet} />
-          ))}
-        </div>
-      </WideSection>
     </PageShell>
   );
 }
