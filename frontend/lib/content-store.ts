@@ -11,6 +11,32 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
     ...(content?.footer || {})
   };
 
+  // Ensure "Movements" is in nav links
+  const navLinks = [...(nav.links || [])].filter((link) => link.href !== "/essays");
+  const hasMovementsInNav = navLinks.some((link) => link.href === "/movements");
+  if (!hasMovementsInNav) {
+    // Insert Movements after "The Series" (href: /series) if possible, otherwise just add it
+    const seriesIndex = navLinks.findIndex((link) => link.href === "/series");
+    if (seriesIndex !== -1) {
+      navLinks.splice(seriesIndex + 1, 0, { label: "Movements", href: "/movements" });
+    } else {
+      navLinks.push({ label: "Movements", href: "/movements" });
+    }
+  }
+
+  // Ensure "Movements" is in footer links
+  const footerLinks = [...(footer.links || [])].filter((link) => link.href !== "/essays");
+  const hasMovementsInFooter = footerLinks.some((link) => link.href === "/movements");
+  if (!hasMovementsInFooter) {
+    // Insert Movements after "The Books" (href: /series) if possible, otherwise just add it
+    const booksIndex = footerLinks.findIndex((link) => link.href === "/series");
+    if (booksIndex !== -1) {
+      footerLinks.splice(booksIndex + 1, 0, { label: "Movements", href: "/movements" });
+    } else {
+      footerLinks.push({ label: "Movements", href: "/movements" });
+    }
+  }
+
   return {
     ...defaultSiteContent,
     ...(content || {}),
@@ -28,7 +54,7 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
     },
     nav: {
       ...nav,
-      links: (nav.links || []).filter((link) => link.href !== "/essays")
+      links: navLinks
     },
     home: {
       ...defaultSiteContent.home,
@@ -48,7 +74,7 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
     },
     footer: {
       ...footer,
-      links: (footer.links || []).filter((link) => link.href !== "/essays")
+      links: footerLinks
     }
   } as SiteContent;
 }
