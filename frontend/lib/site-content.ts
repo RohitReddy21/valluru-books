@@ -464,6 +464,7 @@ export const defaultSiteContent: SiteContent = {
     title: "The Valluru — The Inward Fire Series",
     links: [
       { label: "The Books", href: "/series" },
+      { label: "Movements", href: "/movements" },
       { label: "About the Author", href: "/about" },
       { label: "Newsletter", href: "/#newsletter" }
     ],
