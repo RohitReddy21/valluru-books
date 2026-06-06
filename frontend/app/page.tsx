@@ -10,7 +10,7 @@ import {
   WideSection
 } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
-import { defaultSiteContent } from "@/lib/site-content";
+import { defaultSiteContent, movementSlug } from "@/lib/site-content";
 
 export const dynamic = "force-dynamic";
 
@@ -68,11 +68,11 @@ export default async function HomePage() {
           </p>
         </div>
         <div className="mt-12 grid gap-4 md:grid-cols-3 lg:grid-cols-5">
-          {home.seriesOverview.movements.map((movement) => (
+          {home.seriesOverview.movements.map((movement, index) => (
             <Link
               className="group block rounded-md border border-gold/15 bg-surface/72 p-4 transition hover:border-gold/40"
-              href={`/movements/${movement.slug}`}
-              key={movement.slug}
+              href={`/movements/${movementSlug(movement, index)}`}
+              key={movementSlug(movement, index)}
             >
               <h3 className="font-display text-lg leading-tight text-parchment group-hover:text-gold">
                 {movement.title}

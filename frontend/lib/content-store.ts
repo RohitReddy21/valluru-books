@@ -1,5 +1,5 @@
 import { apiUrl } from "@/lib/api";
-import { defaultSiteContent, type SiteContent } from "@/lib/site-content";
+import { defaultSiteContent, movementSlug, type SiteContent } from "@/lib/site-content";
 
 function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
   const nav = {
@@ -37,6 +37,22 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
     }
   }
 
+  const home = {
+    ...defaultSiteContent.home,
+    ...(content?.home || {}),
+    seriesOverview: {
+      ...defaultSiteContent.home.seriesOverview,
+      ...(content?.home?.seriesOverview || {}),
+      movements: (
+        content?.home?.seriesOverview?.movements ||
+        defaultSiteContent.home.seriesOverview.movements
+      ).map((movement, index) => ({
+        ...movement,
+        slug: movementSlug(movement, index)
+      }))
+    }
+  };
+
   return {
     ...defaultSiteContent,
     ...(content || {}),
@@ -56,10 +72,7 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
       ...nav,
       links: navLinks
     },
-    home: {
-      ...defaultSiteContent.home,
-      ...(content?.home || {})
-    },
+    home,
     series: {
       ...defaultSiteContent.series,
       ...(content?.series || {})

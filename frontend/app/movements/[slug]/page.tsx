@@ -1,14 +1,14 @@
 import { notFound } from "next/navigation";
 import { BackLink, PageHeader, PageShell, Section } from "@/components/ui";
 import { MovementPdfReader } from "@/components/movement-pdf-reader";
-import { defaultSiteContent } from "@/lib/site-content";
+import { defaultSiteContent, movementSlug } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
 
 export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
-  return defaultSiteContent.home.seriesOverview.movements.map((movement) => ({
-    slug: movement.slug
+  return defaultSiteContent.home.seriesOverview.movements.map((movement, index) => ({
+    slug: movementSlug(movement, index)
   }));
 }
 
@@ -20,7 +20,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const content = await getSiteContent();
   const movement = content.home.seriesOverview.movements.find(
-    (m) => m.slug === slug
+    (item, index) => movementSlug(item, index) === slug
   );
 
   return {
@@ -40,7 +40,7 @@ export default async function MovementDetailPage({
   const media = { ...defaultSiteContent.media, ...(content.media || {}) };
   
   const movementIndex = content.home.seriesOverview.movements.findIndex(
-    (m) => m.slug === slug
+    (item, index) => movementSlug(item, index) === slug
   );
 
   if (movementIndex === -1) {

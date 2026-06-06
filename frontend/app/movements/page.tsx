@@ -2,7 +2,7 @@ import Link from "next/link";
 import { NewsletterForm } from "@/components/newsletter-form";
 import { PageHeader, PageShell, Section, WideSection } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
-import { defaultSiteContent } from "@/lib/site-content";
+import { defaultSiteContent, movementSlug } from "@/lib/site-content";
 
 export const dynamic = "force-dynamic";
 
@@ -26,10 +26,10 @@ export default async function MovementsPage() {
           </p>
         </div>
         <div className="mt-12 grid gap-4 md:grid-cols-3 lg:grid-cols-5">
-          {movements.map((movement) => (
+          {movements.map((movement, index) => (
             <Link
-              key={movement.slug}
-              href={`/movements/${movement.slug}`}
+              key={movementSlug(movement, index)}
+              href={`/movements/${movementSlug(movement, index)}`}
               className="group block rounded-md border border-gold/15 bg-surface/72 p-4 transition hover:border-gold/40"
             >
               <h3 className="font-display text-lg leading-tight text-parchment group-hover:text-gold">

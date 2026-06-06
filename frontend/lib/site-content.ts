@@ -4,7 +4,7 @@ export type Cta = {
 };
 
 export type Movement = {
-  slug: string;
+  slug?: string;
   title: string;
   booklets: string;
   description: string;
@@ -14,6 +14,18 @@ export type Movement = {
   coverImage?: string;
   seo?: SeoMetadata;
 };
+
+export function movementSlug(movement: Pick<Movement, "slug" | "title">, index = 0) {
+  return (
+    movement.slug ||
+    movement.title
+      .toLowerCase()
+      .replace(/['"]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "") ||
+    `movement-${index + 1}`
+  );
+}
 
 export type PublishStatus = "draft" | "published" | "archived";
 
