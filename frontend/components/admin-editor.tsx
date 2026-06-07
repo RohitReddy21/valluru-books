@@ -3,7 +3,6 @@
 import { useMemo, useState } from "react";
 import { Eye, ImageIcon, Package, Plus, RefreshCw, RotateCcw, Save, Upload } from "lucide-react";
 import { apiUrl } from "@/lib/api";
-import { uploadToCloudinary, getCloudinarySignature } from "@/lib/cloudinary";
 import type { Booklet, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
 import { defaultSiteContent, getBookletMovementIndex } from "@/lib/site-content";
 
@@ -219,35 +218,55 @@ export function AdminEditor({ initialContent, source }: Props) {
       return;
     }
 
-    try {
-      setUploadStatus("Uploading PDF...");
-      const result = await uploadToCloudinary(
-        pdfFile,
-        "valluru/books/pdfs",
-        (folder) => getCloudinarySignature(adminHeaders(), folder)
-      );
-      updateBooklet(selectedBooklet.slug, { pdf: result.secure_url });
-      setUploadStatus(`Uploaded and attached to ${selectedBooklet.title}.`);
-    } catch (err) {
-      console.error("Upload failed", err);
-      setUploadStatus(err instanceof Error ? err.message : "PDF upload failed");
+    setUploadStatus("Uploading PDF...");
+    const formData = new FormData();
+    formData.append("bookletSlug", selectedBooklet.slug);
+    formData.append("pdf", pdfFile);
+
+    const response = await fetch(apiUrl("/api/admin/upload-pdf"), {
+      method: "POST",
+      headers: adminHeaders(),
+      credentials: "include",
+      body: formData
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      error?: string;
+      pdf?: string;
+    } | null;
+
+    if (!response.ok || !payload?.pdf) {
+      setUploadStatus(payload?.error || "PDF upload failed.");
+      return;
     }
+
+    updateBooklet(selectedBooklet.slug, { pdf: payload.pdf });
+    setUploadStatus(`Uploaded and attached to ${selectedBooklet.title}.`);
   }
 
   async function uploadMovementPdf(movementIndex: number, movementPdfFile: File, setMovementUploadStatus: (status: string) => void) {
-    try {
-      setMovementUploadStatus("Uploading PDF...");
-      const result = await uploadToCloudinary(
-        movementPdfFile,
-        "valluru/movements/pdfs",
-        (folder) => getCloudinarySignature(adminHeaders(), folder)
-      );
-      updateMovement(movementIndex, { pdf: result.secure_url });
-      setMovementUploadStatus("PDF uploaded and attached to this movement.");
-    } catch (err) {
-      console.error("Upload failed", err);
-      setMovementUploadStatus(err instanceof Error ? err.message : "PDF upload failed");
+    setMovementUploadStatus("Uploading PDF...");
+    const formData = new FormData();
+    formData.append("movementIndex", String(movementIndex));
+    formData.append("pdf", movementPdfFile);
+
+    const response = await fetch(apiUrl("/api/admin/upload-movement-pdf"), {
+      method: "POST",
+      headers: adminHeaders(),
+      credentials: "include",
+      body: formData
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      error?: string;
+      pdf?: string;
+    } | null;
+
+    if (!response.ok || !payload?.pdf) {
+      setMovementUploadStatus(payload?.error || "PDF upload failed.");
+      return;
     }
+
+    updateMovement(movementIndex, { pdf: payload.pdf });
+    setMovementUploadStatus("PDF uploaded and attached to this movement.");
   }
 
   async function loadAdminData() {
