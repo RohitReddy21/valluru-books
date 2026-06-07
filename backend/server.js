@@ -3,7 +3,7 @@ const dotenv = require("dotenv");
 const express = require("express");
 const { v2: cloudinary } = require("cloudinary");
 const B2 = require("backblaze-b2");
-const { GridFSBucket, MongoClient, ObjectId } = require("mongodb");
+const { MongoClient, ObjectId } = require("mongodb");
 const multer = require("multer");
 const { Resend } = require("resend");
 const crypto = require("node:crypto");
@@ -73,12 +73,65 @@ async function getB2Client() {
   return b2;
 }
 
-// Get B2 public download URL from auth data
+// Get B2 public download URL from auth data (deprecated - use authenticated download)
 function getB2PublicUrl(fileName) {
   // Use downloadUrl from B2 auth response
   const downloadUrl = b2AuthData?.downloadUrl || "https://f005.backblazeb2.com";
   const encodedFileName = fileName.split("/").map(encodeURIComponent).join("/");
   return `${downloadUrl}/file/${process.env.B2_BUCKET_NAME}/${encodedFileName}`;
+}
+
+// Download file from B2 using authentication (no public access, no egress fees)
+async function downloadFromB2(fileName, response, headers = {}) {
+  if (!hasB2Config()) {
+    throw new Error(b2ConfigError());
+  }
+
+  const client = await getB2Client();
+  
+  // Get download authorization for the specific file
+  const { data: downloadAuth } = await client.getDownloadAuthorization({
+    bucketId: process.env.B2_BUCKET_ID,
+    fileNamePrefix: fileName,
+    validDurationInSeconds: 604800 // 7 days
+  });
+
+  const downloadUrl = `${b2AuthData.downloadUrl}/file/${process.env.B2_BUCKET_NAME}/${fileName}`;
+  
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
+    const remote = await fetch(downloadUrl, {
+      signal: controller.signal,
+      headers: {
+        "Authorization": downloadAuth.authorizationToken,
+        "User-Agent": "Valluru-Books/1.0"
+      }
+    });
+
+    clearTimeout(timeout);
+
+    if (!remote.ok) {
+      console.error(`B2 download failed: ${remote.status} ${remote.statusText} for file: ${fileName}`);
+      return false;
+    }
+
+    if (!remote.body) {
+      console.error(`B2 download failed: No body in response for file: ${fileName}`);
+      return false;
+    }
+
+    response.set({
+      "Content-Type": remote.headers.get("content-type") || "application/octet-stream",
+      ...headers
+    });
+    await pipeline(Readable.fromWeb(remote.body), response);
+    return true;
+  } catch (error) {
+    console.error(`B2 download error for file ${fileName}:`, error.message);
+    return false;
+  }
 }
 
 async function sha1File(filePath) {
@@ -282,10 +335,6 @@ async function getDb() {
   return client.db(dbName);
 }
 
-async function getBucket(bucketName) {
-  return new GridFSBucket(await getDb(), { bucketName });
-}
-
 function getResend() {
   if (!process.env.RESEND_API_KEY) {
     return null;
@@ -432,69 +481,40 @@ function pdfFilename(slug) {
   return `${slug}.pdf`;
 }
 
-async function sendGridFileByName(bucketName, filename, response, headers = {}) {
-  const bucket = await getBucket(bucketName);
-  const file = await bucket.find({ filename }).sort({ uploadDate: -1 }).limit(1).next();
-
-  if (!file) {
-    return false;
-  }
-
-  response.set({
-    "Content-Type": file.contentType || "application/octet-stream",
-    ...headers
-  });
-  await pipeline(bucket.openDownloadStream(file._id), response);
-  return true;
-}
-
-async function sendGridFileById(bucketName, id, response, headers = {}) {
-  const bucket = await getBucket(bucketName);
-  const objectId = new ObjectId(id);
-  const file = await bucket.find({ _id: objectId }).next();
-
-  if (!file) {
-    return false;
-  }
-
-  response.set({
-    "Content-Type": file.contentType || "application/octet-stream",
-    ...headers
-  });
-  await pipeline(bucket.openDownloadStream(objectId), response);
-  return true;
-}
-
 async function streamRemoteFile(url, response, headers = {}) {
-  const remote = await fetch(url);
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
 
-  if (!remote.ok || !remote.body) {
+    const remote = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Valluru-Books/1.0"
+      }
+    });
+
+    clearTimeout(timeout);
+
+    if (!remote.ok) {
+      console.error(`Remote file fetch failed: ${remote.status} ${remote.statusText} for URL: ${url}`);
+      return false;
+    }
+
+    if (!remote.body) {
+      console.error(`Remote file fetch failed: No body in response for URL: ${url}`);
+      return false;
+    }
+
+    response.set({
+      "Content-Type": remote.headers.get("content-type") || "application/octet-stream",
+      ...headers
+    });
+    await pipeline(Readable.fromWeb(remote.body), response);
+    return true;
+  } catch (error) {
+    console.error(`Remote file fetch error for URL ${url}:`, error.message);
     return false;
   }
-
-  response.set({
-    "Content-Type": remote.headers.get("content-type") || "application/octet-stream",
-    ...headers
-  });
-  await pipeline(Readable.fromWeb(remote.body), response);
-  return true;
-}
-
-async function writeGridFileToTemp(bucket, file) {
-  const extension = path.extname(file.filename || "");
-  const tempPath = path.join(
-    uploadTempDir,
-    `migrate-${Date.now()}-${crypto.randomBytes(8).toString("hex")}${extension}`
-  );
-
-  await pipeline(bucket.openDownloadStream(file._id), fs.createWriteStream(tempPath));
-
-  return {
-    path: tempPath,
-    mimetype: file.contentType || "application/octet-stream",
-    originalname: file.filename,
-    size: file.length
-  };
 }
 
 async function getSiteContent() {
@@ -950,12 +970,6 @@ async function deleteStoredMedia(media) {
     await cloudinary.uploader.destroy(media.publicId, {
       resource_type: media.resourceType || cloudinaryResourceType(media.contentType)
     });
-    return true;
-  }
-
-  if (media.provider === "gridfs" && media.gridFsId) {
-    const bucket = await getBucket("media_uploads");
-    await bucket.delete(new ObjectId(media.gridFsId));
     return true;
   }
 
@@ -1822,8 +1836,6 @@ app.get("/api/admin/data", verifyAdmin, async (_request, response, next) => {
         db.collection("content").countDocuments({}),
         db.collection("subscribers").countDocuments({}),
         db.collection("comments").countDocuments({}),
-        db.collection("booklet_pdfs.files").countDocuments({}),
-        db.collection("media_uploads.files").countDocuments({}),
         db.collection("booklet_readers").countDocuments({}),
         db.collection("orders").countDocuments({}),
         db.collection("media_assets").countDocuments({}),
@@ -1838,10 +1850,10 @@ app.get("/api/admin/data", verifyAdmin, async (_request, response, next) => {
         content: counts[0],
         subscribers: counts[1],
         comments: counts[2],
-        pdfs: counts[3] + counts[8],
-        media: Math.max(counts[4], counts[7]),
-        bookReaders: counts[5],
-        orders: counts[6],
+        pdfs: counts[6],
+        media: counts[5],
+        bookReaders: counts[3],
+        orders: counts[4],
         draftBooks: statusCount(booklets, "draft"),
         publishedBooks: statusCount(booklets, "published"),
         archivedBooks: statusCount(booklets, "archived")
@@ -2098,27 +2110,31 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
       return;
     }
 
-    if (booklet.pdf && /^https?:\/\//.test(booklet.pdf)) {
-      const streamed = await streamRemoteFile(booklet.pdf, response, {
-        "Content-Disposition": `inline; filename="${slug}.pdf"`,
-        "Cache-Control": "private, max-age=0, no-store"
-      });
-
-      if (!streamed) {
-        response.status(502).json({ error: "The remote PDF could not be loaded." });
-      }
-      return;
-    }
-
-    const streamedLegacyPdf = hasMongoConfig()
-      ? await sendGridFileByName("booklet_pdfs", pdfFilename(slug), response, {
+    // Try authenticated B2 download first (no public access, no fees)
+    if (booklet.pdf) {
+      const b2FileName = getB2FileNameFromUrl(booklet.pdf);
+      if (b2FileName) {
+        const streamed = await downloadFromB2(b2FileName, response, {
           "Content-Disposition": `inline; filename="${slug}.pdf"`,
           "Cache-Control": "private, max-age=0, no-store"
-        })
-      : false;
+        });
 
-    if (streamedLegacyPdf) {
-      return;
+        if (streamed) {
+          return;
+        }
+      }
+
+      // Fallback to remote URL streaming (for Cloudinary or other URLs)
+      if (/^https?:\/\//.test(booklet.pdf)) {
+        const streamed = await streamRemoteFile(booklet.pdf, response, {
+          "Content-Disposition": `inline; filename="${slug}.pdf"`,
+          "Cache-Control": "private, max-age=0, no-store"
+        });
+
+        if (streamed) {
+          return;
+        }
+      }
     }
 
     response.status(404).json({ error: "No uploaded PDF is available for this booklet yet." });
@@ -2138,27 +2154,31 @@ app.get("/api/movements/:index/pdf", async (request, response, next) => {
       return;
     }
 
-    if (movement.pdf && /^https?:\/\//.test(movement.pdf)) {
-      const streamed = await streamRemoteFile(movement.pdf, response, {
-        "Content-Disposition": `inline; filename="movement-${index}.pdf"`,
-        "Cache-Control": "private, max-age=0, no-store"
-      });
-
-      if (!streamed) {
-        response.status(502).json({ error: "The remote PDF could not be loaded." });
-      }
-      return;
-    }
-
-    const streamedLegacyPdf = hasMongoConfig()
-      ? await sendGridFileByName("movement_pdfs", `movement-${index}.pdf`, response, {
+    // Try authenticated B2 download first (no public access, no fees)
+    if (movement.pdf) {
+      const b2FileName = getB2FileNameFromUrl(movement.pdf);
+      if (b2FileName) {
+        const streamed = await downloadFromB2(b2FileName, response, {
           "Content-Disposition": `inline; filename="movement-${index}.pdf"`,
           "Cache-Control": "private, max-age=0, no-store"
-        })
-      : false;
+        });
 
-    if (streamedLegacyPdf) {
-      return;
+        if (streamed) {
+          return;
+        }
+      }
+
+      // Fallback to remote URL streaming (for Cloudinary or other URLs)
+      if (/^https?:\/\//.test(movement.pdf)) {
+        const streamed = await streamRemoteFile(movement.pdf, response, {
+          "Content-Disposition": `inline; filename="movement-${index}.pdf"`,
+          "Cache-Control": "private, max-age=0, no-store"
+        });
+
+        if (streamed) {
+          return;
+        }
+      }
     }
 
     response.status(404).json({ error: "No uploaded PDF is available for this movement yet." });
@@ -2167,177 +2187,6 @@ app.get("/api/movements/:index/pdf", async (request, response, next) => {
   }
 });
 
-app.get("/api/media/:id", async (request, response, next) => {
-  try {
-    const streamed = await sendGridFileById("media_uploads", request.params.id, response, {
-      "Cache-Control": "public, max-age=31536000, immutable"
-    });
-
-    if (!streamed) {
-      response.status(404).json({ error: "Media not found." });
-    }
-  } catch {
-    response.status(404).json({ error: "Media not found." });
-  }
-});
-
-// Migration endpoint to move all GridFS files to Cloudinary
-app.post("/api/admin/migrate-gridfs-to-cloudinary", verifyAdmin, async (request, response, next) => {
-  try {
-    if (!hasMongoConfig() || !hasCloudinaryConfig()) {
-      response.status(400).json({ 
-        error: "Both MongoDB and Cloudinary configurations are required for migration." 
-      });
-      return;
-    }
-
-    const db = await getDb();
-    const results = {
-      media_uploads: { migrated: 0, failed: 0, skipped: 0 },
-      booklet_pdfs: { migrated: 0, failed: 0, skipped: 0 },
-      movement_pdfs: { migrated: 0, failed: 0, skipped: 0 }
-    };
-
-    // 1. Migrate media_uploads bucket
-    console.log("Migrating media_uploads...");
-    const mediaBucket = await getBucket("media_uploads");
-    const mediaFiles = await mediaBucket.find({}).toArray();
-    for (const file of mediaFiles) {
-      try {
-        // Check if already migrated in media_assets
-        const existingAsset = await db.collection("media_assets").findOne({ 
-          "gridFsId": String(file._id) 
-        });
-        if (existingAsset && existingAsset.provider === "cloudinary") {
-          results.media_uploads.skipped++;
-          continue;
-        }
-
-        const tempFile = await writeGridFileToTemp(mediaBucket, file);
-
-        try {
-          // Upload to Cloudinary
-          const cloudinaryResult = await uploadToCloudinary(
-            tempFile,
-            "valluru/migrated/media"
-          );
-        
-          // Update media_assets if exists, or create new
-          const assetUpdate = {
-            $set: {
-              provider: "cloudinary",
-              publicId: cloudinaryResult.public_id,
-              url: cloudinaryResult.secure_url,
-              resourceType: cloudinaryResult.resource_type,
-              format: cloudinaryResult.format,
-              updatedAt: new Date()
-            },
-            $unset: { gridFsId: "" }
-          };
-          await db.collection("media_assets").updateOne(
-            { gridFsId: String(file._id) },
-            assetUpdate,
-            { upsert: true }
-          );
-
-          results.media_uploads.migrated++;
-        } finally {
-          await cleanupUploadedFile(tempFile);
-        }
-      } catch (err) {
-        console.error("Failed to migrate media file", file._id, err);
-        results.media_uploads.failed++;
-      }
-    }
-
-    // 2. Migrate booklet_pdfs bucket
-    console.log("Migrating booklet_pdfs...");
-    const bookletBucket = await getBucket("booklet_pdfs");
-    const bookletFiles = await bookletBucket.find({}).toArray();
-    for (const file of bookletFiles) {
-      try {
-        const tempFile = await writeGridFileToTemp(bookletBucket, {
-          ...file,
-          contentType: "application/pdf"
-        });
-
-        try {
-          // Upload to Cloudinary
-          const cloudinaryResult = await uploadToCloudinary(
-            tempFile,
-            "valluru/migrated/books/pdfs"
-          );
-
-          // Update site content to use new URL
-          const content = await getSiteContent();
-          if (content?.series?.booklets) {
-            for (const booklet of content.series.booklets) {
-              const currentPdf = booklet.pdf;
-              if (currentPdf && currentPdf === `/api/booklets/${booklet.slug}/pdf`) {
-                booklet.pdf = cloudinaryResult.secure_url;
-                results.booklet_pdfs.migrated++;
-              }
-            }
-            await saveSiteContent(content);
-          }
-        } finally {
-          await cleanupUploadedFile(tempFile);
-        }
-      } catch (err) {
-        console.error("Failed to migrate booklet PDF", file._id, err);
-        results.booklet_pdfs.failed++;
-      }
-    }
-
-    // 3. Migrate movement_pdfs bucket
-    console.log("Migrating movement_pdfs...");
-    const movementBucket = await getBucket("movement_pdfs");
-    const movementFiles = await movementBucket.find({}).toArray();
-    for (const file of movementFiles) {
-      try {
-        const tempFile = await writeGridFileToTemp(movementBucket, {
-          ...file,
-          contentType: "application/pdf"
-        });
-
-        try {
-          // Upload to Cloudinary
-          const cloudinaryResult = await uploadToCloudinary(
-            tempFile,
-            "valluru/migrated/movements/pdfs"
-          );
-
-          // Update site content
-          const content = await getSiteContent();
-          if (content?.home?.seriesOverview?.movements) {
-            for (let i = 0; i < content.home.seriesOverview.movements.length; i++) {
-              const movement = content.home.seriesOverview.movements[i];
-              if (movement.pdf && movement.pdf === `/api/movements/${i}/pdf`) {
-                movement.pdf = cloudinaryResult.secure_url;
-                results.movement_pdfs.migrated++;
-              }
-            }
-            await saveSiteContent(content);
-          }
-        } finally {
-          await cleanupUploadedFile(tempFile);
-        }
-      } catch (err) {
-        console.error("Failed to migrate movement PDF", file._id, err);
-        results.movement_pdfs.failed++;
-      }
-    }
-
-    response.json({ 
-      ok: true, 
-      results,
-      message: "Migration complete. Check server logs for details." 
-    });
-  } catch (err) {
-    console.error("Migration failed", err);
-    next(err);
-  }
-});
 
 app.use((error, _request, response, _next) => {
   if (error instanceof multer.MulterError) {

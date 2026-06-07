@@ -1,9 +1,8 @@
 import fetch from "node-fetch";
-import { getB2PublicUrl, hasB2Config, b2ConfigError } from "../../../backend/server"; // adjust path if needed
 
 /**
- * API route: /api/pdf-proxy?file=path/to/file.pdf
- * Returns the PDF with CORS headers for https://valluru-books.vercel.app
+ * API route: /api/pdf-proxy?url=https://...
+ * Proxies PDF requests with proper CORS headers
  */
 export default async function handler(req, res) {
   // Only GET supported
@@ -12,42 +11,57 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const { file } = req.query;
-  if (!file || typeof file !== "string") {
-    return res.status(400).json({ error: "Missing required 'file' query parameter" });
+  const { url } = req.query;
+  if (!url || typeof url !== "string") {
+    return res.status(400).json({ error: "Missing required 'url' query parameter" });
   }
 
-  // Basic sanitisation – prevent path traversal
-  if (file.includes("..")) {
-    return res.status(400).json({ error: "Invalid file path" });
+  // Validate URL format
+  try {
+    new URL(url);
+  } catch {
+    return res.status(400).json({ error: "Invalid URL format" });
   }
 
-  if (!hasB2Config()) {
-    return res.status(500).json({ error: b2ConfigError() });
-  }
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
 
-  // Build the signed B2 public URL (the same helper used elsewhere)
-  const publicUrl = getB2PublicUrl(file);
+    const upstream = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Valluru-Books/1.0"
+      }
+    });
 
-  // Fetch the PDF from Backblaze B2
-  const upstream = await fetch(publicUrl);
-  if (!upstream.ok) {
-    const txt = await upstream.text();
-    return res.status(upstream.status).json({ error: "Failed to fetch PDF", details: txt });
-  }
+    clearTimeout(timeout);
 
-  // Set CORS header for the frontend origin
-  res.setHeader("Access-Control-Allow-Origin", "https://valluru-books.vercel.app");
-  // Forward appropriate content type
-  const contentType = upstream.headers.get("content-type") || "application/pdf";
-  res.setHeader("Content-Type", contentType);
-  // Stream directly to client
-  const stream = upstream.body;
-  if (!stream) {
-    return res.status(502).json({ error: "No response body from B2" });
+    if (!upstream.ok) {
+      const txt = await upstream.text();
+      console.error(`PDF proxy failed: ${upstream.status} ${upstream.statusText} for URL: ${url}`);
+      return res.status(upstream.status).json({ error: "Failed to fetch PDF", details: txt });
+    }
+
+    const stream = upstream.body;
+    if (!stream) {
+      return res.status(502).json({ error: "No response body from upstream" });
+    }
+
+    // Set CORS headers
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    
+    // Forward content type
+    const contentType = upstream.headers.get("content-type") || "application/pdf";
+    res.setHeader("Content-Type", contentType);
+    
+    // Stream directly to client
+    const { Readable } = require("node:stream");
+    const nodeStream = Readable.fromWeb(stream);
+    nodeStream.pipe(res);
+  } catch (error) {
+    console.error(`PDF proxy error for URL ${url}:`, error.message);
+    return res.status(502).json({ error: "Proxy error", details: error.message });
   }
-  // Node fetch returns a web ReadableStream; convert to Node stream
-  const { Readable } = require("node:stream");
-  const nodeStream = Readable.fromWeb(stream);
-  nodeStream.pipe(res);
 }
