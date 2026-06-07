@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Eye, ImageIcon, Package, Plus, RefreshCw, RotateCcw, Save, Upload } from "lucide-react";
+import { Eye, FileText, ImageIcon, Package, Plus, RefreshCw, RotateCcw, Save, Trash2, Upload } from "lucide-react";
 import { apiUrl } from "@/lib/api";
 import type { Booklet, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
 import { defaultSiteContent, getBookletMovementIndex } from "@/lib/site-content";
@@ -11,7 +11,7 @@ type Props = {
   source: string;
 };
 
-type Tab = "dashboard" | "booklets" | "movements" | "pages" | "media" | "orders" | "settings" | "navigation";
+type Tab = "dashboard" | "booklets" | "movements" | "pages" | "pdfs" | "media" | "orders" | "settings" | "navigation";
 type MediaTarget = "homeHeroImage" | "pageHeroImage" | "authorImage";
 
 type AdminData = {
@@ -82,9 +82,20 @@ type MediaAsset = {
   url?: string;
   kind?: string;
   folder?: string;
+  source?: string;
+  provider?: string;
+  b2FileName?: string;
   contentType?: string;
   size?: number;
   createdAt?: string;
+  updatedAt?: string;
+  assignedTo?: {
+    type?: string;
+    slug?: string;
+    index?: number;
+    title?: string;
+    field?: string;
+  } | null;
 };
 
 function slugify(value: string) {
@@ -107,6 +118,20 @@ function toParagraphs(value: string) {
 
 function fromParagraphs(value: string[]) {
   return value.join("\n\n");
+}
+
+function formatFileSize(bytes?: number) {
+  const value = Number(bytes || 0);
+
+  if (!value) {
+    return "Unknown size";
+  }
+
+  if (value < 1024 * 1024) {
+    return `${Math.max(1, Math.round(value / 1024))} KB`;
+  }
+
+  return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
 export function AdminEditor({ initialContent, source }: Props) {
@@ -137,6 +162,11 @@ export function AdminEditor({ initialContent, source }: Props) {
   const [mediaSearch, setMediaSearch] = useState("");
   const [mediaKind, setMediaKind] = useState("all");
   const [mediaFolder, setMediaFolder] = useState("valluru/media");
+  const [pdfItems, setPdfItems] = useState<MediaAsset[]>([]);
+  const [pdfSearch, setPdfSearch] = useState("");
+  const [pdfFolder, setPdfFolder] = useState("valluru/pdfs");
+  const [pdfLibraryFile, setPdfLibraryFile] = useState<File | null>(null);
+  const [pdfStatus, setPdfStatus] = useState("Load PDFs from the database.");
   const [orders, setOrders] = useState<AdminData["orders"]>([]);
   const [ordersStatus, setOrdersStatus] = useState("Load orders from the database.");
 
@@ -146,6 +176,16 @@ export function AdminEditor({ initialContent, source }: Props) {
       content.series.booklets[0],
     [content.series.booklets, selectedBookletSlug]
   );
+  const combinedMediaItems = useMemo(() => {
+    const byKey = new Map<string, MediaAsset>();
+
+    for (const item of [...mediaItems, ...pdfItems]) {
+      const key = item.id || item.url || item.name || `${byKey.size}`;
+      byKey.set(key, item);
+    }
+
+    return Array.from(byKey.values());
+  }, [mediaItems, pdfItems]);
 
   function updateBooklet(slug: string, patch: Partial<Booklet>) {
     setContent((current) => ({
@@ -232,6 +272,7 @@ export function AdminEditor({ initialContent, source }: Props) {
     const payload = (await response.json().catch(() => null)) as {
       error?: string;
       pdf?: string;
+      media?: MediaAsset;
     } | null;
 
     if (!response.ok || !payload?.pdf) {
@@ -240,6 +281,9 @@ export function AdminEditor({ initialContent, source }: Props) {
     }
 
     updateBooklet(selectedBooklet.slug, { pdf: payload.pdf });
+    if (payload.media) {
+      setPdfItems((current) => [payload.media as MediaAsset, ...current.filter((item) => item.id !== payload.media?.id)]);
+    }
     setUploadStatus(`Uploaded and attached to ${selectedBooklet.title}.`);
   }
 
@@ -258,6 +302,7 @@ export function AdminEditor({ initialContent, source }: Props) {
     const payload = (await response.json().catch(() => null)) as {
       error?: string;
       pdf?: string;
+      media?: MediaAsset;
     } | null;
 
     if (!response.ok || !payload?.pdf) {
@@ -266,6 +311,9 @@ export function AdminEditor({ initialContent, source }: Props) {
     }
 
     updateMovement(movementIndex, { pdf: payload.pdf });
+    if (payload.media) {
+      setPdfItems((current) => [payload.media as MediaAsset, ...current.filter((item) => item.id !== payload.media?.id)]);
+    }
     setMovementUploadStatus("PDF uploaded and attached to this movement.");
   }
 
@@ -454,6 +502,138 @@ export function AdminEditor({ initialContent, source }: Props) {
     }
   }
 
+  function upsertPdfItem(item: MediaAsset) {
+    setPdfItems((current) => [item, ...current.filter((pdf) => pdf.id !== item.id)]);
+  }
+
+  async function loadPdfs() {
+    setPdfStatus("Loading PDFs...");
+    const response = await fetch(
+      apiUrl(`/api/admin/pdfs?search=${encodeURIComponent(pdfSearch)}`),
+      {
+        credentials: "include",
+        headers: adminHeaders()
+      }
+    );
+    const payload = (await response.json().catch(() => null)) as {
+      pdfs?: MediaAsset[];
+      error?: string;
+    } | null;
+
+    if (!response.ok || !payload?.pdfs) {
+      setPdfStatus(payload?.error || "Could not load PDFs.");
+      return;
+    }
+
+    setPdfItems(payload.pdfs);
+    setPdfStatus("PDF library loaded.");
+  }
+
+  async function uploadLibraryPdf(file: File | null) {
+    if (!file) {
+      setPdfStatus("Choose a PDF first.");
+      return;
+    }
+
+    setPdfStatus("Uploading PDF...");
+    const formData = new FormData();
+    formData.append("pdf", file);
+    formData.append("folder", pdfFolder);
+
+    const response = await fetch(apiUrl("/api/admin/pdfs"), {
+      method: "POST",
+      headers: adminHeaders(),
+      credentials: "include",
+      body: formData
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      media?: MediaAsset;
+      error?: string;
+    } | null;
+
+    if (!response.ok || !payload?.media) {
+      setPdfStatus(payload?.error || "PDF upload failed.");
+      return;
+    }
+
+    upsertPdfItem(payload.media);
+    setPdfLibraryFile(null);
+    setPdfStatus("PDF uploaded to the library.");
+  }
+
+  async function updatePdfAsset(
+    id: string | undefined,
+    patch: {
+      name?: string;
+      folder?: string;
+      source?: string;
+      assignmentType?: string;
+      bookletSlug?: string;
+      movementIndex?: number;
+      field?: string;
+    }
+  ) {
+    if (!id) {
+      return;
+    }
+
+    setPdfStatus("Updating PDF...");
+    const response = await fetch(apiUrl(`/api/admin/pdfs/${id}`), {
+      method: "PATCH",
+      credentials: "include",
+      headers: adminHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify(patch)
+    });
+    const payload = (await response.json().catch(() => null)) as {
+      media?: MediaAsset;
+      content?: SiteContent | null;
+      error?: string;
+    } | null;
+
+    if (!response.ok || !payload?.media) {
+      setPdfStatus(payload?.error || "PDF update failed.");
+      return;
+    }
+
+    upsertPdfItem(payload.media);
+    if (payload.content) {
+      setContent(payload.content);
+    }
+    setPdfStatus("PDF updated.");
+  }
+
+  async function deletePdfAsset(id?: string, clearReferences = true) {
+    if (!id) {
+      return;
+    }
+
+    setPdfStatus("Deleting PDF...");
+    const response = await fetch(
+      apiUrl(`/api/admin/pdfs/${id}?clearReferences=${clearReferences ? "true" : "false"}`),
+      {
+        method: "DELETE",
+        credentials: "include",
+        headers: adminHeaders()
+      }
+    );
+    const payload = (await response.json().catch(() => null)) as {
+      content?: SiteContent | null;
+      error?: string;
+    } | null;
+
+    if (!response.ok) {
+      setPdfStatus(payload?.error || "PDF delete failed.");
+      return;
+    }
+
+    setPdfItems((current) => current.filter((item) => item.id !== id));
+    setMediaItems((current) => current.filter((item) => item.id !== id));
+    if (payload?.content) {
+      setContent(payload.content);
+    }
+    setPdfStatus("PDF deleted.");
+  }
+
   async function loadOrders() {
     setOrdersStatus("Loading orders...");
     const response = await fetch(apiUrl("/api/admin/orders"), {
@@ -543,7 +723,7 @@ export function AdminEditor({ initialContent, source }: Props) {
             </button>
 
             <div className="mt-5 grid gap-2">
-              {(["dashboard", "booklets", "movements", "pages", "media", "orders", "settings", "navigation"] as Tab[]).map((item) => (
+              {(["dashboard", "booklets", "movements", "pages", "pdfs", "media", "orders", "settings", "navigation"] as Tab[]).map((item) => (
                 <button
                   className={`rounded-md border px-4 py-3 text-left font-label text-sm uppercase tracking-[0.18em] transition ${
                     tab === item
@@ -593,7 +773,7 @@ export function AdminEditor({ initialContent, source }: Props) {
                 booklet={selectedBooklet}
                 booklets={content.series.booklets}
                 bulkBookStatus={bulkBookStatus}
-                mediaItems={mediaItems}
+                mediaItems={combinedMediaItems}
                 movements={content.home.seriesOverview.movements}
                 pdfFile={pdfFile}
                 selectedSlug={selectedBookletSlug}
@@ -622,6 +802,25 @@ export function AdminEditor({ initialContent, source }: Props) {
 
             {tab === "pages" ? (
               <PagesPanel content={content} setContent={setContent} />
+            ) : null}
+
+            {tab === "pdfs" ? (
+              <PdfsPanel
+                booklets={content.series.booklets}
+                deletePdfAsset={deletePdfAsset}
+                loadPdfs={loadPdfs}
+                movements={content.home.seriesOverview.movements}
+                pdfFile={pdfLibraryFile}
+                pdfFolder={pdfFolder}
+                pdfItems={pdfItems}
+                pdfSearch={pdfSearch}
+                pdfStatus={pdfStatus}
+                setPdfFile={setPdfLibraryFile}
+                setPdfFolder={setPdfFolder}
+                setPdfSearch={setPdfSearch}
+                updatePdfAsset={updatePdfAsset}
+                uploadLibraryPdf={uploadLibraryPdf}
+              />
             ) : null}
 
             {tab === "media" ? (
@@ -892,6 +1091,318 @@ function DashboardPanel({
         </>
       ) : null}
     </div>
+  );
+}
+
+function PdfsPanel({
+  booklets,
+  deletePdfAsset,
+  loadPdfs,
+  movements,
+  pdfFile,
+  pdfFolder,
+  pdfItems,
+  pdfSearch,
+  pdfStatus,
+  setPdfFile,
+  setPdfFolder,
+  setPdfSearch,
+  updatePdfAsset,
+  uploadLibraryPdf
+}: {
+  booklets: Booklet[];
+  deletePdfAsset: (id?: string, clearReferences?: boolean) => void;
+  loadPdfs: () => void;
+  movements: Movement[];
+  pdfFile: File | null;
+  pdfFolder: string;
+  pdfItems: MediaAsset[];
+  pdfSearch: string;
+  pdfStatus: string;
+  setPdfFile: (file: File | null) => void;
+  setPdfFolder: (value: string) => void;
+  setPdfSearch: (value: string) => void;
+  updatePdfAsset: (
+    id: string | undefined,
+    patch: {
+      name?: string;
+      folder?: string;
+      source?: string;
+      assignmentType?: string;
+      bookletSlug?: string;
+      movementIndex?: number;
+      field?: string;
+    }
+  ) => void;
+  uploadLibraryPdf: (file: File | null) => void;
+}) {
+  return (
+    <div className="grid gap-7">
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+        <div>
+          <h2 className="font-display text-2xl text-parchment sm:text-3xl">
+            PDF Library
+          </h2>
+          <p className="mt-2 text-lg leading-7 text-muted">
+            Upload, read, edit, assign, and delete booklet or movement PDFs from one place.
+          </p>
+        </div>
+        <button
+          className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
+          onClick={loadPdfs}
+          type="button"
+        >
+          <RefreshCw size={16} />
+          Load PDFs
+        </button>
+      </div>
+
+      <div className="rounded-md border border-gold/15 bg-ink p-5">
+        <p className="font-label text-sm uppercase tracking-[0.2em] text-gold">
+          Upload PDF
+        </p>
+        <div className="mt-4 grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
+          <TextField label="Folder" onChange={setPdfFolder} value={pdfFolder} />
+          <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted">
+            PDF File
+            <input
+              accept="application/pdf,.pdf"
+              className="mt-3 w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-sm normal-case tracking-normal text-parchment file:mr-3 file:rounded-md file:border-0 file:bg-gold/15 file:px-3 file:py-2 file:text-parchment"
+              onChange={(event) => setPdfFile(event.target.files?.[0] || null)}
+              type="file"
+            />
+          </label>
+          <button
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold disabled:opacity-50"
+            disabled={!pdfFile}
+            onClick={() => uploadLibraryPdf(pdfFile)}
+            type="button"
+          >
+            <Upload size={16} />
+            Upload PDF
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-md border border-gold/15 bg-ink p-5">
+        <div className="grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
+          <TextField label="Search PDFs" onChange={setPdfSearch} value={pdfSearch} />
+          <button
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/30 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
+            onClick={loadPdfs}
+            type="button"
+          >
+            <RefreshCw size={16} />
+            Search
+          </button>
+        </div>
+        <p className="mt-3 text-base italic text-muted">{pdfStatus}</p>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        {pdfItems.map((item) => (
+          <PdfAssetCard
+            booklets={booklets}
+            deletePdfAsset={deletePdfAsset}
+            item={item}
+            key={item.id || item.url}
+            movements={movements}
+            updatePdfAsset={updatePdfAsset}
+          />
+        ))}
+        {pdfItems.length === 0 ? (
+          <div className="rounded-md border border-gold/15 bg-ink p-5 text-muted">
+            No PDFs loaded yet. Use Load PDFs to sync existing book and movement PDFs.
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function PdfAssetCard({
+  booklets,
+  deletePdfAsset,
+  item,
+  movements,
+  updatePdfAsset
+}: {
+  booklets: Booklet[];
+  deletePdfAsset: (id?: string, clearReferences?: boolean) => void;
+  item: MediaAsset;
+  movements: Movement[];
+  updatePdfAsset: (
+    id: string | undefined,
+    patch: {
+      name?: string;
+      folder?: string;
+      source?: string;
+      assignmentType?: string;
+      bookletSlug?: string;
+      movementIndex?: number;
+      field?: string;
+    }
+  ) => void;
+}) {
+  const [name, setName] = useState(item.name || "");
+  const [folder, setFolder] = useState(item.folder || "valluru/pdfs");
+  const [assignmentType, setAssignmentType] = useState(
+    item.assignedTo?.type === "booklet" || item.assignedTo?.type === "movement"
+      ? item.assignedTo.type
+      : "none"
+  );
+  const [bookletSlug, setBookletSlug] = useState(item.assignedTo?.slug || booklets[0]?.slug || "");
+  const [movementIndex, setMovementIndex] = useState(String(item.assignedTo?.index ?? 0));
+  const [field, setField] = useState(item.assignedTo?.field === "samplePdf" ? "samplePdf" : "pdf");
+
+  return (
+    <article className="rounded-md border border-gold/15 bg-ink p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-md border border-gold/15 bg-surface text-gold">
+          <FileText size={30} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-lg text-parchment">{item.name || "Untitled PDF"}</p>
+          <p className="mt-1 font-label text-xs uppercase tracking-[0.18em] text-muted">
+            {item.provider || "storage"} - {formatFileSize(item.size)} - {item.folder || "No folder"}
+          </p>
+          <p className="mt-2 text-sm text-muted">
+            Assigned to: {item.assignedTo?.title || "Not assigned"}
+            {item.assignedTo?.field ? ` (${item.assignedTo.field})` : ""}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {item.url ? (
+              <>
+                <a
+                  className="inline-flex items-center gap-2 rounded-md border border-gold/20 px-3 py-2 text-sm text-muted transition hover:border-gold hover:text-gold"
+                  href={item.url}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <Eye size={14} />
+                  Read
+                </a>
+                <button
+                  className="rounded-md border border-gold/20 px-3 py-2 text-sm text-muted transition hover:border-gold hover:text-gold"
+                  onClick={() => navigator.clipboard?.writeText(item.url || "")}
+                  type="button"
+                >
+                  Copy URL
+                </button>
+              </>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-4 md:grid-cols-2">
+        <TextField label="PDF Name" onChange={setName} value={name} />
+        <TextField label="Folder" onChange={setFolder} value={folder} />
+      </div>
+      <button
+        className="mt-4 inline-flex items-center justify-center gap-2 rounded-md border border-gold/30 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
+        onClick={() => updatePdfAsset(item.id, { name, folder })}
+        type="button"
+      >
+        <Save size={16} />
+        Save Details
+      </button>
+
+      <div className="mt-5 rounded-md border border-gold/10 bg-surface p-4">
+        <p className="font-label text-xs uppercase tracking-[0.2em] text-gold">
+          Assign PDF
+        </p>
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted">
+            Target
+            <select
+              className="mt-3 w-full rounded-md border border-gold/20 bg-ink px-3 py-2 text-base normal-case tracking-normal text-parchment outline-none focus:border-gold/60"
+              onChange={(event) => setAssignmentType(event.target.value)}
+              value={assignmentType}
+            >
+              <option value="none">No Assignment</option>
+              <option value="booklet">Booklet</option>
+              <option value="movement">Movement</option>
+            </select>
+          </label>
+
+          {assignmentType === "booklet" ? (
+            <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted">
+              Booklet
+              <select
+                className="mt-3 w-full rounded-md border border-gold/20 bg-ink px-3 py-2 text-base normal-case tracking-normal text-parchment outline-none focus:border-gold/60"
+                onChange={(event) => setBookletSlug(event.target.value)}
+                value={bookletSlug}
+              >
+                {booklets.map((booklet) => (
+                  <option key={booklet.slug} value={booklet.slug}>
+                    {booklet.numberLabel}: {booklet.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+
+          {assignmentType === "booklet" ? (
+            <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted">
+              Booklet Field
+              <select
+                className="mt-3 w-full rounded-md border border-gold/20 bg-ink px-3 py-2 text-base normal-case tracking-normal text-parchment outline-none focus:border-gold/60"
+                onChange={(event) => setField(event.target.value)}
+                value={field}
+              >
+                <option value="pdf">Full PDF</option>
+                <option value="samplePdf">Sample PDF</option>
+              </select>
+            </label>
+          ) : null}
+
+          {assignmentType === "movement" ? (
+            <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted">
+              Movement
+              <select
+                className="mt-3 w-full rounded-md border border-gold/20 bg-ink px-3 py-2 text-base normal-case tracking-normal text-parchment outline-none focus:border-gold/60"
+                onChange={(event) => setMovementIndex(event.target.value)}
+                value={movementIndex}
+              >
+                {movements.map((movement, index) => (
+                  <option key={`${movement.title}-${index}`} value={index}>
+                    Movement {index + 1}: {movement.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+        </div>
+        <button
+          className="mt-4 rounded-md border border-gold/30 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
+          onClick={() =>
+            updatePdfAsset(item.id, {
+              assignmentType,
+              bookletSlug,
+              movementIndex: Number(movementIndex),
+              field
+            })
+          }
+          type="button"
+        >
+          Apply Assignment
+        </button>
+      </div>
+
+      <button
+        className="mt-4 inline-flex items-center justify-center gap-2 rounded-md border border-red-400/30 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-red-200 transition hover:border-red-300 hover:text-red-100"
+        onClick={() => {
+          if (window.confirm("Delete this PDF and remove any book or movement references to it?")) {
+            deletePdfAsset(item.id, true);
+          }
+        }}
+        type="button"
+      >
+        <Trash2 size={16} />
+        Delete PDF
+      </button>
+    </article>
   );
 }
 

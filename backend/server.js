@@ -144,6 +144,75 @@ async function uploadToB2(file, folder) {
   };
 }
 
+function getB2FileNameFromUrl(url = "") {
+  if (!url || !process.env.B2_BUCKET_NAME) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(url);
+    const marker = `/file/${process.env.B2_BUCKET_NAME}/`;
+    const markerIndex = parsed.pathname.indexOf(marker);
+
+    if (markerIndex === -1) {
+      return "";
+    }
+
+    return parsed.pathname
+      .slice(markerIndex + marker.length)
+      .split("/")
+      .map((part) => decodeURIComponent(part))
+      .join("/");
+  } catch {
+    return "";
+  }
+}
+
+async function findB2FileId(fileName) {
+  if (!fileName || !hasB2Config()) {
+    return "";
+  }
+
+  await getB2Client();
+  const listResponse = await fetch(`${b2AuthData.apiUrl}/b2api/v2/b2_list_file_versions`, {
+    method: "POST",
+    headers: {
+      Authorization: b2AuthData.authorizationToken,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      bucketId: process.env.B2_BUCKET_ID,
+      maxFileCount: 1,
+      prefix: fileName
+    })
+  });
+  const payload = await listResponse.json().catch(() => ({}));
+
+  if (!listResponse.ok) {
+    throw new Error(payload.message || payload.code || "B2 file lookup failed.");
+  }
+
+  return payload.files?.find((file) => file.fileName === fileName)?.fileId || "";
+}
+
+async function deleteB2File(media) {
+  const fileName = media.b2FileName || media.fileName || getB2FileNameFromUrl(media.url);
+
+  if (!fileName || !hasB2Config()) {
+    return false;
+  }
+
+  const fileId = media.b2FileId || media.fileId || (await findB2FileId(fileName));
+
+  if (!fileId) {
+    return false;
+  }
+
+  const client = await getB2Client();
+  await client.deleteFileVersion({ fileId, fileName });
+  return true;
+}
+
 dotenv.config();
 dotenv.config({ path: ".env.local", override: false });
 
@@ -627,6 +696,276 @@ async function saveMediaAsset(file, { folder = "valluru/media", source = "librar
   };
 }
 
+function toAdminMedia(item) {
+  const { _id, ...rest } = item;
+  return {
+    ...rest,
+    id: String(_id)
+  };
+}
+
+function isPdfUpload(file) {
+  return Boolean(
+    file &&
+      (file.mimetype === "application/pdf" ||
+        String(file.originalname || "").toLowerCase().endsWith(".pdf"))
+  );
+}
+
+function inferPdfProvider(url = "") {
+  if (getB2FileNameFromUrl(url)) {
+    return "b2";
+  }
+
+  if (url.includes("res.cloudinary.com")) {
+    return "cloudinary";
+  }
+
+  return "external";
+}
+
+async function savePdfAsset(
+  file,
+  uploaded,
+  { folder = "valluru/pdfs", source = "pdf-library", assignedTo = null } = {}
+) {
+  const db = await getDb();
+  const record = {
+    provider: "b2",
+    b2FileId: uploaded.fileId || "",
+    b2FileName: uploaded.fileName || "",
+    url: uploaded.url,
+    name: file.originalname,
+    folder,
+    source,
+    kind: "pdf",
+    contentType: uploaded.contentType || file.mimetype || "application/pdf",
+    size: uploaded.size || file.size || 0,
+    assignedTo,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+  const result = await db.collection("media_assets").insertOne(record);
+
+  return {
+    ...record,
+    id: String(result.insertedId)
+  };
+}
+
+async function syncContentPdfAssets(db, content = null) {
+  const siteContent = content || (await getSiteContent());
+  const assets = [];
+
+  for (const booklet of siteContent?.series?.booklets || []) {
+    if (booklet.pdf) {
+      assets.push({
+        url: booklet.pdf,
+        name: `${booklet.title || booklet.slug || "booklet"}.pdf`,
+        folder: "content/booklets",
+        source: "content-sync",
+        assignedTo: {
+          type: "booklet",
+          slug: booklet.slug,
+          title: booklet.title || booklet.slug,
+          field: "pdf"
+        }
+      });
+    }
+
+    if (booklet.samplePdf) {
+      assets.push({
+        url: booklet.samplePdf,
+        name: `${booklet.title || booklet.slug || "booklet"} sample.pdf`,
+        folder: "content/booklets",
+        source: "content-sync",
+        assignedTo: {
+          type: "booklet",
+          slug: booklet.slug,
+          title: booklet.title || booklet.slug,
+          field: "samplePdf"
+        }
+      });
+    }
+  }
+
+  for (const [index, movement] of (siteContent?.home?.seriesOverview?.movements || []).entries()) {
+    if (movement.pdf) {
+      assets.push({
+        url: movement.pdf,
+        name: `${movement.title || `movement-${index + 1}`}.pdf`,
+        folder: "content/movements",
+        source: "content-sync",
+        assignedTo: {
+          type: "movement",
+          index,
+          title: movement.title || `Movement ${index + 1}`,
+          field: "pdf"
+        }
+      });
+    }
+  }
+
+  for (const asset of assets) {
+    const provider = inferPdfProvider(asset.url);
+    await db.collection("media_assets").updateOne(
+      { kind: "pdf", url: asset.url },
+      {
+        $set: {
+          assignedTo: asset.assignedTo,
+          updatedAt: new Date()
+        },
+        $setOnInsert: {
+          provider,
+          b2FileName: provider === "b2" ? getB2FileNameFromUrl(asset.url) : "",
+          url: asset.url,
+          name: asset.name,
+          folder: asset.folder,
+          source: asset.source,
+          kind: "pdf",
+          contentType: "application/pdf",
+          size: 0,
+          createdAt: new Date()
+        }
+      },
+      { upsert: true }
+    );
+  }
+}
+
+function parsePdfAssignment(body = {}) {
+  const type = String(body.assignmentType || body.type || body.assignment?.type || "").trim();
+
+  if (type === "booklet") {
+    const slug = String(body.bookletSlug || body.slug || body.assignment?.slug || "").trim();
+    return slug ? { type, slug, field: String(body.field || "pdf") } : null;
+  }
+
+  if (type === "movement") {
+    const index = Number(body.movementIndex ?? body.index ?? body.assignment?.index);
+    return Number.isInteger(index) && index >= 0 ? { type, index, field: "pdf" } : null;
+  }
+
+  if (type === "none") {
+    return { type };
+  }
+
+  return null;
+}
+
+async function applyPdfAssignment(media, assignment) {
+  if (!assignment) {
+    return { assignedTo: null, content: null };
+  }
+
+  if (assignment.type === "none") {
+    return { assignedTo: null, content: await clearPdfReferences(media.url) };
+  }
+
+  const content = await getSiteContent();
+
+  if (!content) {
+    throw new Error("Please save site content first before assigning PDFs.");
+  }
+
+  if (assignment.type === "booklet") {
+    const booklet = content?.series?.booklets?.find((item) => item.slug === assignment.slug);
+
+    if (!booklet) {
+      throw new Error("Booklet not found.");
+    }
+
+    const field = assignment.field === "samplePdf" ? "samplePdf" : "pdf";
+    booklet[field] = media.url;
+    await saveSiteContent(content);
+
+    return {
+      content,
+      assignedTo: {
+        type: "booklet",
+        slug: booklet.slug,
+        title: booklet.title || booklet.slug,
+        field
+      }
+    };
+  }
+
+  if (assignment.type === "movement") {
+    const movement = content?.home?.seriesOverview?.movements?.[assignment.index];
+
+    if (!movement) {
+      throw new Error("Movement not found.");
+    }
+
+    movement.pdf = media.url;
+    await saveSiteContent(content);
+
+    return {
+      content,
+      assignedTo: {
+        type: "movement",
+        index: assignment.index,
+        title: movement.title || `Movement ${assignment.index + 1}`,
+        field: "pdf"
+      }
+    };
+  }
+
+  return { assignedTo: null, content: null };
+}
+
+async function clearPdfReferences(url) {
+  const content = await getSiteContent();
+  let changed = false;
+
+  for (const booklet of content?.series?.booklets || []) {
+    if (booklet.pdf === url) {
+      booklet.pdf = "";
+      changed = true;
+    }
+
+    if (booklet.samplePdf === url) {
+      booklet.samplePdf = "";
+      changed = true;
+    }
+  }
+
+  for (const movement of content?.home?.seriesOverview?.movements || []) {
+    if (movement.pdf === url) {
+      movement.pdf = "";
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    await saveSiteContent(content);
+  }
+
+  return changed ? content : null;
+}
+
+async function deleteStoredMedia(media) {
+  if (media.provider === "cloudinary" && media.publicId) {
+    configureCloudinary();
+    await cloudinary.uploader.destroy(media.publicId, {
+      resource_type: media.resourceType || cloudinaryResourceType(media.contentType)
+    });
+    return true;
+  }
+
+  if (media.provider === "gridfs" && media.gridFsId) {
+    const bucket = await getBucket("media_uploads");
+    await bucket.delete(new ObjectId(media.gridFsId));
+    return true;
+  }
+
+  if (media.provider === "b2") {
+    return deleteB2File(media);
+  }
+
+  return false;
+}
+
 function normalizePhoneNumber(value = "") {
   return String(value).replace(/[^\d]/g, "");
 }
@@ -947,10 +1286,7 @@ app.get("/api/admin/media", verifyAdmin, async (request, response, next) => {
       .toArray();
 
     response.json({
-      media: media.map(({ _id, ...item }) => ({
-        ...item,
-        id: String(_id)
-      }))
+      media: media.map(toAdminMedia)
     });
   } catch (error) {
     next(error);
@@ -1004,6 +1340,11 @@ app.delete("/api/admin/media/:id", verifyAdmin, async (request, response, next) 
     }
 
     const db = await getDb();
+    if (!ObjectId.isValid(request.params.id)) {
+      response.status(400).json({ error: "Invalid media id." });
+      return;
+    }
+
     const id = new ObjectId(request.params.id);
     const media = await db.collection("media_assets").findOne({ _id: id });
 
@@ -1012,28 +1353,216 @@ app.delete("/api/admin/media/:id", verifyAdmin, async (request, response, next) 
       return;
     }
 
-    if (media.provider === "cloudinary" && media.publicId) {
-      try {
-        configureCloudinary();
-        await cloudinary.uploader.destroy(media.publicId, {
-          resource_type: media.resourceType || cloudinaryResourceType(media.contentType)
-        });
-      } catch {
-        // Cloudinary deletion is best-effort so metadata can still be cleaned up.
-      }
-    }
-
-    if (media.provider === "gridfs" && media.gridFsId) {
-      try {
-        const bucket = await getBucket("media_uploads");
-        await bucket.delete(new ObjectId(media.gridFsId));
-      } catch {
-        // Keep deletion best-effort for older GridFS records.
-      }
+    try {
+      await deleteStoredMedia(media);
+    } catch {
+      // Storage deletion is best-effort so stale metadata can still be cleaned up.
     }
 
     await db.collection("media_assets").deleteOne({ _id: id });
     response.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/admin/pdfs", verifyAdmin, async (request, response, next) => {
+  try {
+    if (!requireMongo(response)) {
+      return;
+    }
+
+    const db = await getDb();
+    await syncContentPdfAssets(db);
+
+    const search = String(request.query.search || "").trim();
+    const query = { kind: "pdf" };
+
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { folder: { $regex: search, $options: "i" } },
+        { source: { $regex: search, $options: "i" } },
+        { url: { $regex: search, $options: "i" } },
+        { "assignedTo.title": { $regex: search, $options: "i" } }
+      ];
+    }
+
+    const pdfs = await db
+      .collection("media_assets")
+      .find(query)
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(300)
+      .toArray();
+
+    response.json({ pdfs: pdfs.map(toAdminMedia) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post(
+  "/api/admin/pdfs",
+  verifyAdmin,
+  upload.single("pdf"),
+  async (request, response, next) => {
+    try {
+      if (!requireMongo(response)) {
+        return;
+      }
+
+      if (!hasB2Config()) {
+        response.status(400).json({ error: b2ConfigError() });
+        return;
+      }
+
+      const file = request.file;
+
+      if (!file) {
+        response.status(400).json({ error: "Choose a PDF file." });
+        return;
+      }
+
+      if (!isPdfUpload(file)) {
+        response.status(400).json({ error: "Only PDF files are allowed." });
+        return;
+      }
+
+      const folder = String(request.body.folder || "valluru/pdfs").trim() || "valluru/pdfs";
+      let uploaded;
+
+      try {
+        uploaded = await uploadToB2(file, folder);
+      } catch (uploadError) {
+        console.error("Admin PDF upload failed:", uploadError);
+        response.status(502).json({ error: uploadErrorMessage(uploadError) });
+        return;
+      }
+
+      const media = await savePdfAsset(file, uploaded, {
+        folder,
+        source: "pdf-library"
+      });
+      const assignment = parsePdfAssignment(request.body);
+      let content = null;
+      let assignedTo = null;
+
+      if (assignment) {
+        const assignmentResult = await applyPdfAssignment(media, assignment);
+        assignedTo = assignmentResult.assignedTo;
+        content = assignmentResult.content;
+
+        if (assignedTo) {
+          const db = await getDb();
+          await db.collection("media_assets").updateOne(
+            { _id: new ObjectId(media.id) },
+            { $set: { assignedTo, updatedAt: new Date() } }
+          );
+          media.assignedTo = assignedTo;
+        }
+      }
+
+      response.json({ ok: true, pdf: media.url, media, content });
+    } catch (error) {
+      next(error);
+    } finally {
+      await cleanupUploadedFile(request.file);
+    }
+  }
+);
+
+app.patch("/api/admin/pdfs/:id", verifyAdmin, async (request, response, next) => {
+  try {
+    if (!requireMongo(response)) {
+      return;
+    }
+
+    if (!ObjectId.isValid(request.params.id)) {
+      response.status(400).json({ error: "Invalid PDF id." });
+      return;
+    }
+
+    const db = await getDb();
+    const id = new ObjectId(request.params.id);
+    const existing = await db.collection("media_assets").findOne({ _id: id, kind: "pdf" });
+
+    if (!existing) {
+      response.status(404).json({ error: "PDF not found." });
+      return;
+    }
+
+    const patch = {
+      updatedAt: new Date()
+    };
+    const name = String(request.body?.name || "").trim();
+    const folder = String(request.body?.folder || "").trim();
+    const source = String(request.body?.source || "").trim();
+
+    if (name) {
+      patch.name = name;
+    }
+
+    if (folder) {
+      patch.folder = folder;
+    }
+
+    if (source) {
+      patch.source = source;
+    }
+
+    const assignment = parsePdfAssignment(request.body || {});
+    let content = null;
+
+    if (assignment) {
+      const assignmentResult = await applyPdfAssignment(existing, assignment);
+      patch.assignedTo = assignmentResult.assignedTo;
+      content = assignmentResult.content;
+    }
+
+    await db.collection("media_assets").updateOne({ _id: id }, { $set: patch });
+    const updated = await db.collection("media_assets").findOne({ _id: id });
+
+    response.json({ ok: true, media: toAdminMedia(updated), content });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete("/api/admin/pdfs/:id", verifyAdmin, async (request, response, next) => {
+  try {
+    if (!requireMongo(response)) {
+      return;
+    }
+
+    if (!ObjectId.isValid(request.params.id)) {
+      response.status(400).json({ error: "Invalid PDF id." });
+      return;
+    }
+
+    const db = await getDb();
+    const id = new ObjectId(request.params.id);
+    const media = await db.collection("media_assets").findOne({ _id: id, kind: "pdf" });
+
+    if (!media) {
+      response.status(404).json({ error: "PDF not found." });
+      return;
+    }
+
+    const shouldClearReferences = request.query.clearReferences !== "false";
+    let content = null;
+
+    if (shouldClearReferences && media.url) {
+      content = await clearPdfReferences(media.url);
+    }
+
+    try {
+      await deleteStoredMedia(media);
+    } catch (storageError) {
+      console.warn("PDF storage deletion failed:", uploadErrorMessage(storageError));
+    }
+
+    await db.collection("media_assets").deleteOne({ _id: id });
+    response.json({ ok: true, content });
   } catch (error) {
     next(error);
   }
@@ -1281,6 +1810,7 @@ app.get("/api/admin/data", verifyAdmin, async (_request, response, next) => {
 
     const db = await getDb();
     const content = await getSiteContent();
+    await syncContentPdfAssets(db, content);
     const booklets = content?.series?.booklets || [];
     const [subscribers, comments, bookletReaders, orders, recentMedia, counts] = await Promise.all([
       db.collection("subscribers").find({}).sort({ updatedAt: -1 }).limit(100).project({ _id: 0 }).toArray(),
@@ -1296,7 +1826,8 @@ app.get("/api/admin/data", verifyAdmin, async (_request, response, next) => {
         db.collection("media_uploads.files").countDocuments({}),
         db.collection("booklet_readers").countDocuments({}),
         db.collection("orders").countDocuments({}),
-        db.collection("media_assets").countDocuments({})
+        db.collection("media_assets").countDocuments({}),
+        db.collection("media_assets").countDocuments({ kind: "pdf" })
       ])
     ]);
     const statusCount = (items, status) =>
@@ -1307,7 +1838,7 @@ app.get("/api/admin/data", verifyAdmin, async (_request, response, next) => {
         content: counts[0],
         subscribers: counts[1],
         comments: counts[2],
-        pdfs: counts[3],
+        pdfs: counts[3] + counts[8],
         media: Math.max(counts[4], counts[7]),
         bookReaders: counts[5],
         orders: counts[6],
@@ -1374,7 +1905,7 @@ app.post(
         return;
       }
 
-      if (file.mimetype !== "application/pdf" && !file.originalname.toLowerCase().endsWith(".pdf")) {
+      if (!isPdfUpload(file)) {
         response.status(400).json({ error: "Only PDF files are allowed." });
         return;
       }
@@ -1399,8 +1930,18 @@ app.post(
       
       booklet.pdf = publicUrl;
       await saveSiteContent(content);
+      const media = await savePdfAsset(file, uploaded, {
+        folder: "valluru/books/pdfs",
+        source: "booklet-pdf",
+        assignedTo: {
+          type: "booklet",
+          slug: booklet.slug,
+          title: booklet.title || booklet.slug,
+          field: "pdf"
+        }
+      });
 
-      response.json({ ok: true, pdf: publicUrl, bookletSlug });
+      response.json({ ok: true, pdf: publicUrl, bookletSlug, media });
     } catch (error) {
       next(error);
     } finally {
@@ -1437,7 +1978,7 @@ app.post(
         return;
       }
 
-      if (file.mimetype !== "application/pdf" && !file.originalname.toLowerCase().endsWith(".pdf")) {
+      if (!isPdfUpload(file)) {
         response.status(400).json({ error: "Only PDF files are allowed." });
         return;
       }
@@ -1466,8 +2007,18 @@ app.post(
       
       movement.pdf = publicUrl;
       await saveSiteContent(content);
+      const media = await savePdfAsset(file, uploaded, {
+        folder: "valluru/movements/pdfs",
+        source: "movement-pdf",
+        assignedTo: {
+          type: "movement",
+          index: movementIndex,
+          title: movement.title || `Movement ${movementIndex + 1}`,
+          field: "pdf"
+        }
+      });
 
-      response.json({ ok: true, pdf: publicUrl, movementIndex });
+      response.json({ ok: true, pdf: publicUrl, movementIndex, media });
     } catch (error) {
       next(error);
     } finally {
