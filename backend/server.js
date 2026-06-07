@@ -777,6 +777,33 @@ app.get("/api/cloudinary/signature", verifyAdmin, async (request, response, next
   }
 });
 
+// Generate Backblaze B2 signed upload auth
+app.get("/api/b2/upload-auth", verifyAdmin, async (request, response, next) => {
+  try {
+    if (!hasB2Config()) {
+      return response.status(400).json({ error: "Backblaze B2 config missing" });
+    }
+
+    const b2Client = await getB2Client();
+    const bucketId = process.env.B2_BUCKET_ID;
+    const fileNamePrefix = request.query.prefix || "valluru/";
+    const fileName = `${fileNamePrefix}${Date.now()}-${crypto.randomBytes(8).toString("hex")}${request.query.extension || ""}`;
+
+    // Get an upload URL and authorization token
+    const { data: uploadInfo } = await b2Client.getUploadUrl({ bucketId });
+
+    response.json({
+      uploadUrl: uploadInfo.uploadUrl,
+      authorizationToken: uploadInfo.authorizationToken,
+      fileName: fileName,
+      publicUrl: getB2PublicUrl(fileName)
+    });
+  } catch (error) {
+    console.error("B2 upload auth failed:", error);
+    next(error);
+  }
+});
+
 app.get("/api/settings", async (_request, response, next) => {
   try {
     const content = await getSiteContent();

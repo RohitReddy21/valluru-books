@@ -219,24 +219,42 @@ export function AdminEditor({ initialContent, source }: Props) {
     }
 
     try {
-      setUploadStatus("Uploading PDF...");
-      const formData = new FormData();
-      formData.append("bookletSlug", selectedBooklet.slug);
-      formData.append("pdf", pdfFile);
+      setUploadStatus("Getting upload authorization...");
+      
+      // Step 1: Get B2 upload auth from backend
+      const authResponse = await fetch(
+        apiUrl(`/api/b2/upload-auth?prefix=valluru/books/pdfs/&extension=.pdf`),
+        {
+          credentials: "include",
+          headers: adminHeaders()
+        }
+      );
+      
+      if (!authResponse.ok) {
+        throw new Error("Failed to get upload authorization");
+      }
+      
+      const { uploadUrl, authorizationToken, fileName, publicUrl } = await authResponse.json();
 
-      const response = await fetch(apiUrl("/api/admin/upload-pdf"), {
+      setUploadStatus("Uploading PDF directly to storage...");
+      
+      // Step 2: Upload directly to B2
+      const uploadResponse = await fetch(uploadUrl, {
         method: "POST",
-        headers: adminHeaders(),
-        credentials: "include",
-        body: formData
+        headers: {
+          "Authorization": authorizationToken,
+          "X-Bz-File-Name": fileName,
+          "Content-Type": "application/pdf"
+        },
+        body: pdfFile
       });
 
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed: ${uploadResponse.statusText}`);
       }
 
-      const { pdf } = await response.json();
-      updateBooklet(selectedBooklet.slug, { pdf });
+      // Step 3: Update the booklet with the new public URL
+      updateBooklet(selectedBooklet.slug, { pdf: publicUrl });
       setUploadStatus(`Uploaded and attached to ${selectedBooklet.title}.`);
     } catch (err) {
       console.error("Upload failed", err);
@@ -246,24 +264,42 @@ export function AdminEditor({ initialContent, source }: Props) {
 
   async function uploadMovementPdf(movementIndex: number, movementPdfFile: File, setMovementUploadStatus: (status: string) => void) {
     try {
-      setMovementUploadStatus("Uploading PDF...");
-      const formData = new FormData();
-      formData.append("movementIndex", String(movementIndex));
-      formData.append("pdf", movementPdfFile);
+      setMovementUploadStatus("Getting upload authorization...");
+      
+      // Step 1: Get B2 upload auth from backend
+      const authResponse = await fetch(
+        apiUrl(`/api/b2/upload-auth?prefix=valluru/movements/pdfs/&extension=.pdf`),
+        {
+          credentials: "include",
+          headers: adminHeaders()
+        }
+      );
+      
+      if (!authResponse.ok) {
+        throw new Error("Failed to get upload authorization");
+      }
+      
+      const { uploadUrl, authorizationToken, fileName, publicUrl } = await authResponse.json();
 
-      const response = await fetch(apiUrl("/api/admin/upload-movement-pdf"), {
+      setMovementUploadStatus("Uploading PDF directly to storage...");
+      
+      // Step 2: Upload directly to B2
+      const uploadResponse = await fetch(uploadUrl, {
         method: "POST",
-        headers: adminHeaders(),
-        credentials: "include",
-        body: formData
+        headers: {
+          "Authorization": authorizationToken,
+          "X-Bz-File-Name": fileName,
+          "Content-Type": "application/pdf"
+        },
+        body: movementPdfFile
       });
 
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
+      if (!uploadResponse.ok) {
+        throw new Error(`Upload failed: ${uploadResponse.statusText}`);
       }
 
-      const { pdf } = await response.json();
-      updateMovement(movementIndex, { pdf });
+      // Step 3: Update the movement with the new public URL
+      updateMovement(movementIndex, { pdf: publicUrl });
       setMovementUploadStatus("PDF uploaded and attached to this movement.");
     } catch (err) {
       console.error("Upload failed", err);

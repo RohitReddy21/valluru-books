@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: valluru-books-backend
+    env: node
+    buildCommand: "cd backend && npm ci"
+    startCommand: "cd backend && npm start"
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+    # Increase Nginx client max body size
+    config:
+      http:
+        client_max_body_size: 1000M
