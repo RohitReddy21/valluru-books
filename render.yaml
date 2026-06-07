@@ -8,7 +8,12 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-    # Increase Nginx client max body size
-    config:
-      http:
-        client_max_body_size: 1000M
+      - key: MAX_UPLOAD_BYTES
+        value: 1073741824
+    # Increase Nginx client max body size via Render's config
+    headers:
+      - path: /*
+        name: "X-Content-Type-Options"
+        value: "nosniff"
+    healthCheckPath: /health
+    autoDeploy: true
