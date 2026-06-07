@@ -26,6 +26,41 @@ function hasB2Config() {
   );
 }
 
+function b2ConfigError() {
+  const missing = [
+    "B2_APPLICATION_KEY_ID",
+    "B2_APPLICATION_KEY",
+    "B2_BUCKET_ID",
+    "B2_BUCKET_NAME"
+  ].filter((key) => !process.env[key]);
+
+  return `Backblaze B2 config missing: ${missing.join(", ")}`;
+}
+
+function uploadErrorMessage(error) {
+  if (!error) {
+    return "Upload failed.";
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  if (error.response?.data?.message) {
+    return error.response.data.message;
+  }
+
+  if (error.response?.data?.code) {
+    return `${error.response.data.code}: ${error.response.data.message || "Upload failed."}`;
+  }
+
+  if (error.message) {
+    return error.message;
+  }
+
+  return "Upload failed.";
+}
+
 async function getB2Client() {
   if (!b2) {
     b2 = new B2({
@@ -46,6 +81,14 @@ function getB2PublicUrl(fileName) {
 }
 
 async function uploadToB2(file, folder) {
+  if (!hasB2Config()) {
+    throw new Error(b2ConfigError());
+  }
+
+  if (!file?.path) {
+    throw new Error("Upload file path is missing.");
+  }
+
   const client = await getB2Client();
   const { data: { uploadUrl, authorizationToken } } = await client.getUploadUrl({
     bucketId: process.env.B2_BUCKET_ID
@@ -54,9 +97,7 @@ async function uploadToB2(file, folder) {
   const fileName = `${folder}/${Date.now()}-${file.originalname}`;
 
   // Read file as a stream to avoid loading entire file into memory
-  const readStream = file.path 
-    ? fs.createReadStream(file.path) 
-    : Readable.from(file.buffer);
+  const readStream = fs.createReadStream(file.path);
 
   // Use pipeline to safely pipe the stream
   const { data: { fileId, fileName: b2FileName, contentLength, contentType } } = await client.uploadFile({
@@ -1291,7 +1332,8 @@ app.post(
       }
 
       if (!hasB2Config()) {
-        return response.status(400).json({ error: "Backblaze B2 config missing" });
+        response.status(400).json({ error: b2ConfigError() });
+        return;
       }
 
       const bookletSlug = String(request.body.bookletSlug || "");
@@ -1320,7 +1362,14 @@ app.post(
         return;
       }
 
-      const uploaded = await uploadToB2(file, "valluru/books/pdfs");
+      let uploaded;
+      try {
+        uploaded = await uploadToB2(file, "valluru/books/pdfs");
+      } catch (uploadError) {
+        console.error("Book PDF upload failed:", uploadError);
+        response.status(502).json({ error: uploadErrorMessage(uploadError) });
+        return;
+      }
       const publicUrl = uploaded.url;
       
       booklet.pdf = publicUrl;
@@ -1346,7 +1395,8 @@ app.post(
       }
 
       if (!hasB2Config()) {
-        return response.status(400).json({ error: "Backblaze B2 config missing" });
+        response.status(400).json({ error: b2ConfigError() });
+        return;
       }
 
       const movementIndex = Number(request.body.movementIndex || "-1");
@@ -1379,7 +1429,14 @@ app.post(
         return;
       }
 
-      const uploaded = await uploadToB2(file, "valluru/movements/pdfs");
+      let uploaded;
+      try {
+        uploaded = await uploadToB2(file, "valluru/movements/pdfs");
+      } catch (uploadError) {
+        console.error("Movement PDF upload failed:", uploadError);
+        response.status(502).json({ error: uploadErrorMessage(uploadError) });
+        return;
+      }
       const publicUrl = uploaded.url;
       
       movement.pdf = publicUrl;
