@@ -77,7 +77,18 @@ async function getB2Client() {
 function getB2PublicUrl(fileName) {
   // Use downloadUrl from B2 auth response
   const downloadUrl = b2AuthData?.downloadUrl || "https://f005.backblazeb2.com";
-  return `${downloadUrl}/file/${process.env.B2_BUCKET_NAME}/${encodeURIComponent(fileName)}`;
+  const encodedFileName = fileName.split("/").map(encodeURIComponent).join("/");
+  return `${downloadUrl}/file/${process.env.B2_BUCKET_NAME}/${encodedFileName}`;
+}
+
+async function sha1File(filePath) {
+  const hash = crypto.createHash("sha1");
+
+  for await (const chunk of fs.createReadStream(filePath)) {
+    hash.update(chunk);
+  }
+
+  return hash.digest("hex");
 }
 
 async function uploadToB2(file, folder) {
@@ -95,27 +106,41 @@ async function uploadToB2(file, folder) {
   });
 
   const fileName = `${folder}/${Date.now()}-${file.originalname}`;
+  const sha1 = await sha1File(file.path);
 
-  // Read file as a stream to avoid loading entire file into memory
-  const readStream = fs.createReadStream(file.path);
-
-  // Use pipeline to safely pipe the stream
-  const { data: { fileId, fileName: b2FileName, contentLength, contentType } } = await client.uploadFile({
-    uploadUrl,
-    uploadAuthToken: authorizationToken,
-    fileName,
-    data: readStream,
-    mime: file.mimetype
+  const uploadResponse = await fetch(uploadUrl, {
+    method: "POST",
+    headers: {
+      Authorization: authorizationToken,
+      "Content-Type": file.mimetype || "application/octet-stream",
+      "Content-Length": String(file.size),
+      "X-Bz-File-Name": encodeURI(fileName),
+      "X-Bz-Content-Sha1": sha1
+    },
+    body: fs.createReadStream(file.path),
+    duplex: "half"
   });
+  const responseText = await uploadResponse.text();
+  let payload = {};
 
-  const publicUrl = getB2PublicUrl(fileName);
+  try {
+    payload = responseText ? JSON.parse(responseText) : {};
+  } catch {
+    payload = { message: responseText };
+  }
+
+  if (!uploadResponse.ok) {
+    throw new Error(payload.message || payload.code || "B2 upload failed.");
+  }
+
+  const publicUrl = getB2PublicUrl(payload.fileName || fileName);
 
   return {
-    fileId,
-    fileName: b2FileName,
+    fileId: payload.fileId,
+    fileName: payload.fileName || fileName,
     url: publicUrl,
-    size: contentLength,
-    contentType
+    size: payload.contentLength || file.size,
+    contentType: payload.contentType || file.mimetype
   };
 }
 
