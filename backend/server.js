@@ -16,6 +16,7 @@ const { pipeline } = require("node:stream/promises");
 
 // Backblaze B2 setup
 let b2;
+let b2AuthData;
 function hasB2Config() {
   return !!(
     process.env.B2_APPLICATION_KEY_ID &&
@@ -31,9 +32,17 @@ async function getB2Client() {
       applicationKeyId: process.env.B2_APPLICATION_KEY_ID,
       applicationKey: process.env.B2_APPLICATION_KEY
     });
-    await b2.authorize();
+    const authResult = await b2.authorize();
+    b2AuthData = authResult.data;
   }
   return b2;
+}
+
+// Get B2 public download URL from auth data
+function getB2PublicUrl(fileName) {
+  // Use downloadUrl from B2 auth response
+  const downloadUrl = b2AuthData?.downloadUrl || "https://f005.backblazeb2.com";
+  return `${downloadUrl}/file/${process.env.B2_BUCKET_NAME}/${encodeURIComponent(fileName)}`;
 }
 
 async function uploadToB2(file, folder) {
@@ -44,19 +53,21 @@ async function uploadToB2(file, folder) {
 
   const fileName = `${folder}/${Date.now()}-${file.originalname}`;
 
-  // Read file from disk or buffer
-  const fileBuffer = file.buffer || await fsp.readFile(file.path);
+  // Read file as a stream to avoid loading entire file into memory
+  const readStream = file.path 
+    ? fs.createReadStream(file.path) 
+    : Readable.from(file.buffer);
 
+  // Use pipeline to safely pipe the stream
   const { data: { fileId, fileName: b2FileName, contentLength, contentType } } = await client.uploadFile({
     uploadUrl,
     uploadAuthToken: authorizationToken,
     fileName,
-    data: fileBuffer,
+    data: readStream,
     mime: file.mimetype
   });
 
-  // B2 public URL format: https://f005.backblazeb2.com/file/{bucketName}/{fileName}
-  const publicUrl = `https://f005.backblazeb2.com/file/${process.env.B2_BUCKET_NAME}/${encodeURIComponent(fileName)}`;
+  const publicUrl = getB2PublicUrl(fileName);
 
   return {
     fileId,
