@@ -282,7 +282,7 @@ async function uploadToSupabase(file, { bucket, folder = "" }) {
   }
 
   const storagePath = buildStoragePath(file, folder);
-  const uploadUrl = `${getSupabaseUrl()}/storage/v1/object/public/${bucket}/${encodeStoragePath(storagePath)}`;
+  const uploadUrl = `${getSupabaseUrl()}/storage/v1/object/authenticated/${bucket}/${encodeStoragePath(storagePath)}`;
   
   console.log("[uploadToSupabase] Upload details", {
     storagePath,
@@ -372,7 +372,7 @@ async function deleteSupabaseFile(media) {
   }
 
   const deleteResponse = await fetch(
-    `${getSupabaseUrl()}/storage/v1/object/public/${object.bucket}`,
+    `${getSupabaseUrl()}/storage/v1/object/authenticated/${object.bucket}`,
     {
       method: "DELETE",
       headers: supabaseHeaders({
