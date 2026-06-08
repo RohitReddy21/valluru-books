@@ -1136,6 +1136,7 @@ app.get("/api/admin/storage-health", verifyAdmin, async (_request, response, nex
         if (bucketsResponse.ok) {
           connectionStatus = "connected";
           const bucketsData = await bucketsResponse.json();
+          console.log("[storage-health] Raw buckets response from Supabase:", bucketsData);
           buckets = bucketsData.map((b) => ({
             name: b.name,
             id: b.id,
