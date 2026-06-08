@@ -357,23 +357,38 @@ async function uploadToSupabase(file, { bucket, folder = "" }) {
 
 async function streamSupabaseFile(bucket, storagePath, response, headers = {}) {
   if (!hasSupabaseConfig() || !bucket || !storagePath) {
+    console.error("[streamSupabaseFile] Missing config or parameters", { bucket, storagePath });
     return false;
   }
 
   try {
     const supabase = getSupabaseClient();
 
+    console.log("[streamSupabaseFile] Downloading from Supabase", { bucket, storagePath });
+
     const { data, error } = await supabase.storage
       .from(bucket)
       .download(storagePath);
 
     if (error) {
-      console.error(`Supabase download failed for ${bucket}/${storagePath}:`, error.message);
+      console.error(`[streamSupabaseFile] Download failed for ${bucket}/${storagePath}:`, error.message);
       return false;
     }
 
+    if (!data) {
+      console.error(`[streamSupabaseFile] No data returned for ${bucket}/${storagePath}`);
+      return false;
+    }
+
+    console.log("[streamSupabaseFile] Download successful, sending to client", {
+      bucket,
+      storagePath,
+      dataType: typeof data,
+      dataSize: data.size || data.length
+    });
+
     const responseHeaders = {
-      "Content-Type": data.type || "application/octet-stream",
+      "Content-Type": data.type || "application/pdf",
       ...headers
     };
 
@@ -382,10 +397,17 @@ async function streamSupabaseFile(bucket, storagePath, response, headers = {}) {
     }
 
     response.set(responseHeaders);
-    response.end(data);
+
+    if (data.stream) {
+      await pipeline(data.stream(), response);
+    } else {
+      const buffer = await data.arrayBuffer();
+      response.end(Buffer.from(buffer));
+    }
+
     return true;
   } catch (error) {
-    console.error(`Supabase download error for ${bucket}/${storagePath}:`, error.message);
+    console.error(`[streamSupabaseFile] Error downloading ${bucket}/${storagePath}:`, error.message, error.stack);
     return false;
   }
 }
@@ -2581,15 +2603,21 @@ app.post(
 app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
   try {
     const { slug } = request.params;
+    console.log("[booklets/:slug/pdf] Request for:", slug);
+
     const content = await getSiteContent();
     const booklet = content?.series?.booklets?.find((item) => item.slug === slug);
 
+    console.log("[booklets/:slug/pdf] Booklet found:", !!booklet);
+
     if (!booklet) {
+      console.log("[booklets/:slug/pdf] Booklet not found");
       response.status(404).json({ error: "Booklet not found." });
       return;
     }
 
     if (booklet.status && booklet.status !== "published") {
+      console.log("[booklets/:slug/pdf] Booklet not published:", booklet.status);
       response.status(404).json({ error: "Booklet not found." });
       return;
     }
@@ -2605,80 +2633,129 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
       verifyAccessToken(bearerToken, slug);
 
     if (!hasAccess) {
+      console.log("[booklets/:slug/pdf] Access denied");
       response.status(403).json({ error: "Subscribe before reading this booklet." });
       return;
     }
 
-    if (booklet.pdf) {
-      const supabaseObject = getSupabaseObjectFromUrl(booklet.pdf);
-      if (supabaseObject) {
-        const streamed = await streamSupabaseFile(supabaseObject.bucket, supabaseObject.storagePath, response, {
-          "Content-Disposition": `inline; filename="${slug}.pdf"`,
-          "Cache-Control": "private, max-age=0, no-store"
-        });
+    if (!booklet.pdf) {
+      console.log("[booklets/:slug/pdf] No PDF available");
+      response.status(404).json({ error: "No uploaded PDF is available for this booklet yet." });
+      return;
+    }
 
-        if (streamed) {
-          return;
-        }
+    console.log("[booklets/:slug/pdf] PDF metadata:", {
+      pdfUrl: booklet.pdf.substring(0, 100)
+    });
+
+    const supabaseObject = getSupabaseObjectFromUrl(booklet.pdf);
+
+    if (supabaseObject) {
+      console.log("[booklets/:slug/pdf] Supabase object:", {
+        bucket: supabaseObject.bucket,
+        storagePath: supabaseObject.storagePath
+      });
+
+      const streamed = await streamSupabaseFile(supabaseObject.bucket, supabaseObject.storagePath, response, {
+        "Content-Disposition": `inline; filename="${slug}.pdf"`,
+        "Cache-Control": "private, max-age=0, no-store"
+      });
+
+      if (streamed) {
+        console.log("[booklets/:slug/pdf] Successfully streamed from Supabase");
+        return;
       }
+      console.log("[booklets/:slug/pdf] Failed to stream from Supabase");
+    } else {
+      console.log("[booklets/:slug/pdf] Could not extract Supabase object from URL");
+    }
 
-      if (/^https?:\/\//.test(booklet.pdf)) {
-        const streamed = await streamRemoteFile(booklet.pdf, response, {
-          "Content-Disposition": `inline; filename="${slug}.pdf"`,
-          "Cache-Control": "private, max-age=0, no-store"
-        });
+    if (/^https?:\/\//.test(booklet.pdf)) {
+      console.log("[booklets/:slug/pdf] Attempting to stream remote file");
+      const streamed = await streamRemoteFile(booklet.pdf, response, {
+        "Content-Disposition": `inline; filename="${slug}.pdf"`,
+        "Cache-Control": "private, max-age=0, no-store"
+      });
 
-        if (streamed) {
-          return;
-        }
+      if (streamed) {
+        console.log("[booklets/:slug/pdf] Successfully streamed from remote");
+        return;
       }
+      console.log("[booklets/:slug/pdf] Failed to stream remote file");
     }
 
     response.status(404).json({ error: "No uploaded PDF is available for this booklet yet." });
   } catch (error) {
-    next(error);
+    console.error("[booklets/:slug/pdf] Error:", error.message, error.stack);
+    response.status(502).json({ error: "Failed to retrieve PDF. Please try again." });
   }
 });
 
 app.get("/api/movements/:index/pdf", async (request, response, next) => {
   try {
     const index = Number(request.params.index);
+    console.log("[movements/:index/pdf] Request for index:", index);
+
     const content = await getSiteContent();
     const movement = content?.home?.seriesOverview?.movements?.[index];
 
+    console.log("[movements/:index/pdf] Movement found:", !!movement);
+
     if (!movement) {
+      console.log("[movements/:index/pdf] Movement not found at index:", index);
       response.status(404).json({ error: "Movement not found." });
       return;
     }
 
-    if (movement.pdf) {
-      const supabaseObject = getSupabaseObjectFromUrl(movement.pdf);
-      if (supabaseObject) {
-        const streamed = await streamSupabaseFile(supabaseObject.bucket, supabaseObject.storagePath, response, {
-          "Content-Disposition": `inline; filename="movement-${index}.pdf"`,
-          "Cache-Control": "private, max-age=0, no-store"
-        });
+    if (!movement.pdf) {
+      console.log("[movements/:index/pdf] No PDF available for movement");
+      response.status(404).json({ error: "No uploaded PDF is available for this movement yet." });
+      return;
+    }
 
-        if (streamed) {
-          return;
-        }
+    console.log("[movements/:index/pdf] PDF metadata:", {
+      pdfUrl: movement.pdf.substring(0, 100)
+    });
+
+    const supabaseObject = getSupabaseObjectFromUrl(movement.pdf);
+    if (supabaseObject) {
+      console.log("[movements/:index/pdf] Supabase object:", {
+        bucket: supabaseObject.bucket,
+        storagePath: supabaseObject.storagePath
+      });
+
+      const streamed = await streamSupabaseFile(supabaseObject.bucket, supabaseObject.storagePath, response, {
+        "Content-Disposition": `inline; filename="movement-${index}.pdf"`,
+        "Cache-Control": "private, max-age=0, no-store"
+      });
+
+      if (streamed) {
+        console.log("[movements/:index/pdf] Successfully streamed from Supabase");
+        return;
       }
+      console.log("[movements/:index/pdf] Failed to stream from Supabase");
+    } else {
+      console.log("[movements/:index/pdf] Could not extract Supabase object from URL");
+    }
 
-      if (/^https?:\/\//.test(movement.pdf)) {
-        const streamed = await streamRemoteFile(movement.pdf, response, {
-          "Content-Disposition": `inline; filename="movement-${index}.pdf"`,
-          "Cache-Control": "private, max-age=0, no-store"
-        });
+    if (/^https?:\/\//.test(movement.pdf)) {
+      console.log("[movements/:index/pdf] Attempting to stream remote file");
+      const streamed = await streamRemoteFile(movement.pdf, response, {
+        "Content-Disposition": `inline; filename="movement-${index}.pdf"`,
+        "Cache-Control": "private, max-age=0, no-store"
+      });
 
-        if (streamed) {
-          return;
-        }
+      if (streamed) {
+        console.log("[movements/:index/pdf] Successfully streamed from remote");
+        return;
       }
+      console.log("[movements/:index/pdf] Failed to stream remote file");
     }
 
     response.status(404).json({ error: "No uploaded PDF is available for this movement yet." });
   } catch (error) {
-    next(error);
+    console.error("[movements/:index/pdf] Error:", error.message, error.stack);
+    response.status(502).json({ error: "Failed to retrieve PDF. Please try again." });
   }
 });
 
