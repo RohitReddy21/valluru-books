@@ -1822,10 +1822,20 @@ function MovementsPanel({
   uploadMovementPdf: (movementIndex: number, file: File, setStatus: (status: string) => void) => void;
 }) {
   const [movementPdfFiles, setMovementPdfFiles] = useState<(File | null)[]>(movements.map(() => null));
+  const [movementCoverFiles, setMovementCoverFiles] = useState<(File | null)[]>(movements.map(() => null));
   const [movementUploadStatuses, setMovementUploadStatuses] = useState<string[]>(movements.map(() => "Upload a PDF for this movement."));
+  const [movementCoverStatuses, setMovementCoverStatuses] = useState<string[]>(movements.map(() => "Upload a cover image."));
 
   function handleMovementPdfFileChange(index: number, file: File | null) {
     setMovementPdfFiles((prev) => {
+      const next = [...prev];
+      next[index] = file;
+      return next;
+    });
+  }
+
+  function handleMovementCoverFileChange(index: number, file: File | null) {
+    setMovementCoverFiles((prev) => {
       const next = [...prev];
       next[index] = file;
       return next;
@@ -1840,21 +1850,91 @@ function MovementsPanel({
     });
   }
 
+  function handleMovementCoverStatusChange(index: number, status: string) {
+    setMovementCoverStatuses((prev) => {
+      const next = [...prev];
+      next[index] = status;
+      return next;
+    });
+  }
+
+  async function uploadMovementCoverImage(index: number, file: File) {
+    handleMovementCoverStatusChange(index, "Uploading cover image...");
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      updateMovement(index, { coverImage: dataUrl });
+      handleMovementCoverStatusChange(index, "Cover image updated.");
+      setMovementCoverFiles((prev) => {
+        const next = [...prev];
+        next[index] = null;
+        return next;
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
   return (
     <div className="grid gap-6">
       <h2 className="font-display text-2xl text-parchment sm:text-3xl">
         Five Movements
       </h2>
       {movements.map((movement, index) => (
-        <FieldGroup key={`${movement.title}-${index}`} title={`Movement ${index + 1}`}>
-          <TextField label="Title" onChange={(value) => updateMovement(index, { title: value })} value={movement.title} />
-          <TextField label="Booklets Label" onChange={(value) => updateMovement(index, { booklets: value })} value={movement.booklets} />
-          <TextField label="Link" onChange={(value) => updateMovement(index, { href: value })} value={movement.href || ""} />
+        <FieldGroup key={`${movement.title}-${index}`} title={`Movement ${index + 1}: ${movement.title}`}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <TextField label="Title" onChange={(value) => updateMovement(index, { title: value })} value={movement.title} />
+            <select
+              className="rounded-md border border-gold/20 bg-ink px-3 py-2 text-base text-parchment outline-none focus:border-gold/60"
+              onChange={(event) => updateMovement(index, { status: event.target.value as PublishStatus })}
+              value={movement.status || "published"}
+            >
+              <option value="published">Published</option>
+              <option value="draft">Draft</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
+
           <TextAreaField label="Description" onChange={(value) => updateMovement(index, { description: value })} value={movement.description} />
-          <TextField label="PDF Path" onChange={(value) => updateMovement(index, { pdf: value })} value={movement.pdf || ""} />
+          <TextField label="Booklets Label" onChange={(value) => updateMovement(index, { booklets: value })} value={movement.booklets} />
+
           <div className="rounded-md border border-gold/15 bg-ink p-5">
             <p className="font-label text-sm uppercase tracking-[0.2em] text-gold">
-              Movement PDF Upload
+              Cover Image
+            </p>
+            {movement.coverImage && (
+              <div className="mt-4 overflow-hidden rounded-md border border-gold/20">
+                <img
+                  alt={movement.title}
+                  className="h-40 w-full object-cover"
+                  src={movement.coverImage}
+                />
+              </div>
+            )}
+            <input
+              accept="image/*"
+              className="mt-4 w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-sm text-parchment file:mr-3 file:rounded-md file:border-0 file:bg-gold/15 file:px-3 file:py-2 file:text-parchment"
+              onChange={(event) => handleMovementCoverFileChange(index, event.target.files?.[0] || null)}
+              type="file"
+            />
+            <button
+              className="mt-4 inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold disabled:opacity-50"
+              disabled={!movementCoverFiles[index]}
+              onClick={() => {
+                if (movementCoverFiles[index]) {
+                  uploadMovementCoverImage(index, movementCoverFiles[index]!);
+                }
+              }}
+              type="button"
+            >
+              <ImageIcon size={16} />
+              Upload Cover
+            </button>
+            <p className="mt-3 text-base italic text-muted">{movementCoverStatuses[index]}</p>
+          </div>
+
+          <div className="rounded-md border border-gold/15 bg-ink p-5">
+            <p className="font-label text-sm uppercase tracking-[0.2em] text-gold">
+              Movement PDF
             </p>
             <input
               accept="application/pdf,.pdf"
@@ -1877,6 +1957,13 @@ function MovementsPanel({
             </button>
             <p className="mt-3 text-base italic text-muted">{movementUploadStatuses[index]}</p>
           </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <TextField label="SEO Title" onChange={(value) => updateMovement(index, { seo: { ...movement.seo, title: value } })} value={movement.seo?.title || ""} />
+            <TextField label="SEO Keywords" onChange={(value) => updateMovement(index, { seo: { ...movement.seo, keywords: value } })} value={movement.seo?.keywords || ""} />
+          </div>
+          <TextAreaField label="SEO Description" onChange={(value) => updateMovement(index, { seo: { ...movement.seo, description: value } })} value={movement.seo?.description || ""} />
+
           <div className="rounded-md border border-gold/15 bg-ink p-4">
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <div>
