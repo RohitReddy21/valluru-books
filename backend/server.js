@@ -4,6 +4,7 @@ const express = require("express");
 const { GridFSBucket, MongoClient, ObjectId } = require("mongodb");
 const multer = require("multer");
 const { Resend } = require("resend");
+const { createClient } = require("@supabase/supabase-js");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
@@ -91,6 +92,18 @@ function supabaseConfigError() {
   ].filter(Boolean);
 
   return `Supabase Storage config missing: ${missing.join(", ")}`;
+}
+
+function getSupabaseClient() {
+  if (!hasSupabaseConfig()) {
+    throw new Error(supabaseConfigError());
+  }
+
+  return createClient(getSupabaseUrl(), getSupabaseServiceKey(), {
+    auth: {
+      persistSession: false
+    }
+  });
 }
 
 function requireSupabase(response) {
@@ -286,48 +299,60 @@ async function uploadToSupabase(file, { bucket, folder = "" }) {
     throw error;
   }
 
+  const supabase = getSupabaseClient();
   const storagePath = buildStoragePath(file, folder);
-  const uploadUrl = `${getSupabaseUrl()}/storage/v1/upload/authenticated/${bucket}/${encodeStoragePath(storagePath)}`;
-  
+  const contentType = file.mimetype || "application/octet-stream";
+
   console.log("[uploadToSupabase] Upload details", {
-    storagePath,
-    uploadUrl,
-    supabaseUrl: getSupabaseUrl()
-  });
-
-  const uploadResponse = await fetch(uploadUrl, {
-    method: "POST",
-    headers: supabaseHeaders({
-      "Content-Type": file.mimetype || "application/octet-stream",
-      "Content-Length": String(file.size),
-      "x-upsert": "false"
-    }),
-    body: fs.createReadStream(file.path),
-    duplex: "half"
-  });
-
-  if (!uploadResponse.ok) {
-    const errorMessage = await parseStorageError(uploadResponse);
-    console.error("[uploadToSupabase] Upload failed", {
-      status: uploadResponse.status,
-      statusText: uploadResponse.statusText,
-      errorMessage
-    });
-    throw new Error(errorMessage);
-  }
-
-  const result = {
     bucket,
     storagePath,
-    fileName: path.basename(storagePath),
-    url: getSupabasePublicUrl(bucket, storagePath),
-    size: file.size,
-    contentType: file.mimetype || "application/octet-stream"
-  };
-  
-  console.log("[uploadToSupabase] Upload successful", result);
+    contentType
+  });
 
-  return result;
+  try {
+    const fileContent = fs.readFileSync(file.path);
+
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(storagePath, fileContent, {
+        contentType,
+        upsert: false
+      });
+
+    if (error) {
+      console.error("[uploadToSupabase] Upload failed", {
+        bucket,
+        storagePath,
+        error: error.message,
+        status: error.statusCode
+      });
+      throw new Error(`Upload failed: ${error.message}`);
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(storagePath);
+
+    const result = {
+      bucket,
+      storagePath,
+      fileName: path.basename(storagePath),
+      url: publicUrlData?.publicUrl || getSupabasePublicUrl(bucket, storagePath),
+      size: file.size,
+      contentType
+    };
+
+    console.log("[uploadToSupabase] Upload successful", result);
+
+    return result;
+  } catch (err) {
+    console.error("[uploadToSupabase] Upload error", {
+      bucket,
+      storagePath,
+      error: err.message
+    });
+    throw err;
+  }
 }
 
 async function streamSupabaseFile(bucket, storagePath, response, headers = {}) {
@@ -336,32 +361,28 @@ async function streamSupabaseFile(bucket, storagePath, response, headers = {}) {
   }
 
   try {
-    const remote = await fetch(
-      `${getSupabaseUrl()}/storage/v1/object/public/${bucket}/${encodeStoragePath(storagePath)}`,
-      {
-        headers: supabaseHeaders({
-          "User-Agent": "Valluru-Books/1.0"
-        })
-      }
-    );
+    const supabase = getSupabaseClient();
 
-    if (!remote.ok || !remote.body) {
-      console.error(`Supabase download failed: ${remote.status} ${remote.statusText} for ${bucket}/${storagePath}`);
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .download(storagePath);
+
+    if (error) {
+      console.error(`Supabase download failed for ${bucket}/${storagePath}:`, error.message);
       return false;
     }
 
     const responseHeaders = {
-      "Content-Type": remote.headers.get("content-type") || "application/octet-stream",
+      "Content-Type": data.type || "application/octet-stream",
       ...headers
     };
-    const contentLength = remote.headers.get("content-length");
 
-    if (contentLength) {
-      responseHeaders["Content-Length"] = contentLength;
+    if (data.size) {
+      responseHeaders["Content-Length"] = data.size;
     }
 
     response.set(responseHeaders);
-    await pipeline(Readable.fromWeb(remote.body), response);
+    response.end(data);
     return true;
   } catch (error) {
     console.error(`Supabase download error for ${bucket}/${storagePath}:`, error.message);
@@ -376,22 +397,22 @@ async function deleteSupabaseFile(media) {
     return false;
   }
 
-  const deleteResponse = await fetch(
-    `${getSupabaseUrl()}/storage/v1/object/authenticated/${object.bucket}`,
-    {
-      method: "DELETE",
-      headers: supabaseHeaders({
-        "Content-Type": "application/json"
-      }),
-      body: JSON.stringify({ prefixes: [object.storagePath] })
+  try {
+    const supabase = getSupabaseClient();
+
+    const { error } = await supabase.storage
+      .from(object.bucket)
+      .remove([object.storagePath]);
+
+    if (error) {
+      throw new Error(`Delete failed: ${error.message}`);
     }
-  );
 
-  if (!deleteResponse.ok) {
-    throw new Error(await parseStorageError(deleteResponse));
+    return true;
+  } catch (err) {
+    console.error(`Supabase delete error for ${object.bucket}/${object.storagePath}:`, err.message);
+    throw err;
   }
-
-  return true;
 }
 
 dotenv.config();
@@ -1131,45 +1152,38 @@ app.get("/api/admin/storage-health", verifyAdmin, async (_request, response, nex
     const hasConfig = hasSupabaseConfig();
     let connectionStatus = "not_configured";
     let buckets = [];
-    let uploadTestStatus = "skipped";
 
     if (hasConfig) {
       try {
-        const bucketsUrl = `${getSupabaseUrl()}/storage/v1/bucket`;
-        const bucketsResponse = await fetch(bucketsUrl, {
-          headers: supabaseHeaders()
-        });
+        const supabase = getSupabaseClient();
+        const { data: bucketsList, error } = await supabase.storage.listBuckets();
 
-        if (bucketsResponse.ok) {
+        if (error) {
+          connectionStatus = "error";
+          console.error("[storage-health] Buckets fetch failed:", error.message);
+        } else {
           connectionStatus = "connected";
-          const bucketsData = await bucketsResponse.json();
-          console.log("[storage-health] Raw buckets response from Supabase:", bucketsData);
-          buckets = bucketsData.map((b) => ({
+          console.log("[storage-health] Buckets response from Supabase:", bucketsList);
+          buckets = bucketsList.map((b) => ({
             name: b.name,
             id: b.id,
             public: b.public
           }));
-          uploadTestStatus = "passed";
-        } else {
-          connectionStatus = "error";
-          const error = await parseStorageError(bucketsResponse);
-          console.error("[storage-health] Buckets fetch failed:", error);
         }
       } catch (error) {
-        console.error("[storage-health] Connection check failed:", error);
+        console.error("[storage-health] Connection check failed:", error.message);
         connectionStatus = "error";
       }
     }
 
     response.json({
-      ok: connectionStatus === "connected",
+      connected: connectionStatus === "connected",
       supabase: {
         url: getSupabaseUrl(),
         hasConfig,
         connectionStatus
       },
-      buckets,
-      uploadTestStatus
+      buckets
     });
   } catch (error) {
     next(error);
