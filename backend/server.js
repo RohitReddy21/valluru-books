@@ -37,7 +37,18 @@ function uploadErrorMessage(error) {
 }
 
 function getSupabaseUrl() {
-  return String(process.env.SUPABASE_URL || "").replace(/\/+$/, "");
+  const rawUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
+
+  if (!rawUrl) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(rawUrl);
+    return parsed.origin;
+  } catch {
+    return rawUrl;
+  }
 }
 
 function getSupabaseServiceKey() {
@@ -248,7 +259,7 @@ async function uploadToSupabase(file, { bucket, folder = "" }) {
   }
 
   const storagePath = buildStoragePath(file, folder);
-  const uploadUrl = `${getSupabaseUrl()}/storage/v1/object/${bucket}/${encodeStoragePath(storagePath)}`;
+  const uploadUrl = `${getSupabaseUrl()}/storage/v1/object/authenticated/${bucket}/${encodeStoragePath(storagePath)}`;
   const uploadResponse = await fetch(uploadUrl, {
     method: "POST",
     headers: supabaseHeaders({
@@ -281,7 +292,7 @@ async function streamSupabaseFile(bucket, storagePath, response, headers = {}) {
 
   try {
     const remote = await fetch(
-      `${getSupabaseUrl()}/storage/v1/object/${bucket}/${encodeStoragePath(storagePath)}`,
+      `${getSupabaseUrl()}/storage/v1/object/authenticated/${bucket}/${encodeStoragePath(storagePath)}`,
       {
         headers: supabaseHeaders({
           "User-Agent": "Valluru-Books/1.0"
@@ -321,7 +332,7 @@ async function deleteSupabaseFile(media) {
   }
 
   const deleteResponse = await fetch(
-    `${getSupabaseUrl()}/storage/v1/object/${object.bucket}`,
+    `${getSupabaseUrl()}/storage/v1/object/authenticated/${object.bucket}`,
     {
       method: "DELETE",
       headers: supabaseHeaders({
