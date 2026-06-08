@@ -2,14 +2,14 @@ import Link from "next/link";
 import { NewsletterForm } from "@/components/newsletter-form";
 import { PageHeader, PageShell, Section, WideSection } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
-import { defaultSiteContent, movementSlug } from "@/lib/site-content";
+import { defaultSiteContent, movementSlug, isPublished } from "@/lib/site-content";
 
 export const dynamic = "force-dynamic";
 
 export default async function MovementsPage() {
   const content = await getSiteContent();
   const { home } = content;
-  const movements = home.seriesOverview.movements;
+  const publishedMovements = home.seriesOverview.movements.filter(m => isPublished(m.status));
   const media = { ...defaultSiteContent.media, ...(content.media || {}) };
 
   return (
@@ -19,35 +19,70 @@ export default async function MovementsPage() {
         title="Movements"
         subtitle="Five doorways into the same inward fire."
       />
+
       <WideSection>
         <div className="mx-auto max-w-3xl text-center">
+          <h2 className="responsive-section-title mb-6 font-display font-semibold text-parchment">
+            Explore the Five Movements
+          </h2>
           <p className="responsive-prose text-parchment/86">
             {home.seriesOverview.intro}
           </p>
         </div>
-        <div className="mt-12 grid gap-4 md:grid-cols-3 lg:grid-cols-5">
-          {movements.map((movement, index) => (
-            <Link
-              key={movementSlug(movement, index)}
-              href={`/movements/${movementSlug(movement, index)}`}
-              className="group block rounded-md border border-gold/15 bg-surface/72 p-4 transition hover:border-gold/40"
-            >
-              <h3 className="font-display text-lg leading-tight text-parchment group-hover:text-gold">
-                {movement.title}
-              </h3>
-              <p className="mt-3 text-sm leading-6 text-muted">
-                {movement.description}
-              </p>
-              <span className="mt-4 inline-flex font-label text-[10px] uppercase tracking-[0.2em] text-gold">
-                View Details
-              </span>
-            </Link>
-          ))}
+
+        <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {publishedMovements.map((movement, index) => {
+            const slug = movementSlug(movement, index);
+            return (
+              <Link
+                key={slug}
+                href={`/movements/${slug}`}
+                className="group block overflow-hidden rounded-lg border border-gold/15 bg-surface/70 transition hover:border-gold/40 hover:bg-surface/90"
+              >
+                {movement.coverImage && (
+                  <div className="relative h-40 w-full overflow-hidden bg-surface/50">
+                    <img
+                      src={movement.coverImage}
+                      alt={movement.title}
+                      className="h-full w-full object-cover transition group-hover:scale-105"
+                    />
+                  </div>
+                )}
+                <div className="p-5">
+                  <h3 className="font-display text-xl leading-tight text-parchment group-hover:text-gold transition">
+                    {movement.title}
+                  </h3>
+                  {movement.description && (
+                    <p className="mt-3 text-sm leading-6 text-muted line-clamp-2">
+                      {movement.description}
+                    </p>
+                  )}
+                  <span className="mt-4 inline-flex font-label text-[10px] uppercase tracking-[0.2em] text-gold">
+                    Explore Movement →
+                  </span>
+                </div>
+              </Link>
+            );
+          })}
         </div>
+
+        {publishedMovements.length === 0 && (
+          <div className="mt-12 rounded-lg border border-gold/20 bg-surface/50 p-8 text-center">
+            <p className="text-muted">No movements available yet. Check back soon.</p>
+          </div>
+        )}
       </WideSection>
 
       <Section>
-        <NewsletterForm microcopy={home.newsletter.microcopy} />
+        <div>
+          <h2 className="font-display text-3xl text-parchment mb-4">
+            Stay Connected
+          </h2>
+          <p className="text-xl leading-9 text-parchment/86 mb-6">
+            Subscribe to receive movement updates and reflections.
+          </p>
+          <NewsletterForm microcopy={home.newsletter.microcopy} />
+        </div>
       </Section>
     </PageShell>
   );
