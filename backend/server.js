@@ -38,30 +38,41 @@ function uploadErrorMessage(error) {
 
 function getSupabaseUrl() {
   const rawUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
+  console.log("[getSupabaseUrl] Raw URL from env:", rawUrl);
 
   if (!rawUrl) {
+    console.log("[getSupabaseUrl] No URL found");
     return "";
   }
 
   try {
     const parsed = new URL(rawUrl);
-    return parsed.origin;
+    const url = parsed.origin;
+    console.log("[getSupabaseUrl] Parsed URL:", url);
+    return url;
   } catch {
+    console.log("[getSupabaseUrl] Failed to parse, returning raw:", rawUrl);
     return rawUrl;
   }
 }
 
 function getSupabaseServiceKey() {
-  return (
+  const key = (
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     process.env.SUPABASE_SERVICE_KEY ||
     process.env.SUPABASE_KEY ||
     ""
   );
+  console.log("[getSupabaseServiceKey] Key found:", !!key);
+  return key;
 }
 
 function hasSupabaseConfig() {
-  return Boolean(getSupabaseUrl() && getSupabaseServiceKey());
+  const hasUrl = !!getSupabaseUrl();
+  const hasKey = !!getSupabaseServiceKey();
+  const hasConfig = hasUrl && hasKey;
+  console.log("[hasSupabaseConfig]", { hasUrl, hasKey, hasConfig });
+  return hasConfig;
 }
 
 function supabaseConfigError() {
@@ -250,16 +261,35 @@ async function parseStorageError(response) {
 }
 
 async function uploadToSupabase(file, { bucket, folder = "" }) {
+  console.log("[uploadToSupabase] Starting upload", {
+    bucket,
+    folder,
+    fileName: file?.originalname,
+    fileSize: file?.size,
+    filePath: file?.path
+  });
+
   if (!hasSupabaseConfig()) {
-    throw new Error(supabaseConfigError());
+    const error = new Error(supabaseConfigError());
+    console.error("[uploadToSupabase] Supabase config missing", error);
+    throw error;
   }
 
   if (!file?.path) {
-    throw new Error("Upload file path is missing.");
+    const error = new Error("Upload file path is missing.");
+    console.error("[uploadToSupabase] No file path", error);
+    throw error;
   }
 
   const storagePath = buildStoragePath(file, folder);
   const uploadUrl = `${getSupabaseUrl()}/storage/v1/object/authenticated/${bucket}/${encodeStoragePath(storagePath)}`;
+  
+  console.log("[uploadToSupabase] Upload details", {
+    storagePath,
+    uploadUrl,
+    supabaseUrl: getSupabaseUrl()
+  });
+
   const uploadResponse = await fetch(uploadUrl, {
     method: "POST",
     headers: supabaseHeaders({
@@ -272,10 +302,16 @@ async function uploadToSupabase(file, { bucket, folder = "" }) {
   });
 
   if (!uploadResponse.ok) {
-    throw new Error(await parseStorageError(uploadResponse));
+    const errorMessage = await parseStorageError(uploadResponse);
+    console.error("[uploadToSupabase] Upload failed", {
+      status: uploadResponse.status,
+      statusText: uploadResponse.statusText,
+      errorMessage
+    });
+    throw new Error(errorMessage);
   }
 
-  return {
+  const result = {
     bucket,
     storagePath,
     fileName: path.basename(storagePath),
@@ -283,6 +319,10 @@ async function uploadToSupabase(file, { bucket, folder = "" }) {
     size: file.size,
     contentType: file.mimetype || "application/octet-stream"
   };
+  
+  console.log("[uploadToSupabase] Upload successful", result);
+
+  return result;
 }
 
 async function streamSupabaseFile(bucket, storagePath, response, headers = {}) {
@@ -1075,6 +1115,57 @@ function formatCurrency(amount, currency = "INR") {
 
 app.get("/health", (_request, response) => {
   response.json({ ok: true });
+});
+
+app.get("/api/admin/storage-health", verifyAdmin, async (_request, response, next) => {
+  try {
+    console.log("[storage-health] Checking storage health");
+
+    const hasConfig = hasSupabaseConfig();
+    let connectionStatus = "not_configured";
+    let buckets = [];
+    let uploadTestStatus = "skipped";
+
+    if (hasConfig) {
+      try {
+        const bucketsUrl = `${getSupabaseUrl()}/storage/v1/bucket`;
+        const bucketsResponse = await fetch(bucketsUrl, {
+          headers: supabaseHeaders()
+        });
+
+        if (bucketsResponse.ok) {
+          connectionStatus = "connected";
+          const bucketsData = await bucketsResponse.json();
+          buckets = bucketsData.map((b) => ({
+            name: b.name,
+            id: b.id,
+            public: b.public
+          }));
+          uploadTestStatus = "passed";
+        } else {
+          connectionStatus = "error";
+          const error = await parseStorageError(bucketsResponse);
+          console.error("[storage-health] Buckets fetch failed:", error);
+        }
+      } catch (error) {
+        console.error("[storage-health] Connection check failed:", error);
+        connectionStatus = "error";
+      }
+    }
+
+    response.json({
+      ok: connectionStatus === "connected",
+      supabase: {
+        url: getSupabaseUrl(),
+        hasConfig,
+        connectionStatus
+      },
+      buckets,
+      uploadTestStatus
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 app.post("/api/admin/login", (request, response) => {
@@ -2246,12 +2337,20 @@ app.post(
   verifyAdmin,
   upload.single("pdf"),
   async (request, response, next) => {
+    console.log("[upload-pdf] Endpoint hit", {
+      body: request.body,
+      hasFile: !!request.file,
+      fileName: request.file?.originalname,
+      fileSize: request.file?.size
+    });
     try {
       if (!requireMongo(response)) {
+        console.log("[upload-pdf] MongoDB not configured");
         return;
       }
 
       if (!requireSupabase(response)) {
+        console.log("[upload-pdf] Supabase not configured");
         return;
       }
 
@@ -2259,16 +2358,19 @@ app.post(
       const file = request.file;
 
       if (!bookletSlug) {
+        console.log("[upload-pdf] Missing bookletSlug");
         response.status(400).json({ error: "Choose a booklet." });
         return;
       }
 
       if (!file) {
+        console.log("[upload-pdf] Missing file");
         response.status(400).json({ error: "Choose a PDF file." });
         return;
       }
 
       if (!isPdfUpload(file)) {
+        console.log("[upload-pdf] Invalid file type");
         response.status(400).json({ error: "Only PDF files are allowed." });
         return;
       }
@@ -2277,20 +2379,24 @@ app.post(
       const booklet = content?.series?.booklets?.find((item) => item.slug === bookletSlug);
 
       if (!booklet) {
+        console.log("[upload-pdf] Booklet not found:", bookletSlug);
         response.status(404).json({ error: "Booklet not found." });
         return;
       }
 
       let uploaded;
       try {
-        uploaded = await uploadToSupabase(file, getStorageTarget(file, "books/pdfs", "book-pdf"));
+        const storageTarget = getStorageTarget(file, "books/pdfs", "book-pdf");
+        console.log("[upload-pdf] Storage target:", storageTarget);
+        uploaded = await uploadToSupabase(file, storageTarget);
       } catch (uploadError) {
-        console.error("Book PDF upload failed:", uploadError);
+        console.error("[upload-pdf] Book PDF upload failed:", uploadError);
         response.status(502).json({ error: uploadErrorMessage(uploadError) });
         return;
       }
       const publicUrl = uploaded.url;
       
+      console.log("[upload-pdf] Uploaded successfully, updating content");
       booklet.pdf = publicUrl;
       await saveSiteContent(content);
       const media = await savePdfAsset(file, uploaded, {
@@ -2304,8 +2410,10 @@ app.post(
         }
       });
 
+      console.log("[upload-pdf] Done, returning response");
       response.json({ ok: true, pdf: publicUrl, bookletSlug, media });
     } catch (error) {
+      console.error("[upload-pdf] Error:", error);
       next(error);
     } finally {
       await cleanupUploadedFile(request.file);
@@ -2318,12 +2426,20 @@ app.post(
   verifyAdmin,
   upload.single("pdf"),
   async (request, response, next) => {
+    console.log("[upload-movement-pdf] Endpoint hit", {
+      body: request.body,
+      hasFile: !!request.file,
+      fileName: request.file?.originalname,
+      fileSize: request.file?.size
+    });
     try {
       if (!requireMongo(response)) {
+        console.log("[upload-movement-pdf] MongoDB not configured");
         return;
       }
 
       if (!requireSupabase(response)) {
+        console.log("[upload-movement-pdf] Supabase not configured");
         return;
       }
 
@@ -2331,42 +2447,50 @@ app.post(
       const file = request.file;
 
       if (!Number.isInteger(movementIndex) || movementIndex < 0) {
+        console.log("[upload-movement-pdf] Invalid movement index:", movementIndex);
         response.status(400).json({ error: "Invalid movement index." });
         return;
       }
 
       if (!file) {
+        console.log("[upload-movement-pdf] Missing file");
         response.status(400).json({ error: "Choose a PDF file." });
         return;
       }
 
       if (!isPdfUpload(file)) {
+        console.log("[upload-movement-pdf] Invalid file type");
         response.status(400).json({ error: "Only PDF files are allowed." });
         return;
       }
 
       const content = await getSiteContent();
       if (!content) {
+        console.log("[upload-movement-pdf] No site content found");
         response.status(400).json({ error: "Please save site content first via the admin editor before uploading PDFs." });
         return;
       }
       const movement = content?.home?.seriesOverview?.movements?.[movementIndex];
 
       if (!movement) {
+        console.log("[upload-movement-pdf] Movement not found at index:", movementIndex);
         response.status(404).json({ error: "Movement not found." });
         return;
       }
 
       let uploaded;
       try {
-        uploaded = await uploadToSupabase(file, getStorageTarget(file, "movements/pdfs", "movement-pdf"));
+        const storageTarget = getStorageTarget(file, "movements/pdfs", "movement-pdf");
+        console.log("[upload-movement-pdf] Storage target:", storageTarget);
+        uploaded = await uploadToSupabase(file, storageTarget);
       } catch (uploadError) {
-        console.error("Movement PDF upload failed:", uploadError);
+        console.error("[upload-movement-pdf] Movement PDF upload failed:", uploadError);
         response.status(502).json({ error: uploadErrorMessage(uploadError) });
         return;
       }
       const publicUrl = uploaded.url;
       
+      console.log("[upload-movement-pdf] Uploaded successfully, updating content");
       movement.pdf = publicUrl;
       await saveSiteContent(content);
       const media = await savePdfAsset(file, uploaded, {
@@ -2380,8 +2504,10 @@ app.post(
         }
       });
 
+      console.log("[upload-movement-pdf] Done, returning response");
       response.json({ ok: true, pdf: publicUrl, movementIndex, media });
     } catch (error) {
+      console.error("[upload-movement-pdf] Error:", error);
       next(error);
     } finally {
       await cleanupUploadedFile(request.file);
