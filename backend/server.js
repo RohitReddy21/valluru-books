@@ -1,9 +1,7 @@
 const cors = require("cors");
 const dotenv = require("dotenv");
 const express = require("express");
-const { v2: cloudinary } = require("cloudinary");
-const B2 = require("backblaze-b2");
-const { MongoClient, ObjectId } = require("mongodb");
+const { GridFSBucket, MongoClient, ObjectId } = require("mongodb");
 const multer = require("multer");
 const { Resend } = require("resend");
 const crypto = require("node:crypto");
@@ -13,29 +11,6 @@ const os = require("node:os");
 const path = require("node:path");
 const { Readable } = require("node:stream");
 const { pipeline } = require("node:stream/promises");
-
-// Backblaze B2 setup
-let b2;
-let b2AuthData;
-function hasB2Config() {
-  return !!(
-    process.env.B2_APPLICATION_KEY_ID &&
-    process.env.B2_APPLICATION_KEY &&
-    process.env.B2_BUCKET_ID &&
-    process.env.B2_BUCKET_NAME
-  );
-}
-
-function b2ConfigError() {
-  const missing = [
-    "B2_APPLICATION_KEY_ID",
-    "B2_APPLICATION_KEY",
-    "B2_BUCKET_ID",
-    "B2_BUCKET_NAME"
-  ].filter((key) => !process.env[key]);
-
-  return `Backblaze B2 config missing: ${missing.join(", ")}`;
-}
 
 function uploadErrorMessage(error) {
   if (!error) {
@@ -61,208 +36,305 @@ function uploadErrorMessage(error) {
   return "Upload failed.";
 }
 
-async function getB2Client() {
-  if (!b2) {
-    b2 = new B2({
-      applicationKeyId: process.env.B2_APPLICATION_KEY_ID,
-      applicationKey: process.env.B2_APPLICATION_KEY
-    });
-    const authResult = await b2.authorize();
-    b2AuthData = authResult.data;
-  }
-  return b2;
+function getSupabaseUrl() {
+  return String(process.env.SUPABASE_URL || "").replace(/\/+$/, "");
 }
 
-// Get B2 public download URL from auth data (deprecated - use authenticated download)
-function getB2PublicUrl(fileName) {
-  // Use downloadUrl from B2 auth response
-  const downloadUrl = b2AuthData?.downloadUrl || "https://f005.backblazeb2.com";
-  const encodedFileName = fileName.split("/").map(encodeURIComponent).join("/");
-  return `${downloadUrl}/file/${process.env.B2_BUCKET_NAME}/${encodedFileName}`;
+function getSupabaseServiceKey() {
+  return (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.SUPABASE_KEY ||
+    ""
+  );
 }
 
-// Download file from B2 using authentication (no public access, no egress fees)
-async function downloadFromB2(fileName, response, headers = {}) {
-  if (!hasB2Config()) {
-    throw new Error(b2ConfigError());
-  }
+function hasSupabaseConfig() {
+  return Boolean(getSupabaseUrl() && getSupabaseServiceKey());
+}
 
-  const client = await getB2Client();
-  
-  // Get download authorization for the specific file
-  const { data: downloadAuth } = await client.getDownloadAuthorization({
-    bucketId: process.env.B2_BUCKET_ID,
-    fileNamePrefix: fileName,
-    validDurationInSeconds: 604800 // 7 days
-  });
+function supabaseConfigError() {
+  const missing = [
+    "SUPABASE_URL",
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.SUPABASE_KEY
+      ? ""
+      : "SUPABASE_SERVICE_ROLE_KEY"
+  ].filter(Boolean);
 
-  const downloadUrl = `${b2AuthData.downloadUrl}/file/${process.env.B2_BUCKET_NAME}/${fileName}`;
-  
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
+  return `Supabase Storage config missing: ${missing.join(", ")}`;
+}
 
-    const remote = await fetch(downloadUrl, {
-      signal: controller.signal,
-      headers: {
-        "Authorization": downloadAuth.authorizationToken,
-        "User-Agent": "Valluru-Books/1.0"
-      }
-    });
-
-    clearTimeout(timeout);
-
-    if (!remote.ok) {
-      console.error(`B2 download failed: ${remote.status} ${remote.statusText} for file: ${fileName}`);
-      return false;
-    }
-
-    if (!remote.body) {
-      console.error(`B2 download failed: No body in response for file: ${fileName}`);
-      return false;
-    }
-
-    response.set({
-      "Content-Type": remote.headers.get("content-type") || "application/octet-stream",
-      ...headers
-    });
-    await pipeline(Readable.fromWeb(remote.body), response);
+function requireSupabase(response) {
+  if (hasSupabaseConfig()) {
     return true;
-  } catch (error) {
-    console.error(`B2 download error for file ${fileName}:`, error.message);
-    return false;
+  }
+
+  response.status(500).json({
+    error:
+      "Supabase Storage is required for uploads. Configure SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY."
+  });
+  return false;
+}
+
+function supabaseHeaders(extra = {}) {
+  const serviceKey = getSupabaseServiceKey();
+
+  return {
+    apikey: serviceKey,
+    Authorization: `Bearer ${serviceKey}`,
+    ...extra
+  };
+}
+
+function encodeStoragePath(value = "") {
+  return String(value)
+    .split("/")
+    .filter(Boolean)
+    .map(encodeURIComponent)
+    .join("/");
+}
+
+function cleanStoragePath(value = "") {
+  return String(value)
+    .replace(/\\/g, "/")
+    .replace(/^\/+|\/+$/g, "")
+    .replace(/\.\.+/g, ".")
+    .split("/")
+    .map((part) =>
+      part
+        .trim()
+        .replace(/[^a-zA-Z0-9._-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+    )
+    .filter(Boolean)
+    .join("/");
+}
+
+function safeStorageFileName(name = "file") {
+  const parsed = path.parse(name);
+  const base = (parsed.name || "file")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 90);
+  const ext = (parsed.ext || "").replace(/[^a-zA-Z0-9.]/g, "").slice(0, 16);
+
+  return `${base || "file"}${ext}`;
+}
+
+function getStorageTarget(file, requestedFolder = "", purpose = "media") {
+  const rawFolder = cleanStoragePath(requestedFolder);
+  const knownBuckets = new Set(["books", "movements", "downloads", "media"]);
+
+  if (rawFolder) {
+    const [first, ...rest] = rawFolder.split("/");
+
+    if (knownBuckets.has(first)) {
+      return {
+        bucket: first,
+        folder: rest.join("/")
+      };
+    }
+  }
+
+  if (purpose === "book-pdf") {
+    return { bucket: "books", folder: "pdfs" };
+  }
+
+  if (purpose === "book-sample") {
+    return { bucket: "books", folder: "samples" };
+  }
+
+  if (purpose === "book-cover") {
+    return { bucket: "books", folder: "covers" };
+  }
+
+  if (purpose === "movement-pdf") {
+    return { bucket: "movements", folder: "pdfs" };
+  }
+
+  if (purpose === "movement-image") {
+    return { bucket: "movements", folder: "images" };
+  }
+
+  if (purpose === "pdf-library" || file?.mimetype === "application/pdf") {
+    return { bucket: "downloads", folder: rawFolder || "" };
+  }
+
+  if (file?.mimetype?.startsWith("image/")) {
+    return { bucket: "media", folder: rawFolder || "gallery" };
+  }
+
+  return { bucket: "media", folder: rawFolder || "gallery" };
+}
+
+function buildStoragePath(file, folder = "") {
+  const safeName = safeStorageFileName(file.originalname || "upload");
+  const uniqueName = `${Date.now()}-${crypto.randomBytes(8).toString("hex")}-${safeName}`;
+  const cleanFolder = cleanStoragePath(folder);
+
+  return [cleanFolder, uniqueName].filter(Boolean).join("/");
+}
+
+function getStorageFolder(storagePath = "") {
+  const folder = path.posix.dirname(storagePath);
+  return folder === "." ? "" : folder;
+}
+
+function getSupabasePublicUrl(bucket, storagePath) {
+  return `${getSupabaseUrl()}/storage/v1/object/public/${bucket}/${encodeStoragePath(storagePath)}`;
+}
+
+function getSupabaseObjectFromUrl(url = "") {
+  if (!url || !getSupabaseUrl()) {
+    return "";
+  }
+
+  try {
+    const parsed = new URL(url);
+    const marker = "/storage/v1/object/public/";
+    const markerIndex = parsed.pathname.indexOf(marker);
+
+    if (markerIndex === -1) {
+      return null;
+    }
+
+    const [bucket, ...pathParts] = parsed.pathname
+      .slice(markerIndex + marker.length)
+      .split("/")
+      .filter(Boolean)
+      .map((part) => decodeURIComponent(part));
+
+    if (!bucket || pathParts.length === 0) {
+      return null;
+    }
+
+    return { bucket, storagePath: pathParts.join("/") };
+  } catch {
+    return null;
   }
 }
 
-async function sha1File(filePath) {
-  const hash = crypto.createHash("sha1");
-
-  for await (const chunk of fs.createReadStream(filePath)) {
-    hash.update(chunk);
+function getSupabaseObject(media = {}) {
+  if (media.storageBucket && media.storagePath) {
+    return {
+      bucket: media.storageBucket,
+      storagePath: media.storagePath
+    };
   }
 
-  return hash.digest("hex");
+  return getSupabaseObjectFromUrl(media.url || media.publicUrl);
 }
 
-async function uploadToB2(file, folder) {
-  if (!hasB2Config()) {
-    throw new Error(b2ConfigError());
+async function parseStorageError(response) {
+  const text = await response.text().catch(() => "");
+
+  try {
+    const payload = text ? JSON.parse(text) : {};
+    return payload.message || payload.error || payload.code || response.statusText;
+  } catch {
+    return text || response.statusText;
+  }
+}
+
+async function uploadToSupabase(file, { bucket, folder = "" }) {
+  if (!hasSupabaseConfig()) {
+    throw new Error(supabaseConfigError());
   }
 
   if (!file?.path) {
     throw new Error("Upload file path is missing.");
   }
 
-  const client = await getB2Client();
-  const { data: { uploadUrl, authorizationToken } } = await client.getUploadUrl({
-    bucketId: process.env.B2_BUCKET_ID
-  });
-
-  const fileName = `${folder}/${Date.now()}-${file.originalname}`;
-  const sha1 = await sha1File(file.path);
-
+  const storagePath = buildStoragePath(file, folder);
+  const uploadUrl = `${getSupabaseUrl()}/storage/v1/object/${bucket}/${encodeStoragePath(storagePath)}`;
   const uploadResponse = await fetch(uploadUrl, {
     method: "POST",
-    headers: {
-      Authorization: authorizationToken,
+    headers: supabaseHeaders({
       "Content-Type": file.mimetype || "application/octet-stream",
       "Content-Length": String(file.size),
-      "X-Bz-File-Name": encodeURI(fileName),
-      "X-Bz-Content-Sha1": sha1
-    },
+      "x-upsert": "false"
+    }),
     body: fs.createReadStream(file.path),
     duplex: "half"
   });
-  const responseText = await uploadResponse.text();
-  let payload = {};
-
-  try {
-    payload = responseText ? JSON.parse(responseText) : {};
-  } catch {
-    payload = { message: responseText };
-  }
 
   if (!uploadResponse.ok) {
-    throw new Error(payload.message || payload.code || "B2 upload failed.");
+    throw new Error(await parseStorageError(uploadResponse));
   }
 
-  const publicUrl = getB2PublicUrl(payload.fileName || fileName);
-
   return {
-    fileId: payload.fileId,
-    fileName: payload.fileName || fileName,
-    url: publicUrl,
-    size: payload.contentLength || file.size,
-    contentType: payload.contentType || file.mimetype
+    bucket,
+    storagePath,
+    fileName: path.basename(storagePath),
+    url: getSupabasePublicUrl(bucket, storagePath),
+    size: file.size,
+    contentType: file.mimetype || "application/octet-stream"
   };
 }
 
-function getB2FileNameFromUrl(url = "") {
-  if (!url || !process.env.B2_BUCKET_NAME) {
-    return "";
+async function streamSupabaseFile(bucket, storagePath, response, headers = {}) {
+  if (!hasSupabaseConfig() || !bucket || !storagePath) {
+    return false;
   }
 
   try {
-    const parsed = new URL(url);
-    const marker = `/file/${process.env.B2_BUCKET_NAME}/`;
-    const markerIndex = parsed.pathname.indexOf(marker);
+    const remote = await fetch(
+      `${getSupabaseUrl()}/storage/v1/object/${bucket}/${encodeStoragePath(storagePath)}`,
+      {
+        headers: supabaseHeaders({
+          "User-Agent": "Valluru-Books/1.0"
+        })
+      }
+    );
 
-    if (markerIndex === -1) {
-      return "";
+    if (!remote.ok || !remote.body) {
+      console.error(`Supabase download failed: ${remote.status} ${remote.statusText} for ${bucket}/${storagePath}`);
+      return false;
     }
 
-    return parsed.pathname
-      .slice(markerIndex + marker.length)
-      .split("/")
-      .map((part) => decodeURIComponent(part))
-      .join("/");
-  } catch {
-    return "";
+    const responseHeaders = {
+      "Content-Type": remote.headers.get("content-type") || "application/octet-stream",
+      ...headers
+    };
+    const contentLength = remote.headers.get("content-length");
+
+    if (contentLength) {
+      responseHeaders["Content-Length"] = contentLength;
+    }
+
+    response.set(responseHeaders);
+    await pipeline(Readable.fromWeb(remote.body), response);
+    return true;
+  } catch (error) {
+    console.error(`Supabase download error for ${bucket}/${storagePath}:`, error.message);
+    return false;
   }
 }
 
-async function findB2FileId(fileName) {
-  if (!fileName || !hasB2Config()) {
-    return "";
-  }
+async function deleteSupabaseFile(media) {
+  const object = getSupabaseObject(media);
 
-  await getB2Client();
-  const listResponse = await fetch(`${b2AuthData.apiUrl}/b2api/v2/b2_list_file_versions`, {
-    method: "POST",
-    headers: {
-      Authorization: b2AuthData.authorizationToken,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      bucketId: process.env.B2_BUCKET_ID,
-      maxFileCount: 1,
-      prefix: fileName
-    })
-  });
-  const payload = await listResponse.json().catch(() => ({}));
-
-  if (!listResponse.ok) {
-    throw new Error(payload.message || payload.code || "B2 file lookup failed.");
-  }
-
-  return payload.files?.find((file) => file.fileName === fileName)?.fileId || "";
-}
-
-async function deleteB2File(media) {
-  const fileName = media.b2FileName || media.fileName || getB2FileNameFromUrl(media.url);
-
-  if (!fileName || !hasB2Config()) {
+  if (!object || !hasSupabaseConfig()) {
     return false;
   }
 
-  const fileId = media.b2FileId || media.fileId || (await findB2FileId(fileName));
+  const deleteResponse = await fetch(
+    `${getSupabaseUrl()}/storage/v1/object/${object.bucket}`,
+    {
+      method: "DELETE",
+      headers: supabaseHeaders({
+        "Content-Type": "application/json"
+      }),
+      body: JSON.stringify({ prefixes: [object.storagePath] })
+    }
+  );
 
-  if (!fileId) {
-    return false;
+  if (!deleteResponse.ok) {
+    throw new Error(await parseStorageError(deleteResponse));
   }
 
-  const client = await getB2Client();
-  await client.deleteFileVersion({ fileId, fileName });
   return true;
 }
 
@@ -333,6 +405,27 @@ async function getDb() {
 
   const client = await clientPromise;
   return client.db(dbName);
+}
+
+async function getLegacyGridBucket(bucketName) {
+  return new GridFSBucket(await getDb(), { bucketName });
+}
+
+async function writeGridFileToTemp(bucket, file) {
+  const extension = path.extname(file.filename || "") || ".bin";
+  const tempPath = path.join(
+    uploadTempDir,
+    `${Date.now()}-${crypto.randomBytes(16).toString("hex")}${extension}`
+  );
+
+  await pipeline(bucket.openDownloadStream(file._id), fs.createWriteStream(tempPath));
+
+  return {
+    path: tempPath,
+    originalname: file.filename || `legacy-${String(file._id)}${extension}`,
+    mimetype: file.contentType || file.metadata?.contentType || "application/octet-stream",
+    size: file.length || 0
+  };
 }
 
 function getResend() {
@@ -594,47 +687,6 @@ function validateUpload(file) {
   );
 }
 
-function hasCloudinaryConfig() {
-  return Boolean(
-    process.env.CLOUDINARY_CLOUD_NAME &&
-    process.env.CLOUDINARY_API_KEY &&
-    process.env.CLOUDINARY_API_SECRET
-  );
-}
-
-function requireCloudinary(response) {
-  if (hasCloudinaryConfig()) {
-    return true;
-  }
-
-  response.status(500).json({
-    error:
-      "Cloudinary is required for file uploads. Configure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET."
-  });
-  return false;
-}
-
-function configureCloudinary() {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET,
-    secure: true
-  });
-}
-
-function cloudinaryResourceType(contentType = "") {
-  if (contentType.startsWith("image/")) {
-    return "image";
-  }
-
-  if (contentType.startsWith("video/")) {
-    return "video";
-  }
-
-  return "raw";
-}
-
 async function cleanupUploadedFile(file) {
   if (!file?.path) {
     return;
@@ -643,68 +695,36 @@ async function cleanupUploadedFile(file) {
   await fsp.unlink(file.path).catch(() => {});
 }
 
-async function uploadToCloudinary(file, folder) {
-  if (!hasCloudinaryConfig()) {
-    throw new Error("Cloudinary is not configured.");
-  }
-
-  if (!file?.path) {
-    throw new Error("Upload file path is missing.");
-  }
-
-  configureCloudinary();
-
-  const options = {
-    folder,
-    resource_type: cloudinaryResourceType(file.mimetype),
-    use_filename: true,
-    unique_filename: true,
-    overwrite: false
-  };
-
-  if (Number(file.size || 0) > 100 * 1024 * 1024 || options.resource_type === "raw") {
-    return new Promise((resolve, reject) => {
-      cloudinary.uploader.upload_large(
-        file.path,
-        {
-          ...options,
-          chunk_size: Number(process.env.CLOUDINARY_CHUNK_SIZE || 20 * 1024 * 1024)
-        },
-        (error, result) => {
-          if (error) {
-            reject(error);
-            return;
-          }
-
-          resolve(result);
-        }
-      );
-    });
-  }
-
-  return cloudinary.uploader.upload(file.path, options);
-}
-
-async function saveMediaAsset(file, { folder = "valluru/media", source = "library" } = {}) {
+async function saveMediaAsset(
+  file,
+  { folder = "media/gallery", source = "library", purpose = "media" } = {}
+) {
   const db = await getDb();
   const kind = getMediaKind(file.mimetype);
-  const uploaded = await uploadToCloudinary(file, folder);
+  const target = getStorageTarget(file, folder, purpose);
+  const uploaded = await uploadToSupabase(file, target);
   const asset = {
-    provider: "cloudinary",
-    publicId: uploaded.public_id,
-    url: uploaded.secure_url,
-    resourceType: uploaded.resource_type,
-    format: uploaded.format
+    provider: "supabase",
+    storageBucket: uploaded.bucket,
+    storagePath: uploaded.storagePath,
+    publicUrl: uploaded.url,
+    url: uploaded.url
   };
 
   const record = {
     ...asset,
+    fileName: file.originalname,
     name: file.originalname,
-    folder,
+    folder: [uploaded.bucket, getStorageFolder(uploaded.storagePath)]
+      .filter(Boolean)
+      .join("/"),
     source,
     kind,
-    contentType: file.mimetype,
-    size: file.size,
+    fileType: uploaded.contentType,
+    contentType: uploaded.contentType,
+    fileSize: uploaded.size,
+    size: uploaded.size,
+    uploadedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date()
   };
@@ -733,12 +753,8 @@ function isPdfUpload(file) {
 }
 
 function inferPdfProvider(url = "") {
-  if (getB2FileNameFromUrl(url)) {
-    return "b2";
-  }
-
-  if (url.includes("res.cloudinary.com")) {
-    return "cloudinary";
+  if (getSupabaseObjectFromUrl(url)) {
+    return "supabase";
   }
 
   return "external";
@@ -751,17 +767,24 @@ async function savePdfAsset(
 ) {
   const db = await getDb();
   const record = {
-    provider: "b2",
-    b2FileId: uploaded.fileId || "",
-    b2FileName: uploaded.fileName || "",
+    provider: "supabase",
+    storageBucket: uploaded.bucket,
+    storagePath: uploaded.storagePath,
+    publicUrl: uploaded.url,
     url: uploaded.url,
+    fileName: file.originalname,
     name: file.originalname,
-    folder,
+    folder: [uploaded.bucket, getStorageFolder(uploaded.storagePath)]
+      .filter(Boolean)
+      .join("/"),
     source,
     kind: "pdf",
+    fileType: uploaded.contentType || file.mimetype || "application/pdf",
     contentType: uploaded.contentType || file.mimetype || "application/pdf",
+    fileSize: uploaded.size || file.size || 0,
     size: uploaded.size || file.size || 0,
     assignedTo,
+    uploadedAt: new Date(),
     createdAt: new Date(),
     updatedAt: new Date()
   };
@@ -837,14 +860,19 @@ async function syncContentPdfAssets(db, content = null) {
         },
         $setOnInsert: {
           provider,
-          b2FileName: provider === "b2" ? getB2FileNameFromUrl(asset.url) : "",
+          ...(provider === "supabase" ? getSupabaseObjectFromUrl(asset.url) : {}),
           url: asset.url,
+          publicUrl: asset.url,
+          fileName: asset.name,
           name: asset.name,
           folder: asset.folder,
           source: asset.source,
           kind: "pdf",
+          fileType: "application/pdf",
           contentType: "application/pdf",
+          fileSize: 0,
           size: 0,
+          uploadedAt: new Date(),
           createdAt: new Date()
         }
       },
@@ -964,17 +992,63 @@ async function clearPdfReferences(url) {
   return changed ? content : null;
 }
 
-async function deleteStoredMedia(media) {
-  if (media.provider === "cloudinary" && media.publicId) {
-    configureCloudinary();
-    await cloudinary.uploader.destroy(media.publicId, {
-      resource_type: media.resourceType || cloudinaryResourceType(media.contentType)
-    });
-    return true;
+function replaceUrlDeep(value, oldUrl, newUrl) {
+  if (!value || !oldUrl || !newUrl) {
+    return false;
   }
 
-  if (media.provider === "b2") {
-    return deleteB2File(media);
+  if (Array.isArray(value)) {
+    let changed = false;
+
+    for (let index = 0; index < value.length; index += 1) {
+      if (value[index] === oldUrl) {
+        value[index] = newUrl;
+        changed = true;
+      } else if (typeof value[index] === "object") {
+        changed = replaceUrlDeep(value[index], oldUrl, newUrl) || changed;
+      }
+    }
+
+    return changed;
+  }
+
+  if (typeof value === "object") {
+    let changed = false;
+
+    for (const key of Object.keys(value)) {
+      if (value[key] === oldUrl) {
+        value[key] = newUrl;
+        changed = true;
+      } else if (typeof value[key] === "object") {
+        changed = replaceUrlDeep(value[key], oldUrl, newUrl) || changed;
+      }
+    }
+
+    return changed;
+  }
+
+  return false;
+}
+
+async function replaceContentUrlReferences(oldUrl, newUrl) {
+  const content = await getSiteContent();
+
+  if (!content) {
+    return null;
+  }
+
+  const changed = replaceUrlDeep(content, oldUrl, newUrl);
+
+  if (changed) {
+    await saveSiteContent(content);
+  }
+
+  return changed ? content : null;
+}
+
+async function deleteStoredMedia(media) {
+  if (media.provider === "supabase") {
+    return deleteSupabaseFile(media);
   }
 
   return false;
@@ -1165,60 +1239,22 @@ app.post("/api/subscribe", async (request, response, next) => {
   }
 });
 
-// Generate Cloudinary signed upload parameters
 app.get("/api/cloudinary/signature", verifyAdmin, async (request, response, next) => {
   try {
-    if (!hasCloudinaryConfig()) {
-      return response.status(400).json({ error: "Cloudinary config missing" });
-    }
-
-    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-    const apiKey = process.env.CLOUDINARY_API_KEY;
-    const timestamp = Math.floor(Date.now() / 1000);
-    const folder = request.query.folder || "";
-    
-    // Build the string to sign with all parameters in alphabetical order!
-    let paramsToSign = "";
-    if (folder) {
-      paramsToSign += `folder=${folder}&`;
-    }
-    paramsToSign += `timestamp=${timestamp}${process.env.CLOUDINARY_API_SECRET}`;
-    const signature = crypto.createHash("sha1").update(paramsToSign).digest("hex");
-
-    response.json({
-      cloudName,
-      apiKey,
-      timestamp,
-      signature
+    response.status(410).json({
+      error: "Cloudinary direct uploads have been removed. Use the admin upload routes backed by Supabase Storage."
     });
   } catch (error) {
     next(error);
   }
 });
 
-// Generate Backblaze B2 signed upload auth
 app.get("/api/b2/upload-auth", verifyAdmin, async (request, response, next) => {
   try {
-    if (!hasB2Config()) {
-      return response.status(400).json({ error: "Backblaze B2 config missing" });
-    }
-
-    const b2Client = await getB2Client();
-    const bucketId = process.env.B2_BUCKET_ID;
-    const fileNamePrefix = request.query.prefix || "valluru/";
-    const fileName = `${fileNamePrefix}${Date.now()}-${crypto.randomBytes(8).toString("hex")}${request.query.extension || ""}`;
-
-    // Get an upload URL and authorization token
-    const { data: uploadInfo } = await b2Client.getUploadUrl({ bucketId });
-
-    response.json({
-      uploadUrl: uploadInfo.uploadUrl,
-      authorizationToken: uploadInfo.authorizationToken,
-      fileName: fileName,
-      publicUrl: getB2PublicUrl(fileName)
+    response.status(410).json({
+      error: "Backblaze B2 direct uploads have been removed. Use the admin upload routes backed by Supabase Storage."
     });
   } catch (error) {
-    console.error("B2 upload auth failed:", error);
     next(error);
   }
 });
@@ -1317,7 +1353,7 @@ app.post(
         return;
       }
 
-      if (!requireCloudinary(response)) {
+      if (!requireSupabase(response)) {
         return;
       }
 
@@ -1334,8 +1370,9 @@ app.post(
       }
 
       const media = await saveMediaAsset(file, {
-        folder: request.body.folder || "valluru/media",
-        source: "media-library"
+        folder: request.body.folder || "media/gallery",
+        source: "media-library",
+        purpose: "media"
       });
 
       response.json({ ok: true, media });
@@ -1379,6 +1416,83 @@ app.delete("/api/admin/media/:id", verifyAdmin, async (request, response, next) 
     next(error);
   }
 });
+
+app.post(
+  "/api/admin/media/:id/replace",
+  verifyAdmin,
+  upload.single("media"),
+  async (request, response, next) => {
+    try {
+      if (!requireMongo(response) || !requireSupabase(response)) {
+        return;
+      }
+
+      if (!ObjectId.isValid(request.params.id)) {
+        response.status(400).json({ error: "Invalid media id." });
+        return;
+      }
+
+      const file = request.file;
+
+      if (!file) {
+        response.status(400).json({ error: "Choose a replacement file." });
+        return;
+      }
+
+      if (!validateUpload(file)) {
+        response.status(400).json({ error: "Unsupported file type." });
+        return;
+      }
+
+      const db = await getDb();
+      const id = new ObjectId(request.params.id);
+      const existing = await db.collection("media_assets").findOne({ _id: id });
+
+      if (!existing) {
+        response.status(404).json({ error: "Media not found." });
+        return;
+      }
+
+      const target = getStorageTarget(file, request.body.folder || existing.folder || "media/gallery", "media");
+      const uploaded = await uploadToSupabase(file, target);
+      const patch = {
+        provider: "supabase",
+        storageBucket: uploaded.bucket,
+        storagePath: uploaded.storagePath,
+        publicUrl: uploaded.url,
+        url: uploaded.url,
+        fileName: file.originalname,
+        name: file.originalname,
+        folder: [uploaded.bucket, getStorageFolder(uploaded.storagePath)]
+          .filter(Boolean)
+          .join("/"),
+        kind: getMediaKind(file.mimetype),
+        fileType: uploaded.contentType,
+        contentType: uploaded.contentType,
+        fileSize: uploaded.size,
+        size: uploaded.size,
+        uploadedAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      await db.collection("media_assets").updateOne({ _id: id }, { $set: patch });
+      const content = await replaceContentUrlReferences(existing.url || existing.publicUrl, uploaded.url);
+
+      try {
+        await deleteStoredMedia(existing);
+      } catch (storageError) {
+        console.warn("Old media deletion failed after replacement:", uploadErrorMessage(storageError));
+      }
+
+      const media = await db.collection("media_assets").findOne({ _id: id });
+      response.json({ ok: true, media: toAdminMedia(media), content });
+    } catch (error) {
+      next(error);
+    } finally {
+      await cleanupUploadedFile(request.file);
+    }
+  }
+);
 
 app.get("/api/admin/pdfs", verifyAdmin, async (request, response, next) => {
   try {
@@ -1425,8 +1539,7 @@ app.post(
         return;
       }
 
-      if (!hasB2Config()) {
-        response.status(400).json({ error: b2ConfigError() });
+      if (!requireSupabase(response)) {
         return;
       }
 
@@ -1442,11 +1555,12 @@ app.post(
         return;
       }
 
-      const folder = String(request.body.folder || "valluru/pdfs").trim() || "valluru/pdfs";
+      const folder = String(request.body.folder || "downloads").trim() || "downloads";
       let uploaded;
 
       try {
-        uploaded = await uploadToB2(file, folder);
+        const target = getStorageTarget(file, folder, "pdf-library");
+        uploaded = await uploadToSupabase(file, target);
       } catch (uploadError) {
         console.error("Admin PDF upload failed:", uploadError);
         response.status(502).json({ error: uploadErrorMessage(uploadError) });
@@ -1542,6 +1656,82 @@ app.patch("/api/admin/pdfs/:id", verifyAdmin, async (request, response, next) =>
   }
 });
 
+app.post(
+  "/api/admin/pdfs/:id/replace",
+  verifyAdmin,
+  upload.single("pdf"),
+  async (request, response, next) => {
+    try {
+      if (!requireMongo(response) || !requireSupabase(response)) {
+        return;
+      }
+
+      if (!ObjectId.isValid(request.params.id)) {
+        response.status(400).json({ error: "Invalid PDF id." });
+        return;
+      }
+
+      const file = request.file;
+
+      if (!file) {
+        response.status(400).json({ error: "Choose a replacement PDF." });
+        return;
+      }
+
+      if (!isPdfUpload(file)) {
+        response.status(400).json({ error: "Only PDF files are allowed." });
+        return;
+      }
+
+      const db = await getDb();
+      const id = new ObjectId(request.params.id);
+      const existing = await db.collection("media_assets").findOne({ _id: id, kind: "pdf" });
+
+      if (!existing) {
+        response.status(404).json({ error: "PDF not found." });
+        return;
+      }
+
+      const target = getStorageTarget(file, request.body.folder || existing.folder || "downloads", "pdf-library");
+      const uploaded = await uploadToSupabase(file, target);
+      const patch = {
+        provider: "supabase",
+        storageBucket: uploaded.bucket,
+        storagePath: uploaded.storagePath,
+        publicUrl: uploaded.url,
+        url: uploaded.url,
+        fileName: file.originalname,
+        name: file.originalname,
+        folder: [uploaded.bucket, getStorageFolder(uploaded.storagePath)]
+          .filter(Boolean)
+          .join("/"),
+        fileType: uploaded.contentType,
+        contentType: uploaded.contentType,
+        fileSize: uploaded.size,
+        size: uploaded.size,
+        uploadedAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      await db.collection("media_assets").updateOne({ _id: id }, { $set: patch });
+      const content = await replaceContentUrlReferences(existing.url || existing.publicUrl, uploaded.url);
+
+      try {
+        await deleteStoredMedia(existing);
+      } catch (storageError) {
+        console.warn("Old PDF deletion failed after replacement:", uploadErrorMessage(storageError));
+      }
+
+      const media = await db.collection("media_assets").findOne({ _id: id });
+      response.json({ ok: true, media: toAdminMedia(media), content });
+    } catch (error) {
+      next(error);
+    } finally {
+      await cleanupUploadedFile(request.file);
+    }
+  }
+);
+
 app.delete("/api/admin/pdfs/:id", verifyAdmin, async (request, response, next) => {
   try {
     if (!requireMongo(response)) {
@@ -1577,6 +1767,157 @@ app.delete("/api/admin/pdfs/:id", verifyAdmin, async (request, response, next) =
 
     await db.collection("media_assets").deleteOne({ _id: id });
     response.json({ ok: true, content });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/admin/migrate-storage-to-supabase", verifyAdmin, async (request, response, next) => {
+  try {
+    if (!requireMongo(response) || !requireSupabase(response)) {
+      return;
+    }
+
+    const dryRun = request.query.dryRun === "true" || request.body?.dryRun === true;
+    const deleteAfter = request.query.deleteAfter === "true" || request.body?.deleteAfter === true;
+    const db = await getDb();
+    const content = await getSiteContent();
+    const results = {
+      dryRun,
+      deleteAfter,
+      buckets: {
+        media_uploads: { detected: 0, migrated: 0, skipped: 0, failed: 0 },
+        booklet_pdfs: { detected: 0, migrated: 0, skipped: 0, failed: 0 },
+        movement_pdfs: { detected: 0, migrated: 0, skipped: 0, failed: 0 }
+      }
+    };
+
+    async function migrateFile(bucketName, file, migrate) {
+      const stats = results.buckets[bucketName];
+      stats.detected += 1;
+
+      const existing = await db.collection("media_assets").findOne({
+        legacyGridFsBucket: bucketName,
+        legacyGridFsId: String(file._id)
+      });
+
+      if (existing) {
+        stats.skipped += 1;
+        return existing;
+      }
+
+      if (dryRun) {
+        return null;
+      }
+
+      const bucket = await getLegacyGridBucket(bucketName);
+      const tempFile = await writeGridFileToTemp(bucket, file);
+
+      try {
+        const media = await migrate(tempFile);
+        await db.collection("media_assets").updateOne(
+          { _id: new ObjectId(media.id) },
+          {
+            $set: {
+              legacyGridFsBucket: bucketName,
+              legacyGridFsId: String(file._id),
+              updatedAt: new Date()
+            }
+          }
+        );
+
+        if (deleteAfter) {
+          await bucket.delete(file._id).catch(() => {});
+        }
+
+        stats.migrated += 1;
+        return media;
+      } catch (error) {
+        stats.failed += 1;
+        console.error(`Legacy migration failed for ${bucketName}/${file.filename}:`, error);
+        return null;
+      } finally {
+        await cleanupUploadedFile(tempFile);
+      }
+    }
+
+    const mediaFiles = await db.collection("media_uploads.files").find({}).toArray();
+    for (const file of mediaFiles) {
+      await migrateFile("media_uploads", file, (tempFile) =>
+        saveMediaAsset(tempFile, {
+          folder: tempFile.mimetype === "application/pdf" ? "downloads" : "media/gallery",
+          source: "legacy-gridfs-media",
+          purpose: tempFile.mimetype === "application/pdf" ? "pdf-library" : "media"
+        })
+      );
+    }
+
+    const bookletFiles = await db.collection("booklet_pdfs.files").find({}).toArray();
+    for (const file of bookletFiles) {
+      await migrateFile("booklet_pdfs", file, async (tempFile) => {
+        const slug = path.basename(file.filename || "", ".pdf");
+        const booklet = content?.series?.booklets?.find((item) => item.slug === slug);
+        const uploaded = await uploadToSupabase(
+          { ...tempFile, mimetype: "application/pdf" },
+          getStorageTarget({ ...tempFile, mimetype: "application/pdf" }, "books/pdfs", "book-pdf")
+        );
+        const media = await savePdfAsset({ ...tempFile, mimetype: "application/pdf" }, uploaded, {
+          folder: "books/pdfs",
+          source: "legacy-gridfs-booklet",
+          assignedTo: booklet
+            ? {
+                type: "booklet",
+                slug: booklet.slug,
+                title: booklet.title || booklet.slug,
+                field: "pdf"
+              }
+            : null
+        });
+
+        if (booklet) {
+          booklet.pdf = media.url;
+        }
+
+        return media;
+      });
+    }
+
+    const movementFiles = await db.collection("movement_pdfs.files").find({}).toArray();
+    for (const file of movementFiles) {
+      await migrateFile("movement_pdfs", file, async (tempFile) => {
+        const match = String(file.filename || "").match(/^movement-(\d+)\.pdf$/i);
+        const movementIndex = match ? Number(match[1]) : -1;
+        const movement = content?.home?.seriesOverview?.movements?.[movementIndex];
+        const uploaded = await uploadToSupabase(
+          { ...tempFile, mimetype: "application/pdf" },
+          getStorageTarget({ ...tempFile, mimetype: "application/pdf" }, "movements/pdfs", "movement-pdf")
+        );
+        const media = await savePdfAsset({ ...tempFile, mimetype: "application/pdf" }, uploaded, {
+          folder: "movements/pdfs",
+          source: "legacy-gridfs-movement",
+          assignedTo: movement
+            ? {
+                type: "movement",
+                index: movementIndex,
+                title: movement.title || `Movement ${movementIndex + 1}`,
+                field: "pdf"
+              }
+            : null
+        });
+
+        if (movement) {
+          movement.pdf = media.url;
+        }
+
+        return media;
+      });
+    }
+
+    if (!dryRun && content) {
+      await saveSiteContent(content);
+    }
+
+    response.json({ ok: true, results });
   } catch (error) {
     next(error);
   }
@@ -1899,8 +2240,7 @@ app.post(
         return;
       }
 
-      if (!hasB2Config()) {
-        response.status(400).json({ error: b2ConfigError() });
+      if (!requireSupabase(response)) {
         return;
       }
 
@@ -1932,7 +2272,7 @@ app.post(
 
       let uploaded;
       try {
-        uploaded = await uploadToB2(file, "valluru/books/pdfs");
+        uploaded = await uploadToSupabase(file, getStorageTarget(file, "books/pdfs", "book-pdf"));
       } catch (uploadError) {
         console.error("Book PDF upload failed:", uploadError);
         response.status(502).json({ error: uploadErrorMessage(uploadError) });
@@ -1972,8 +2312,7 @@ app.post(
         return;
       }
 
-      if (!hasB2Config()) {
-        response.status(400).json({ error: b2ConfigError() });
+      if (!requireSupabase(response)) {
         return;
       }
 
@@ -2009,7 +2348,7 @@ app.post(
 
       let uploaded;
       try {
-        uploaded = await uploadToB2(file, "valluru/movements/pdfs");
+        uploaded = await uploadToSupabase(file, getStorageTarget(file, "movements/pdfs", "movement-pdf"));
       } catch (uploadError) {
         console.error("Movement PDF upload failed:", uploadError);
         response.status(502).json({ error: uploadErrorMessage(uploadError) });
@@ -2049,7 +2388,7 @@ app.post(
         return;
       }
 
-      if (!requireCloudinary(response)) {
+      if (!requireSupabase(response)) {
         return;
       }
 
@@ -2066,8 +2405,9 @@ app.post(
       }
 
       const media = await saveMediaAsset(file, {
-        folder: "valluru/images",
-        source: "legacy-admin-media"
+        folder: "media/gallery",
+        source: "legacy-admin-media",
+        purpose: "media"
       });
 
       response.json({ ok: true, id: media.id, url: media.url, media });
@@ -2110,11 +2450,10 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
       return;
     }
 
-    // Try authenticated B2 download first (no public access, no fees)
     if (booklet.pdf) {
-      const b2FileName = getB2FileNameFromUrl(booklet.pdf);
-      if (b2FileName) {
-        const streamed = await downloadFromB2(b2FileName, response, {
+      const supabaseObject = getSupabaseObjectFromUrl(booklet.pdf);
+      if (supabaseObject) {
+        const streamed = await streamSupabaseFile(supabaseObject.bucket, supabaseObject.storagePath, response, {
           "Content-Disposition": `inline; filename="${slug}.pdf"`,
           "Cache-Control": "private, max-age=0, no-store"
         });
@@ -2124,7 +2463,6 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
         }
       }
 
-      // Fallback to remote URL streaming (for Cloudinary or other URLs)
       if (/^https?:\/\//.test(booklet.pdf)) {
         const streamed = await streamRemoteFile(booklet.pdf, response, {
           "Content-Disposition": `inline; filename="${slug}.pdf"`,
@@ -2154,11 +2492,10 @@ app.get("/api/movements/:index/pdf", async (request, response, next) => {
       return;
     }
 
-    // Try authenticated B2 download first (no public access, no fees)
     if (movement.pdf) {
-      const b2FileName = getB2FileNameFromUrl(movement.pdf);
-      if (b2FileName) {
-        const streamed = await downloadFromB2(b2FileName, response, {
+      const supabaseObject = getSupabaseObjectFromUrl(movement.pdf);
+      if (supabaseObject) {
+        const streamed = await streamSupabaseFile(supabaseObject.bucket, supabaseObject.storagePath, response, {
           "Content-Disposition": `inline; filename="movement-${index}.pdf"`,
           "Cache-Control": "private, max-age=0, no-store"
         });
@@ -2168,7 +2505,6 @@ app.get("/api/movements/:index/pdf", async (request, response, next) => {
         }
       }
 
-      // Fallback to remote URL streaming (for Cloudinary or other URLs)
       if (/^https?:\/\//.test(movement.pdf)) {
         const streamed = await streamRemoteFile(movement.pdf, response, {
           "Content-Disposition": `inline; filename="movement-${index}.pdf"`,

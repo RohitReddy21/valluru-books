@@ -84,9 +84,15 @@ type MediaAsset = {
   folder?: string;
   source?: string;
   provider?: string;
-  b2FileName?: string;
+  storageBucket?: string;
+  storagePath?: string;
+  publicUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  fileType?: string;
   contentType?: string;
   size?: number;
+  uploadedAt?: string;
   createdAt?: string;
   updatedAt?: string;
   assignedTo?: {
@@ -157,14 +163,14 @@ export function AdminEditor({ initialContent, source }: Props) {
   const [dataStatus, setDataStatus] = useState("Enter password and load DB data.");
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const [mediaTarget, setMediaTarget] = useState<MediaTarget>("homeHeroImage");
-  const [mediaStatus, setMediaStatus] = useState("Upload images into MongoDB.");
+  const [mediaStatus, setMediaStatus] = useState("Upload files into Supabase Storage.");
   const [mediaItems, setMediaItems] = useState<MediaAsset[]>([]);
   const [mediaSearch, setMediaSearch] = useState("");
   const [mediaKind, setMediaKind] = useState("all");
-  const [mediaFolder, setMediaFolder] = useState("valluru/media");
+  const [mediaFolder, setMediaFolder] = useState("media/gallery");
   const [pdfItems, setPdfItems] = useState<MediaAsset[]>([]);
   const [pdfSearch, setPdfSearch] = useState("");
-  const [pdfFolder, setPdfFolder] = useState("valluru/pdfs");
+  const [pdfFolder, setPdfFolder] = useState("downloads");
   const [pdfLibraryFile, setPdfLibraryFile] = useState<File | null>(null);
   const [pdfStatus, setPdfStatus] = useState("Load PDFs from the database.");
   const [orders, setOrders] = useState<AdminData["orders"]>([]);
@@ -243,6 +249,53 @@ export function AdminEditor({ initialContent, source }: Props) {
     };
   }
 
+  function uploadFormData<T>(
+    path: string,
+    formData: FormData,
+    onProgress: (percent: number) => void
+  ) {
+    return new Promise<{ ok: boolean; payload: (T & { error?: string }) | null; status: number }>(
+      (resolve) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", apiUrl(path));
+        xhr.withCredentials = true;
+
+        Object.entries(adminHeaders()).forEach(([key, value]) => {
+          xhr.setRequestHeader(key, value);
+        });
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable && event.total > 0) {
+            onProgress(Math.round((event.loaded / event.total) * 100));
+          }
+        };
+
+        xhr.onload = () => {
+          let payload: (T & { error?: string }) | null = null;
+
+          try {
+            payload = xhr.responseText
+              ? ((JSON.parse(xhr.responseText) as T & { error?: string }) || null)
+              : null;
+          } catch {
+            payload = { error: xhr.responseText || "Upload failed." } as T & { error?: string };
+          }
+
+          resolve({ ok: xhr.status >= 200 && xhr.status < 300, payload, status: xhr.status });
+        };
+        xhr.onerror = () =>
+          resolve({
+            ok: false,
+            payload: { error: "Upload failed. Check the storage connection and try again." } as T & {
+              error?: string;
+            },
+            status: 0
+          });
+        xhr.send(formData);
+      }
+    );
+  }
+
   function persistContent() {
     return fetch(apiUrl("/api/content"), {
       method: "PUT",
@@ -263,19 +316,15 @@ export function AdminEditor({ initialContent, source }: Props) {
     formData.append("bookletSlug", selectedBooklet.slug);
     formData.append("pdf", pdfFile);
 
-    const response = await fetch(apiUrl("/api/admin/upload-pdf"), {
-      method: "POST",
-      headers: adminHeaders(),
-      credentials: "include",
-      body: formData
-    });
-    const payload = (await response.json().catch(() => null)) as {
+    const { ok, payload } = await uploadFormData<{
       error?: string;
       pdf?: string;
       media?: MediaAsset;
-    } | null;
+    }>("/api/admin/upload-pdf", formData, (percent) =>
+      setUploadStatus(`Uploading PDF... ${percent}%`)
+    );
 
-    if (!response.ok || !payload?.pdf) {
+    if (!ok || !payload?.pdf) {
       setUploadStatus(payload?.error || "PDF upload failed.");
       return;
     }
@@ -293,19 +342,15 @@ export function AdminEditor({ initialContent, source }: Props) {
     formData.append("movementIndex", String(movementIndex));
     formData.append("pdf", movementPdfFile);
 
-    const response = await fetch(apiUrl("/api/admin/upload-movement-pdf"), {
-      method: "POST",
-      headers: adminHeaders(),
-      credentials: "include",
-      body: formData
-    });
-    const payload = (await response.json().catch(() => null)) as {
+    const { ok, payload } = await uploadFormData<{
       error?: string;
       pdf?: string;
       media?: MediaAsset;
-    } | null;
+    }>("/api/admin/upload-movement-pdf", formData, (percent) =>
+      setMovementUploadStatus(`Uploading PDF... ${percent}%`)
+    );
 
-    if (!response.ok || !payload?.pdf) {
+    if (!ok || !payload?.pdf) {
       setMovementUploadStatus(payload?.error || "PDF upload failed.");
       return;
     }
@@ -347,19 +392,14 @@ export function AdminEditor({ initialContent, source }: Props) {
     const formData = new FormData();
     formData.append("media", mediaFile);
 
-    const response = await fetch(apiUrl("/api/admin/upload-media"), {
-      method: "POST",
-      headers: adminHeaders(),
-      credentials: "include",
-      body: formData
-    });
-
-    const payload = (await response.json().catch(() => null)) as {
+    const { ok, payload } = await uploadFormData<{
       error?: string;
       url?: string;
-    } | null;
+    }>("/api/admin/upload-media", formData, (percent) =>
+      setMediaStatus(`Uploading image... ${percent}%`)
+    );
 
-    if (!response.ok || !payload?.url) {
+    if (!ok || !payload?.url) {
       setMediaStatus(payload?.error || "Image upload failed.");
       return;
     }
@@ -466,18 +506,14 @@ export function AdminEditor({ initialContent, source }: Props) {
     const formData = new FormData();
     formData.append("media", file);
     formData.append("folder", mediaFolder);
-    const response = await fetch(apiUrl("/api/admin/media"), {
-      method: "POST",
-      headers: adminHeaders(),
-      credentials: "include",
-      body: formData
-    });
-    const payload = (await response.json().catch(() => null)) as {
+    const { ok, payload } = await uploadFormData<{
       media?: MediaAsset;
       error?: string;
-    } | null;
+    }>("/api/admin/media", formData, (percent) =>
+      setMediaStatus(`Uploading to media library... ${percent}%`)
+    );
 
-    if (!response.ok || !payload?.media) {
+    if (!ok || !payload?.media) {
       setMediaStatus(payload?.error || "Media upload failed.");
       return;
     }
@@ -500,6 +536,41 @@ export function AdminEditor({ initialContent, source }: Props) {
     if (response.ok) {
       setMediaItems((current) => current.filter((item) => item.id !== id));
     }
+  }
+
+  async function replaceMediaAsset(id: string | undefined, file: File | null, folder?: string) {
+    if (!id || !file) {
+      setMediaStatus("Choose a replacement file first.");
+      return;
+    }
+
+    setMediaStatus("Replacing media...");
+    const formData = new FormData();
+    formData.append("media", file);
+    if (folder) {
+      formData.append("folder", folder);
+    }
+
+    const { ok, payload } = await uploadFormData<{
+      media?: MediaAsset;
+      content?: SiteContent | null;
+      error?: string;
+    }>(`/api/admin/media/${id}/replace`, formData, (percent) =>
+      setMediaStatus(`Replacing media... ${percent}%`)
+    );
+
+    if (!ok || !payload?.media) {
+      setMediaStatus(payload?.error || "Media replacement failed.");
+      return;
+    }
+
+    setMediaItems((current) =>
+      current.map((item) => (item.id === id ? (payload.media as MediaAsset) : item))
+    );
+    if (payload.content) {
+      setContent(payload.content);
+    }
+    setMediaStatus("Media replaced.");
   }
 
   function upsertPdfItem(item: MediaAsset) {
@@ -540,18 +611,14 @@ export function AdminEditor({ initialContent, source }: Props) {
     formData.append("pdf", file);
     formData.append("folder", pdfFolder);
 
-    const response = await fetch(apiUrl("/api/admin/pdfs"), {
-      method: "POST",
-      headers: adminHeaders(),
-      credentials: "include",
-      body: formData
-    });
-    const payload = (await response.json().catch(() => null)) as {
+    const { ok, payload } = await uploadFormData<{
       media?: MediaAsset;
       error?: string;
-    } | null;
+    }>("/api/admin/pdfs", formData, (percent) =>
+      setPdfStatus(`Uploading PDF... ${percent}%`)
+    );
 
-    if (!response.ok || !payload?.media) {
+    if (!ok || !payload?.media) {
       setPdfStatus(payload?.error || "PDF upload failed.");
       return;
     }
@@ -632,6 +699,39 @@ export function AdminEditor({ initialContent, source }: Props) {
       setContent(payload.content);
     }
     setPdfStatus("PDF deleted.");
+  }
+
+  async function replacePdfAsset(id: string | undefined, file: File | null, folder?: string) {
+    if (!id || !file) {
+      setPdfStatus("Choose a replacement PDF first.");
+      return;
+    }
+
+    setPdfStatus("Replacing PDF...");
+    const formData = new FormData();
+    formData.append("pdf", file);
+    if (folder) {
+      formData.append("folder", folder);
+    }
+
+    const { ok, payload } = await uploadFormData<{
+      media?: MediaAsset;
+      content?: SiteContent | null;
+      error?: string;
+    }>(`/api/admin/pdfs/${id}/replace`, formData, (percent) =>
+      setPdfStatus(`Replacing PDF... ${percent}%`)
+    );
+
+    if (!ok || !payload?.media) {
+      setPdfStatus(payload?.error || "PDF replacement failed.");
+      return;
+    }
+
+    upsertPdfItem(payload.media);
+    if (payload.content) {
+      setContent(payload.content);
+    }
+    setPdfStatus("PDF replaced.");
   }
 
   async function loadOrders() {
@@ -815,6 +915,7 @@ export function AdminEditor({ initialContent, source }: Props) {
                 pdfItems={pdfItems}
                 pdfSearch={pdfSearch}
                 pdfStatus={pdfStatus}
+                replacePdfAsset={replacePdfAsset}
                 setPdfFile={setPdfLibraryFile}
                 setPdfFolder={setPdfFolder}
                 setPdfSearch={setPdfSearch}
@@ -835,6 +936,7 @@ export function AdminEditor({ initialContent, source }: Props) {
                 mediaTarget={mediaTarget}
                 deleteMedia={deleteMedia}
                 loadMedia={loadMedia}
+                replaceMediaAsset={replaceMediaAsset}
                 setContent={setContent}
                 setMediaFile={setMediaFile}
                 setMediaFolder={setMediaFolder}
@@ -1104,6 +1206,7 @@ function PdfsPanel({
   pdfItems,
   pdfSearch,
   pdfStatus,
+  replacePdfAsset,
   setPdfFile,
   setPdfFolder,
   setPdfSearch,
@@ -1119,6 +1222,7 @@ function PdfsPanel({
   pdfItems: MediaAsset[];
   pdfSearch: string;
   pdfStatus: string;
+  replacePdfAsset: (id: string | undefined, file: File | null, folder?: string) => void;
   setPdfFile: (file: File | null) => void;
   setPdfFolder: (value: string) => void;
   setPdfSearch: (value: string) => void;
@@ -1207,6 +1311,7 @@ function PdfsPanel({
             item={item}
             key={item.id || item.url}
             movements={movements}
+            replacePdfAsset={replacePdfAsset}
             updatePdfAsset={updatePdfAsset}
           />
         ))}
@@ -1225,12 +1330,14 @@ function PdfAssetCard({
   deletePdfAsset,
   item,
   movements,
+  replacePdfAsset,
   updatePdfAsset
 }: {
   booklets: Booklet[];
   deletePdfAsset: (id?: string, clearReferences?: boolean) => void;
   item: MediaAsset;
   movements: Movement[];
+  replacePdfAsset: (id: string | undefined, file: File | null, folder?: string) => void;
   updatePdfAsset: (
     id: string | undefined,
     patch: {
@@ -1254,6 +1361,7 @@ function PdfAssetCard({
   const [bookletSlug, setBookletSlug] = useState(item.assignedTo?.slug || booklets[0]?.slug || "");
   const [movementIndex, setMovementIndex] = useState(String(item.assignedTo?.index ?? 0));
   const [field, setField] = useState(item.assignedTo?.field === "samplePdf" ? "samplePdf" : "pdf");
+  const [replacementFile, setReplacementFile] = useState<File | null>(null);
 
   return (
     <article className="rounded-md border border-gold/15 bg-ink p-5">
@@ -1264,7 +1372,7 @@ function PdfAssetCard({
         <div className="min-w-0 flex-1">
           <p className="truncate text-lg text-parchment">{item.name || "Untitled PDF"}</p>
           <p className="mt-1 font-label text-xs uppercase tracking-[0.18em] text-muted">
-            {item.provider || "storage"} - {formatFileSize(item.size)} - {item.folder || "No folder"}
+            {item.provider || "storage"} - {formatFileSize(item.fileSize || item.size)} - {item.folder || "No folder"}
           </p>
           <p className="mt-2 text-sm text-muted">
             Assigned to: {item.assignedTo?.title || "Not assigned"}
@@ -1307,6 +1415,26 @@ function PdfAssetCard({
         <Save size={16} />
         Save Details
       </button>
+
+      <div className="mt-5 rounded-md border border-gold/10 bg-surface p-4">
+        <p className="font-label text-xs uppercase tracking-[0.2em] text-gold">
+          Replace PDF File
+        </p>
+        <input
+          accept="application/pdf,.pdf"
+          className="mt-4 w-full rounded-md border border-gold/20 bg-ink px-3 py-2 text-sm text-parchment file:mr-3 file:rounded-md file:border-0 file:bg-gold/15 file:px-3 file:py-2 file:text-parchment"
+          onChange={(event) => setReplacementFile(event.target.files?.[0] || null)}
+          type="file"
+        />
+        <button
+          className="mt-4 rounded-md border border-gold/30 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold disabled:opacity-50"
+          disabled={!replacementFile}
+          onClick={() => replacePdfAsset(item.id, replacementFile, folder)}
+          type="button"
+        >
+          Replace PDF
+        </button>
+      </div>
 
       <div className="mt-5 rounded-md border border-gold/10 bg-surface p-4">
         <p className="font-label text-xs uppercase tracking-[0.2em] text-gold">
@@ -1417,6 +1545,7 @@ function MediaPanel({
   mediaSearch,
   mediaStatus,
   mediaTarget,
+  replaceMediaAsset,
   setContent,
   setMediaFile,
   setMediaFolder,
@@ -1436,6 +1565,7 @@ function MediaPanel({
   mediaSearch: string;
   mediaStatus: string;
   mediaTarget: MediaTarget;
+  replaceMediaAsset: (id: string | undefined, file: File | null, folder?: string) => void;
   setContent: React.Dispatch<React.SetStateAction<SiteContent>>;
   setMediaFile: (file: File | null) => void;
   setMediaFolder: (value: string) => void;
@@ -1445,6 +1575,7 @@ function MediaPanel({
   uploadLibraryMedia: (file: File | null) => void;
   uploadMedia: () => void;
 }) {
+  const [replacementFiles, setReplacementFiles] = useState<Record<string, File | null>>({});
   const media = {
     ...defaultSiteContent.media,
     ...(content.media || {})
@@ -1468,7 +1599,7 @@ function MediaPanel({
           Media and Backgrounds
         </h2>
         <p className="mt-2 text-lg leading-7 text-muted">
-          Edit hero images, page background image, and author image. Uploads are stored in Cloudinary and reused through MongoDB metadata.
+          Edit hero images, page background image, and author image. Uploads are stored in Supabase Storage and reused through MongoDB metadata.
         </p>
       </div>
 
@@ -1579,7 +1710,7 @@ function MediaPanel({
               </div>
               <p className="mt-3 truncate text-base text-parchment">{item.name}</p>
               <p className="mt-1 font-label text-xs uppercase tracking-[0.18em] text-muted">
-                {item.kind} · {item.folder}
+                {item.kind} - {item.folder}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {item.url ? (
@@ -1597,6 +1728,35 @@ function MediaPanel({
                   type="button"
                 >
                   Delete
+                </button>
+              </div>
+              <div className="mt-4 rounded-md border border-gold/10 bg-ink p-3">
+                <label className="block text-sm text-muted">
+                  Replace file
+                  <input
+                    className="mt-2 w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-sm text-parchment file:mr-3 file:rounded-md file:border-0 file:bg-gold/15 file:px-3 file:py-2 file:text-parchment"
+                    onChange={(event) =>
+                      setReplacementFiles((current) => ({
+                        ...current,
+                        [item.id || item.url || ""]: event.target.files?.[0] || null
+                      }))
+                    }
+                    type="file"
+                  />
+                </label>
+                <button
+                  className="mt-3 rounded-md border border-gold/20 px-3 py-2 text-sm text-muted transition hover:border-gold hover:text-gold disabled:opacity-50"
+                  disabled={!replacementFiles[item.id || item.url || ""]}
+                  onClick={() =>
+                    replaceMediaAsset(
+                      item.id,
+                      replacementFiles[item.id || item.url || ""],
+                      item.folder || mediaFolder
+                    )
+                  }
+                  type="button"
+                >
+                  Replace
                 </button>
               </div>
             </article>
