@@ -10,7 +10,7 @@ import {
   WideSection
 } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
-import { defaultSiteContent, movementSlug } from "@/lib/site-content";
+import { defaultSiteContent, movementSlug, isPublished } from "@/lib/site-content";
 
 export const dynamic = "force-dynamic";
 
@@ -68,23 +68,48 @@ export default async function HomePage() {
           </p>
         </div>
         <div className="mt-12 grid gap-4 md:grid-cols-3 lg:grid-cols-5">
-          {home.seriesOverview.movements.map((movement, index) => (
-            <Link
-              className="group block rounded-md border border-gold/15 bg-surface/72 p-4 transition hover:border-gold/40"
-              href={`/movements/${movementSlug(movement, index)}`}
-              key={movementSlug(movement, index)}
-            >
-              <h3 className="font-display text-lg leading-tight text-parchment group-hover:text-gold">
-                {movement.title}
-              </h3>
-              <p className="mt-3 text-sm leading-6 text-muted">
-                {movement.description}
-              </p>
-              <span className="mt-4 inline-flex font-label text-[10px] uppercase tracking-[0.2em] text-gold">
-                Explore
-              </span>
-            </Link>
-          ))}
+          {home.seriesOverview.movements.map((movement, index) => {
+            const slug = movementSlug(movement, index);
+            const isPublishedMovement = isPublished(movement.status);
+            return (
+              <div
+                key={slug}
+                className={`group block rounded-md border border-gold/15 bg-surface/72 p-4 transition ${
+                  isPublishedMovement
+                    ? "hover:border-gold/40"
+                    : "opacity-75 cursor-not-allowed"
+                }`}
+              >
+                {isPublishedMovement ? (
+                  <Link href={`/movements/${slug}`} className="block">
+                    <h3 className="font-display text-lg leading-tight text-parchment group-hover:text-gold">
+                      {movement.title}
+                    </h3>
+                    <p className="mt-3 text-sm leading-6 text-muted">
+                      {movement.description}
+                    </p>
+                    <span className="mt-4 inline-flex font-label text-[10px] uppercase tracking-[0.2em] text-gold">
+                      Explore
+                    </span>
+                  </Link>
+                ) : (
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-display text-lg leading-tight text-muted">
+                        {movement.title}
+                      </h3>
+                      <span className="rounded border border-gold/30 px-1.5 py-0.5 font-label text-[9px] uppercase tracking-[0.2em] text-gold">
+                        Coming Soon
+                      </span>
+                    </div>
+                    <p className="mt-3 text-sm leading-6 text-muted/70">
+                      {movement.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </WideSection>
 

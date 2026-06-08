@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function MovementsPage() {
   const content = await getSiteContent();
   const { home } = content;
-  const publishedMovements = home.seriesOverview.movements.filter(m => isPublished(m.status));
+  const allMovements = home.seriesOverview.movements;
   const media = { ...defaultSiteContent.media, ...(content.media || {}) };
 
   return (
@@ -31,46 +31,64 @@ export default async function MovementsPage() {
         </div>
 
         <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {publishedMovements.map((movement, index) => {
+          {allMovements.map((movement, index) => {
             const slug = movementSlug(movement, index);
+            const isPublishedMovement = isPublished(movement.status);
             return (
-              <Link
+              <div
                 key={slug}
-                href={`/movements/${slug}`}
-                className="group block overflow-hidden rounded-lg border border-gold/15 bg-surface/70 transition hover:border-gold/40 hover:bg-surface/90"
+                className={`group block overflow-hidden rounded-lg border border-gold/15 bg-surface/70 transition ${
+                  isPublishedMovement
+                    ? "hover:border-gold/40 hover:bg-surface/90"
+                    : "opacity-80 cursor-not-allowed"
+                }`}
               >
-                {movement.coverImage && (
-                  <div className="relative h-40 w-full overflow-hidden bg-surface/50">
-                    <img
-                      src={movement.coverImage}
-                      alt={movement.title}
-                      className="h-full w-full object-cover transition group-hover:scale-105"
-                    />
+                {isPublishedMovement ? (
+                  <Link href={`/movements/${slug}`} className="block">
+                    {movement.coverImage && (
+                      <div className="relative h-40 w-full overflow-hidden bg-surface/50">
+                        <img
+                          src={movement.coverImage}
+                          alt={movement.title}
+                          className="h-full w-full object-cover transition group-hover:scale-105"
+                        />
+                      </div>
+                    )}
+                    <div className="p-5">
+                      <h3 className="font-display text-xl leading-tight text-parchment group-hover:text-gold transition">
+                        {movement.title}
+                      </h3>
+                      {movement.description && (
+                        <p className="mt-3 text-sm leading-6 text-muted line-clamp-2">
+                          {movement.description}
+                        </p>
+                      )}
+                      <span className="mt-4 inline-flex font-label text-[10px] uppercase tracking-[0.2em] text-gold">
+                        Explore Movement →
+                      </span>
+                    </div>
+                  </Link>
+                ) : (
+                  <div className="p-5">
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-display text-xl leading-tight text-muted">
+                        {movement.title}
+                      </h3>
+                      <span className="rounded-md border border-gold/30 px-2.5 py-1 font-label text-[10px] uppercase tracking-[0.2em] text-gold">
+                        Coming Soon
+                      </span>
+                    </div>
+                    {movement.description && (
+                      <p className="mt-3 text-sm leading-6 text-muted/80 line-clamp-2">
+                        {movement.description}
+                      </p>
+                    )}
                   </div>
                 )}
-                <div className="p-5">
-                  <h3 className="font-display text-xl leading-tight text-parchment group-hover:text-gold transition">
-                    {movement.title}
-                  </h3>
-                  {movement.description && (
-                    <p className="mt-3 text-sm leading-6 text-muted line-clamp-2">
-                      {movement.description}
-                    </p>
-                  )}
-                  <span className="mt-4 inline-flex font-label text-[10px] uppercase tracking-[0.2em] text-gold">
-                    Explore Movement →
-                  </span>
-                </div>
-              </Link>
+              </div>
             );
           })}
         </div>
-
-        {publishedMovements.length === 0 && (
-          <div className="mt-12 rounded-lg border border-gold/20 bg-surface/50 p-8 text-center">
-            <p className="text-muted">No movements available yet. Check back soon.</p>
-          </div>
-        )}
       </WideSection>
 
       <Section>

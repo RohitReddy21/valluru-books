@@ -200,7 +200,8 @@ export const defaultSiteContent: SiteContent = {
           booklets: "1-3",
           href: "/series/booklet-one",
           description:
-            "Dharma is tested. Silence becomes sound. Language learns to bow."
+            "Dharma is tested. Silence becomes sound. Language learns to bow.",
+          status: "draft"
         },
         {
           slug: "the-seeker-and-the-long-work",
@@ -208,7 +209,8 @@ export const defaultSiteContent: SiteContent = {
           booklets: "4-5",
           href: "/series/booklet-four",
           description:
-            "Māyā, responsibility, surrender, and the Chiranjeevis as witnesses."
+            "Māyā, responsibility, surrender, and the Chiranjeevis as witnesses.",
+          status: "draft"
         },
         {
           slug: "grief-as-fire",
@@ -216,7 +218,8 @@ export const defaultSiteContent: SiteContent = {
           booklets: "6-7",
           href: "/series/booklet-six",
           description:
-            "Grief enters as fire, becomes nāda, becomes vow, becomes offering."
+            "Grief enters as fire, becomes nāda, becomes vow, becomes offering.",
+          status: "published"
         },
         {
           slug: "nada-as-offering",
@@ -224,7 +227,8 @@ export const defaultSiteContent: SiteContent = {
           booklets: "8",
           href: "/series/booklet-eight",
           description:
-            "The seeker turns toward Nādeśvara. The bow becomes rhythm."
+            "The seeker turns toward Nādeśvara. The bow becomes rhythm.",
+          status: "draft"
         },
         {
           slug: "the-child-returns",
@@ -232,7 +236,8 @@ export const defaultSiteContent: SiteContent = {
           booklets: "9",
           href: "/series/booklet-nine",
           description:
-            "Bhakti becomes childlike again. The child asks to be held."
+            "Bhakti becomes childlike again. The child asks to be held.",
+          status: "draft"
         }
       ]
     },
@@ -392,7 +397,7 @@ export const defaultSiteContent: SiteContent = {
         booklets: "1-3",
         description:
           "Dharma is tested. Silence becomes sound. Language learns to bow.",
-        status: "published"
+        status: "draft"
       },
       {
         slug: "the-seeker-and-the-long-work",
@@ -400,7 +405,7 @@ export const defaultSiteContent: SiteContent = {
         booklets: "4-5",
         description:
           "Māyā, responsibility, surrender, and the Chiranjeevis as witnesses.",
-        status: "published"
+        status: "draft"
       },
       {
         slug: "grief-as-fire",
@@ -416,7 +421,7 @@ export const defaultSiteContent: SiteContent = {
         booklets: "8",
         description:
           "The seeker turns toward Nādeśvara. The bow becomes rhythm.",
-        status: "published"
+        status: "draft"
       },
       {
         slug: "the-child-returns",
@@ -424,7 +429,7 @@ export const defaultSiteContent: SiteContent = {
         booklets: "9",
         description:
           "Bhakti becomes childlike again. The child asks to be held.",
-        status: "published"
+        status: "draft"
       }
     ]
   },
