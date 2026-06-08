@@ -37,7 +37,10 @@ function uploadErrorMessage(error) {
 }
 
 function getSupabaseUrl() {
-  const rawUrl = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
+  const rawUrl = String(process.env.SUPABASE_URL || "")
+    .trim()
+    .replace(/^`+|`+$/g, "") // Remove leading/trailing backticks
+    .replace(/\/+$/, ""); // Remove trailing slashes
   console.log("[getSupabaseUrl] Raw URL from env:", rawUrl);
 
   if (!rawUrl) {
@@ -62,7 +65,9 @@ function getSupabaseServiceKey() {
     process.env.SUPABASE_SERVICE_KEY ||
     process.env.SUPABASE_KEY ||
     ""
-  );
+  )
+    .trim()
+    .replace(/^`+|`+$/g, ""); // Remove leading/trailing backticks
   console.log("[getSupabaseServiceKey] Key found:", !!key);
   return key;
 }
@@ -421,7 +426,7 @@ let resendClient = null;
 const allowedOrigins = (process.env.FRONTEND_ORIGIN ||
   "http://127.0.0.1:3010,http://localhost:3010,http://localhost:3000")
   .split(",")
-  .map((origin) => origin.trim())
+  .map((origin) => origin.trim().replace(/^`+|`+$/g, "")) // Remove backticks
   .filter(Boolean);
 
 app.use(
