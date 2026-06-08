@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { BackLink, PageHeader, PageShell, Section, PrimaryLink } from "@/components/ui";
+import { BackLink, PageShell, PrimaryLink } from "@/components/ui";
 import { MovementPdfReader } from "@/components/movement-pdf-reader";
 import { defaultSiteContent, movementSlug, isPublished } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";

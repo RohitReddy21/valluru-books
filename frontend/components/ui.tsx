@@ -113,34 +113,55 @@ export function SecondaryLink({ cta }: { cta: Cta }) {
 }
 
 export function BookletCard({ booklet }: { booklet: Booklet }) {
+  const badge = booklet.badge || booklet.tag || "Published";
+
   return (
-    <article className="rounded-md border border-gold/15 bg-surface/72 p-6 transition hover:border-gold/40">
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <span className="font-label text-sm uppercase tracking-[0.24em] text-gold">
-          {booklet.numberLabel}
-        </span>
-        <span className="rounded-md border border-gold/20 px-2.5 py-1 font-label text-xs uppercase tracking-[0.2em] text-muted">
-          {booklet.badge || booklet.tag}
-        </span>
+    <article className="group flex h-full flex-col overflow-hidden rounded-md border border-gold/15 bg-surface/80 shadow-[0_18px_55px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-1 hover:border-gold/45 hover:bg-surface">
+      <div className="relative aspect-[16/10] overflow-hidden border-b border-gold/10 bg-ink">
+        {booklet.coverImage ? (
+          <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt={booklet.title}
+              className="h-full w-full object-cover opacity-90 transition duration-500 group-hover:scale-[1.03] group-hover:opacity-100"
+              src={booklet.coverImage}
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/30 to-transparent" />
+          </>
+        ) : (
+          <div className="h-full w-full bg-[linear-gradient(135deg,rgba(196,169,107,0.16),rgba(15,14,12,0.96))]" />
+        )}
+        <div className="absolute inset-x-4 bottom-4 flex flex-wrap items-center gap-2">
+          <span className="rounded-md border border-gold/30 bg-ink/75 px-3 py-1.5 font-label text-xs uppercase tracking-[0.24em] text-gold backdrop-blur">
+            {booklet.numberLabel}
+          </span>
+          <span className="rounded-md border border-parchment/12 bg-parchment/8 px-3 py-1.5 font-label text-[11px] uppercase tracking-[0.2em] text-parchment/80 backdrop-blur">
+            {badge}
+          </span>
+        </div>
       </div>
-      <h2 className="responsive-card-title font-display font-semibold text-parchment">
-        {booklet.title}
-      </h2>
-      <p className="mt-3 text-lg italic leading-7 text-muted sm:text-xl">{booklet.subtitle}</p>
-      {booklet.sourcesNote ? (
-        <p className="mt-4 text-base italic text-muted">{booklet.sourcesNote}</p>
-      ) : null}
-      {booklet.authorNote || booklet.note ? (
-        <p className="mt-4 text-base italic text-muted">
-          {booklet.authorNote || booklet.note}
+      <div className="flex flex-1 flex-col p-5 sm:p-6">
+        <h2 className="responsive-card-title font-display font-semibold text-parchment transition group-hover:text-gold">
+          {booklet.title}
+        </h2>
+        <p className="mt-3 text-lg italic leading-7 text-muted sm:text-xl">
+          {booklet.subtitle}
         </p>
-      ) : null}
-      <p className="responsive-prose mt-5 text-parchment/86">
-        {booklet.description}
-      </p>
-      <div className="mt-7 flex flex-wrap gap-4">
-        <PrimaryLink cta={{ label: "Read Booklet", href: `/series/${booklet.slug}` }} />
-        <AddToCartButton booklet={booklet} />
+        {booklet.sourcesNote ? (
+          <p className="mt-4 text-base italic text-muted">{booklet.sourcesNote}</p>
+        ) : null}
+        {booklet.authorNote || booklet.note ? (
+          <p className="mt-4 text-base italic text-muted">
+            {booklet.authorNote || booklet.note}
+          </p>
+        ) : null}
+        <p className="responsive-prose mt-5 text-parchment/86">
+          {booklet.description}
+        </p>
+        <div className="mt-auto flex flex-wrap gap-3 pt-7">
+          <PrimaryLink cta={{ label: "Read Booklet", href: `/series/${booklet.slug}` }} />
+          <AddToCartButton booklet={booklet} />
+        </div>
       </div>
     </article>
   );

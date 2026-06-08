@@ -1903,6 +1903,7 @@ function MovementsPanel({
             </p>
             {movement.coverImage && (
               <div className="mt-4 overflow-hidden rounded-md border border-gold/20">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   alt={movement.title}
                   className="h-40 w-full object-cover"

@@ -47,6 +47,7 @@ export default async function MovementsPage() {
                   <Link href={`/movements/${slug}`} className="block">
                     {movement.coverImage && (
                       <div className="relative h-40 w-full overflow-hidden bg-surface/50">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={movement.coverImage}
                           alt={movement.title}

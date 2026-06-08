@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { NewsletterForm } from "@/components/newsletter-form";
 import { BookletCard, PageHeader, PageShell, ProseBlocks, Section, WideSection } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
@@ -27,6 +26,7 @@ export default async function SeriesPage() {
           {series.readingOrderNote}
         </p>
       </Section>
+      {/*
       <WideSection>
         <div className="mx-auto max-w-3xl text-center">
           <h2 className="responsive-section-title mb-7 font-display font-semibold text-parchment">
@@ -56,6 +56,7 @@ export default async function SeriesPage() {
           ))}
         </div>
       </WideSection>
+      */}
       <WideSection>
         <div className="mx-auto">
           <div className="mb-6 text-center">
