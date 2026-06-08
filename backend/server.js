@@ -282,7 +282,7 @@ async function uploadToSupabase(file, { bucket, folder = "" }) {
   }
 
   const storagePath = buildStoragePath(file, folder);
-  const uploadUrl = `${getSupabaseUrl()}/storage/v1/object/authenticated/${bucket}/${encodeStoragePath(storagePath)}`;
+  const uploadUrl = `${getSupabaseUrl()}/storage/v1/object/public/${bucket}/${encodeStoragePath(storagePath)}`;
   
   console.log("[uploadToSupabase] Upload details", {
     storagePath,
@@ -332,7 +332,7 @@ async function streamSupabaseFile(bucket, storagePath, response, headers = {}) {
 
   try {
     const remote = await fetch(
-      `${getSupabaseUrl()}/storage/v1/object/authenticated/${bucket}/${encodeStoragePath(storagePath)}`,
+      `${getSupabaseUrl()}/storage/v1/object/public/${bucket}/${encodeStoragePath(storagePath)}`,
       {
         headers: supabaseHeaders({
           "User-Agent": "Valluru-Books/1.0"
@@ -372,7 +372,7 @@ async function deleteSupabaseFile(media) {
   }
 
   const deleteResponse = await fetch(
-    `${getSupabaseUrl()}/storage/v1/object/authenticated/${object.bucket}`,
+    `${getSupabaseUrl()}/storage/v1/object/public/${object.bucket}`,
     {
       method: "DELETE",
       headers: supabaseHeaders({
@@ -428,6 +428,8 @@ app.use(
   cors({
     credentials: true,
     origin(origin, callback) {
+      console.log("CORS origin received:", origin);
+      console.log("Allowed origins:", allowedOrigins);
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
         return;
