@@ -287,7 +287,7 @@ async function uploadToSupabase(file, { bucket, folder = "" }) {
   }
 
   const storagePath = buildStoragePath(file, folder);
-  const uploadUrl = `${getSupabaseUrl()}/storage/v1/object/authenticated/${bucket}/${encodeStoragePath(storagePath)}`;
+  const uploadUrl = `${getSupabaseUrl()}/storage/v1/upload/authenticated/${bucket}/${encodeStoragePath(storagePath)}`;
   
   console.log("[uploadToSupabase] Upload details", {
     storagePath,
