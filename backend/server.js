@@ -2608,7 +2608,12 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
     const content = await getSiteContent();
     const booklet = content?.series?.booklets?.find((item) => item.slug === slug);
 
-    console.log("[booklets/:slug/pdf] Booklet found:", !!booklet);
+    console.log("[booklets/:slug/pdf] Booklet metadata:", {
+      slug,
+      bookletFound: !!booklet,
+      status: booklet?.status,
+      published: booklet?.status === "published" || !booklet?.status
+    });
 
     if (!booklet) {
       console.log("[booklets/:slug/pdf] Booklet not found");
@@ -2622,43 +2627,27 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
       return;
     }
 
-    const cookies = getCookies(request);
-    const authorization = request.get("Authorization") || "";
-    const bearerToken = authorization.startsWith("Bearer ")
-      ? authorization.slice("Bearer ".length)
-      : "";
-    const hasAccess =
-      slug === "booklet-one" ||
-      cookies[`valluru_booklet_${slug}`] === "true" ||
-      verifyAccessToken(bearerToken, slug);
-
-    if (!hasAccess) {
-      console.log("[booklets/:slug/pdf] Access denied");
-      response.status(403).json({ error: "Subscribe before reading this booklet." });
-      return;
-    }
-
     if (!booklet.pdf) {
       console.log("[booklets/:slug/pdf] No PDF available");
       response.status(404).json({ error: "No uploaded PDF is available for this booklet yet." });
       return;
     }
 
-    console.log("[booklets/:slug/pdf] PDF metadata:", {
+    console.log("[booklets/:slug/pdf] PDF available:", {
       pdfUrl: booklet.pdf.substring(0, 100)
     });
 
     const supabaseObject = getSupabaseObjectFromUrl(booklet.pdf);
 
     if (supabaseObject) {
-      console.log("[booklets/:slug/pdf] Supabase object:", {
+      console.log("[booklets/:slug/pdf] Extracted Supabase object:", {
         bucket: supabaseObject.bucket,
         storagePath: supabaseObject.storagePath
       });
 
       const streamed = await streamSupabaseFile(supabaseObject.bucket, supabaseObject.storagePath, response, {
         "Content-Disposition": `inline; filename="${slug}.pdf"`,
-        "Cache-Control": "private, max-age=0, no-store"
+        "Cache-Control": "public, max-age=3600"
       });
 
       if (streamed) {
@@ -2667,27 +2656,20 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
       }
       console.log("[booklets/:slug/pdf] Failed to stream from Supabase");
     } else {
-      console.log("[booklets/:slug/pdf] Could not extract Supabase object from URL");
+      console.log("[booklets/:slug/pdf] URL is not a Supabase URL, parsing failed");
     }
 
     if (/^https?:\/\//.test(booklet.pdf)) {
-      console.log("[booklets/:slug/pdf] Attempting to stream remote file");
-      const streamed = await streamRemoteFile(booklet.pdf, response, {
-        "Content-Disposition": `inline; filename="${slug}.pdf"`,
-        "Cache-Control": "private, max-age=0, no-store"
-      });
-
-      if (streamed) {
-        console.log("[booklets/:slug/pdf] Successfully streamed from remote");
-        return;
-      }
-      console.log("[booklets/:slug/pdf] Failed to stream remote file");
+      console.log("[booklets/:slug/pdf] Treating as remote URL, redirecting");
+      response.redirect(booklet.pdf);
+      return;
     }
 
+    console.log("[booklets/:slug/pdf] No valid PDF URL available");
     response.status(404).json({ error: "No uploaded PDF is available for this booklet yet." });
   } catch (error) {
     console.error("[booklets/:slug/pdf] Error:", error.message, error.stack);
-    response.status(502).json({ error: "Failed to retrieve PDF. Please try again." });
+    response.status(500).json({ error: "Failed to retrieve PDF. Please try again." });
   }
 });
 
@@ -2699,7 +2681,11 @@ app.get("/api/movements/:index/pdf", async (request, response, next) => {
     const content = await getSiteContent();
     const movement = content?.home?.seriesOverview?.movements?.[index];
 
-    console.log("[movements/:index/pdf] Movement found:", !!movement);
+    console.log("[movements/:index/pdf] Movement metadata:", {
+      index,
+      movementFound: !!movement,
+      published: movement?.published !== false
+    });
 
     if (!movement) {
       console.log("[movements/:index/pdf] Movement not found at index:", index);
@@ -2713,20 +2699,20 @@ app.get("/api/movements/:index/pdf", async (request, response, next) => {
       return;
     }
 
-    console.log("[movements/:index/pdf] PDF metadata:", {
+    console.log("[movements/:index/pdf] PDF available:", {
       pdfUrl: movement.pdf.substring(0, 100)
     });
 
     const supabaseObject = getSupabaseObjectFromUrl(movement.pdf);
     if (supabaseObject) {
-      console.log("[movements/:index/pdf] Supabase object:", {
+      console.log("[movements/:index/pdf] Extracted Supabase object:", {
         bucket: supabaseObject.bucket,
         storagePath: supabaseObject.storagePath
       });
 
       const streamed = await streamSupabaseFile(supabaseObject.bucket, supabaseObject.storagePath, response, {
         "Content-Disposition": `inline; filename="movement-${index}.pdf"`,
-        "Cache-Control": "private, max-age=0, no-store"
+        "Cache-Control": "public, max-age=3600"
       });
 
       if (streamed) {
@@ -2735,27 +2721,20 @@ app.get("/api/movements/:index/pdf", async (request, response, next) => {
       }
       console.log("[movements/:index/pdf] Failed to stream from Supabase");
     } else {
-      console.log("[movements/:index/pdf] Could not extract Supabase object from URL");
+      console.log("[movements/:index/pdf] URL is not a Supabase URL, parsing failed");
     }
 
     if (/^https?:\/\//.test(movement.pdf)) {
-      console.log("[movements/:index/pdf] Attempting to stream remote file");
-      const streamed = await streamRemoteFile(movement.pdf, response, {
-        "Content-Disposition": `inline; filename="movement-${index}.pdf"`,
-        "Cache-Control": "private, max-age=0, no-store"
-      });
-
-      if (streamed) {
-        console.log("[movements/:index/pdf] Successfully streamed from remote");
-        return;
-      }
-      console.log("[movements/:index/pdf] Failed to stream remote file");
+      console.log("[movements/:index/pdf] Treating as remote URL, redirecting");
+      response.redirect(movement.pdf);
+      return;
     }
 
+    console.log("[movements/:index/pdf] No valid PDF URL available");
     response.status(404).json({ error: "No uploaded PDF is available for this movement yet." });
   } catch (error) {
     console.error("[movements/:index/pdf] Error:", error.message, error.stack);
-    response.status(502).json({ error: "Failed to retrieve PDF. Please try again." });
+    response.status(500).json({ error: "Failed to retrieve PDF. Please try again." });
   }
 });
 
