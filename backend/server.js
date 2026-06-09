@@ -2560,6 +2560,52 @@ app.post(
 );
 
 app.post(
+  "/api/admin/upload-booklet-cover",
+  verifyAdmin,
+  upload.single("file"),
+  async (request, response, next) => {
+    try {
+      if (!requireMongo(response)) {
+        return;
+      }
+
+      if (!requireSupabase(response)) {
+        return;
+      }
+
+      const file = request.file;
+      const { slug } = request.body;
+
+      if (!file) {
+        response.status(400).json({ error: "Choose an image file." });
+        return;
+      }
+
+      if (!slug) {
+        response.status(400).json({ error: "Booklet slug is required." });
+        return;
+      }
+
+      if (!file.mimetype.startsWith("image/")) {
+        response.status(400).json({ error: "Only image uploads are supported." });
+        return;
+      }
+
+      const uploaded = await uploadToSupabase(file, {
+        bucket: "booklet-covers",
+        folder: "covers"
+      });
+
+      response.json({ ok: true, url: uploaded.url });
+    } catch (error) {
+      next(error);
+    } finally {
+      await cleanupUploadedFile(request.file);
+    }
+  }
+);
+
+app.post(
   "/api/admin/upload-media",
   verifyAdmin,
   upload.single("media"),

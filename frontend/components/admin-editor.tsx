@@ -364,33 +364,37 @@ export function AdminEditor({ initialContent, source }: Props) {
     setMovementUploadStatus("PDF uploaded and attached to this movement.");
   }
 
-  function uploadBookletCover() {
+  async function uploadBookletCover() {
     if (!bookletCoverFile || !selectedBookletSlug) {
       setBookletCoverStatus("Choose a booklet and cover image first.");
       return;
     }
 
-    setBookletCoverStatus("Processing cover image...");
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const dataUrl = event.target?.result as string;
-        const booklet = content.series.booklets.find(b => b.slug === selectedBookletSlug);
-        if (booklet) {
-          updateBooklet(selectedBookletSlug, { coverImage: dataUrl });
-          setBookletCoverStatus("✓ Cover image updated successfully.");
-          setBookletCoverFile(null);
-        } else {
-          setBookletCoverStatus("Booklet not found.");
-        }
-      } catch (error) {
-        setBookletCoverStatus("Error uploading image: " + String(error));
+    setBookletCoverStatus("Uploading cover image to storage...");
+    try {
+      const formData = new FormData();
+      formData.append("file", bookletCoverFile);
+      formData.append("type", "booklet-cover");
+      formData.append("slug", selectedBookletSlug);
+
+      const response = await fetch("/api/admin/upload-booklet-cover", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        setBookletCoverStatus(`Upload failed: ${error.error || "Unknown error"}`);
+        return;
       }
-    };
-    reader.onerror = () => {
-      setBookletCoverStatus("Error reading file.");
-    };
-    reader.readAsDataURL(bookletCoverFile);
+
+      const data = await response.json();
+      updateBooklet(selectedBookletSlug, { coverImage: data.url });
+      setBookletCoverStatus("✓ Cover image uploaded successfully.");
+      setBookletCoverFile(null);
+    } catch (error) {
+      setBookletCoverStatus("Error uploading image: " + String(error));
+    }
   }
 
   async function loadAdminData() {
