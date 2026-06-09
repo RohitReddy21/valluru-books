@@ -905,6 +905,10 @@ export function AdminEditor({ initialContent, source }: Props) {
                 updateBookStatus={updateBookStatus}
                 uploadPdf={uploadPdf}
                 uploadStatus={uploadStatus}
+                bookletCoverFile={bookletCoverFile}
+                setBookletCoverFile={setBookletCoverFile}
+                uploadBookletCover={uploadBookletCover}
+                bookletCoverStatus={bookletCoverStatus}
               />
             ) : null}
 
@@ -2247,7 +2251,11 @@ function BookletPanel({
   pdfFile,
   setPdfFile,
   uploadPdf,
-  uploadStatus
+  uploadStatus,
+  bookletCoverFile,
+  setBookletCoverFile,
+  uploadBookletCover,
+  bookletCoverStatus
 }: {
   booklet: Booklet;
   booklets: Booklet[];
@@ -2263,6 +2271,10 @@ function BookletPanel({
   setPdfFile: (file: File | null) => void;
   uploadPdf: () => void;
   uploadStatus: string;
+  bookletCoverFile: File | null;
+  setBookletCoverFile: (file: File | null) => void;
+  uploadBookletCover: () => void;
+  bookletCoverStatus: string;
 }) {
   const currentMovementIndex = getBookletMovementIndex(
     booklet,
@@ -2395,7 +2407,7 @@ function BookletPanel({
         rows={8}
         value={booklet.description}
       />
-      <div className="grid gap-5 md:grid-cols-3">
+      <div className="grid gap-5 md:grid-cols-2">
         <TextField
           label="Price"
           onChange={(value) => updateBooklet(booklet.slug, { price: Number(value) || 0 })}
@@ -2406,11 +2418,38 @@ function BookletPanel({
           onChange={(value) => updateBooklet(booklet.slug, { currency: value })}
           value={booklet.currency || "INR"}
         />
-        <TextField
-          label="Cover Image URL"
-          onChange={(value) => updateBooklet(booklet.slug, { coverImage: value })}
-          value={booklet.coverImage || ""}
+      </div>
+
+      <div className="rounded-md border border-gold/15 bg-ink p-5">
+        <p className="font-label text-sm uppercase tracking-[0.2em] text-gold">
+          Cover Image
+        </p>
+        {booklet.coverImage && (
+          <div className="mt-4 overflow-hidden rounded-md border border-gold/20">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt={booklet.title}
+              className="h-40 w-full object-cover"
+              src={booklet.coverImage}
+            />
+          </div>
+        )}
+        <input
+          accept="image/*"
+          className="mt-4 w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-sm text-parchment file:mr-3 file:rounded-md file:border-0 file:bg-gold/15 file:px-3 file:py-2 file:text-parchment"
+          onChange={(event) => setBookletCoverFile(event.target.files?.[0] || null)}
+          type="file"
         />
+        <button
+          className="mt-4 inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold disabled:opacity-50"
+          disabled={!bookletCoverFile}
+          onClick={uploadBookletCover}
+          type="button"
+        >
+          <ImageIcon size={16} />
+          Upload Cover
+        </button>
+        <p className="mt-3 text-base italic text-muted">{bookletCoverStatus}</p>
       </div>
       <TextField
         label="Gallery Image URLs (comma separated)"
