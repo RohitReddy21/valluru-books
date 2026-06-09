@@ -276,11 +276,15 @@ export function AdminEditor({ initialContent, source }: Props) {
           let payload: (T & { error?: string }) | null = null;
 
           try {
-            payload = xhr.responseText
-              ? ((JSON.parse(xhr.responseText) as T & { error?: string }) || null)
-              : null;
+            if (xhr.responseText) {
+              const parsed = JSON.parse(xhr.responseText);
+              payload = (parsed as T & { error?: string }) || null;
+            } else {
+              payload = null;
+            }
           } catch {
-            payload = { error: xhr.responseText || "Upload failed." } as T & { error?: string };
+            const statusText = xhr.status === 404 ? "Endpoint not found. Backend may not be deployed." : "Upload failed.";
+            payload = { error: statusText } as T & { error?: string };
           }
 
           resolve({ ok: xhr.status >= 200 && xhr.status < 300, payload, status: xhr.status });
