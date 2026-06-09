@@ -155,6 +155,8 @@ export function AdminEditor({ initialContent, source }: Props) {
     initialContent.series.booklets[0]?.slug || ""
   );
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [bookletCoverFile, setBookletCoverFile] = useState<File | null>(null);
+  const [bookletCoverStatus, setBookletCoverStatus] = useState("Upload a cover image for this booklet.");
   const [status, setStatus] = useState("Edit content and save.");
   const [uploadStatus, setUploadStatus] = useState(
     "Upload a PDF and attach it to a booklet."
@@ -360,6 +362,26 @@ export function AdminEditor({ initialContent, source }: Props) {
       setPdfItems((current) => [payload.media as MediaAsset, ...current.filter((item) => item.id !== payload.media?.id)]);
     }
     setMovementUploadStatus("PDF uploaded and attached to this movement.");
+  }
+
+  async function uploadBookletCover() {
+    if (!bookletCoverFile || !selectedBookletSlug) {
+      setBookletCoverStatus("Choose a booklet and cover image first.");
+      return;
+    }
+
+    setBookletCoverStatus("Uploading cover image...");
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      const booklet = content.series.booklets.find(b => b.slug === selectedBookletSlug);
+      if (booklet) {
+        updateBooklet(selectedBookletSlug, { coverImage: dataUrl });
+        setBookletCoverStatus("Cover image updated successfully.");
+        setBookletCoverFile(null);
+      }
+    };
+    reader.readAsDataURL(bookletCoverFile);
   }
 
   async function loadAdminData() {
