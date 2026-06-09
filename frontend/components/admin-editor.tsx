@@ -364,22 +364,31 @@ export function AdminEditor({ initialContent, source }: Props) {
     setMovementUploadStatus("PDF uploaded and attached to this movement.");
   }
 
-  async function uploadBookletCover() {
+  function uploadBookletCover() {
     if (!bookletCoverFile || !selectedBookletSlug) {
       setBookletCoverStatus("Choose a booklet and cover image first.");
       return;
     }
 
-    setBookletCoverStatus("Uploading cover image...");
+    setBookletCoverStatus("Processing cover image...");
     const reader = new FileReader();
     reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      const booklet = content.series.booklets.find(b => b.slug === selectedBookletSlug);
-      if (booklet) {
-        updateBooklet(selectedBookletSlug, { coverImage: dataUrl });
-        setBookletCoverStatus("Cover image updated successfully.");
-        setBookletCoverFile(null);
+      try {
+        const dataUrl = event.target?.result as string;
+        const booklet = content.series.booklets.find(b => b.slug === selectedBookletSlug);
+        if (booklet) {
+          updateBooklet(selectedBookletSlug, { coverImage: dataUrl });
+          setBookletCoverStatus("✓ Cover image updated successfully.");
+          setBookletCoverFile(null);
+        } else {
+          setBookletCoverStatus("Booklet not found.");
+        }
+      } catch (error) {
+        setBookletCoverStatus("Error uploading image: " + String(error));
       }
+    };
+    reader.onerror = () => {
+      setBookletCoverStatus("Error reading file.");
     };
     reader.readAsDataURL(bookletCoverFile);
   }
