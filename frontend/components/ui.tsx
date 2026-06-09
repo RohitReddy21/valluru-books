@@ -123,7 +123,7 @@ export function BookletCard({ booklet }: { booklet: Booklet }) {
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-md border border-gold/15 bg-surface/80 shadow-[0_18px_55px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-1 hover:border-gold/45 hover:bg-surface">
-      <div className="relative aspect-[16/10] overflow-hidden border-b border-gold/10 bg-ink">
+      <div className="relative aspect-[4/5] overflow-hidden border-b border-gold/10 bg-ink">
         {booklet.coverImage ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
