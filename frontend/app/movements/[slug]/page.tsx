@@ -120,26 +120,6 @@ export default async function MovementDetailPage({
                 <p className="text-muted">PDF content not yet available for this movement.</p>
               </div>
             )}
-
-            {movementBooklets.length > 0 && (
-              <section className="mt-20 border-t border-gold/10 px-0" style={{ marginLeft: 'calc(-50vw + 50%)' }}>
-                <div className="mx-auto max-w-7xl px-4 py-16 sm:px-5">
-                  <div className="mb-12">
-                    <p className="font-label text-sm uppercase tracking-[0.24em] text-muted mb-3">
-                      Related Booklets
-                    </p>
-                    <h2 className="font-display text-3xl font-semibold text-parchment">
-                      Explore Booklets in This Movement
-                    </h2>
-                  </div>
-                  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                    {movementBooklets.map((booklet) => (
-                      <BookletCard key={booklet.slug} booklet={booklet} />
-                    ))}
-                  </div>
-                </div>
-              </section>
-            )}
           </article>
 
           <aside className="fade-up lg:sticky lg:top-28 lg:self-start">
@@ -187,6 +167,26 @@ export default async function MovementDetailPage({
           </aside>
         </div>
       </section>
+
+      {movementBooklets.length > 0 && (
+        <section className="quiet-divider px-4 py-12 sm:px-5 sm:py-20">
+          <div className="mx-auto max-w-7xl">
+            <div className="mb-12">
+              <p className="font-label text-sm uppercase tracking-[0.24em] text-muted mb-3">
+                Related Booklets
+              </p>
+              <h2 className="font-display text-3xl font-semibold text-parchment">
+                Explore Booklets in This Movement
+              </h2>
+            </div>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {movementBooklets.map((booklet) => (
+                <BookletCard key={booklet.slug} booklet={booklet} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </PageShell>
   );
 }
