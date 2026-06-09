@@ -303,10 +303,32 @@ export function AdminEditor({ initialContent, source }: Props) {
     );
   }
 
+  function sanitizeContent(obj: any): any {
+    if (obj === null || obj === undefined) return obj;
+    if (typeof obj !== "object") return obj;
+    if (obj instanceof Date) return obj.toISOString();
+    if (obj instanceof Array) return obj.map(item => sanitizeContent(item));
+
+    // Check if this is a plain object
+    if (obj.constructor !== Object) return undefined;
+
+    const sanitized: any = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const value = obj[key];
+        // Skip functions, symbols, and React-related properties
+        if (typeof value === "function" || typeof value === "symbol") continue;
+        if (key.startsWith("__react") || key.startsWith("_")) continue;
+        sanitized[key] = sanitizeContent(value);
+      }
+    }
+    return sanitized;
+  }
+
   function persistContent() {
     try {
-      // Deep clone content to remove any non-serializable references
-      const cleanContent = JSON.parse(JSON.stringify(content));
+      // Sanitize content to remove any React elements or circular references
+      const cleanContent = sanitizeContent(content);
 
       return fetch(apiUrl("/api/content"), {
         method: "PUT",
@@ -315,9 +337,8 @@ export function AdminEditor({ initialContent, source }: Props) {
         body: JSON.stringify({ content: cleanContent })
       });
     } catch (error) {
-      console.error("Error preparing content for save:", error);
-      // If serialization fails, try to identify which field is problematic
-      setStatus("Error preparing content. Check browser console for details.");
+      console.error("Error saving content:", error);
+      setStatus("Error saving. Please refresh and try again.");
       return Promise.reject(error);
     }
   }
