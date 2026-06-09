@@ -114,6 +114,12 @@ export function SecondaryLink({ cta }: { cta: Cta }) {
 
 export function BookletCard({ booklet }: { booklet: Booklet }) {
   const badge = booklet.badge || booklet.tag || "Published";
+  // Truncate description to ~120 chars for better card visibility
+  const truncatedDescription = booklet.description
+    ? booklet.description.length > 120
+      ? booklet.description.substring(0, 120) + "..."
+      : booklet.description
+    : "";
 
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-md border border-gold/15 bg-surface/80 shadow-[0_18px_55px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-1 hover:border-gold/45 hover:bg-surface">
@@ -144,21 +150,15 @@ export function BookletCard({ booklet }: { booklet: Booklet }) {
         <h2 className="responsive-card-title font-display font-semibold text-parchment transition group-hover:text-gold">
           {booklet.title}
         </h2>
-        <p className="mt-3 text-lg italic leading-7 text-muted sm:text-xl">
+        <p className="mt-2 text-sm italic leading-6 text-muted/85">
           {booklet.subtitle}
         </p>
-        {booklet.sourcesNote ? (
-          <p className="mt-4 text-base italic text-muted">{booklet.sourcesNote}</p>
-        ) : null}
-        {booklet.authorNote || booklet.note ? (
-          <p className="mt-4 text-base italic text-muted">
-            {booklet.authorNote || booklet.note}
+        {truncatedDescription && (
+          <p className="mt-4 line-clamp-3 text-sm leading-6 text-parchment/75">
+            {truncatedDescription}
           </p>
-        ) : null}
-        <p className="responsive-prose mt-5 text-parchment/86">
-          {booklet.description}
-        </p>
-        <div className="mt-auto flex flex-wrap gap-3 pt-7">
+        )}
+        <div className="mt-auto flex flex-wrap gap-3 pt-6">
           <PrimaryLink cta={{ label: "Read Booklet", href: `/series/${booklet.slug}` }} />
           <AddToCartButton booklet={booklet} />
         </div>

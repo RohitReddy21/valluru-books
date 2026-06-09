@@ -108,11 +108,16 @@ export default async function MovementDetailPage({
             )}
 
             {movementBooklets.length > 0 && (
-              <section className="mt-16">
-                <h2 className="font-display text-2xl text-parchment mb-8">
-                  Booklets in this Movement
-                </h2>
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              <section className="mt-20 pt-16 border-t border-gold/10">
+                <div className="mb-12">
+                  <p className="font-label text-sm uppercase tracking-[0.24em] text-muted mb-3">
+                    Related Booklets
+                  </p>
+                  <h2 className="font-display text-3xl font-semibold text-parchment">
+                    Explore Booklets in This Movement
+                  </h2>
+                </div>
+                <div className="grid gap-8 md:grid-cols-2">
                   {movementBooklets.map((booklet) => (
                     <BookletCard key={booklet.slug} booklet={booklet} />
                   ))}
