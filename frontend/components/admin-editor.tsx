@@ -304,12 +304,22 @@ export function AdminEditor({ initialContent, source }: Props) {
   }
 
   function persistContent() {
-    return fetch(apiUrl("/api/content"), {
-      method: "PUT",
-      headers: adminHeaders({ "Content-Type": "application/json" }),
-      credentials: "include",
-      body: JSON.stringify({ content })
-    });
+    try {
+      // Deep clone content to remove any non-serializable references
+      const cleanContent = JSON.parse(JSON.stringify(content));
+
+      return fetch(apiUrl("/api/content"), {
+        method: "PUT",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
+        body: JSON.stringify({ content: cleanContent })
+      });
+    } catch (error) {
+      console.error("Error preparing content for save:", error);
+      // If serialization fails, try to identify which field is problematic
+      setStatus("Error preparing content. Check browser console for details.");
+      return Promise.reject(error);
+    }
   }
 
   async function uploadPdf() {
