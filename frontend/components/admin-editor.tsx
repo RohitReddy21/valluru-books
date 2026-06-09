@@ -390,7 +390,7 @@ export function AdminEditor({ initialContent, source }: Props) {
 
       const data = await response.json();
       updateBooklet(selectedBookletSlug, { coverImage: data.url });
-      setBookletCoverStatus("✓ Cover image uploaded successfully.");
+      setBookletCoverStatus("✓ Image uploaded. Click the Save button to persist changes.");
       setBookletCoverFile(null);
     } catch (error) {
       setBookletCoverStatus("Error uploading image: " + String(error));
@@ -1899,18 +1899,32 @@ function MovementsPanel({
 
   async function uploadMovementCoverImage(index: number, file: File) {
     handleMovementCoverStatusChange(index, "Uploading cover image...");
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      updateMovement(index, { coverImage: dataUrl });
-      handleMovementCoverStatusChange(index, "Cover image updated.");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/admin/upload-movement-cover", {
+        method: "POST",
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        handleMovementCoverStatusChange(index, `Upload failed: ${error.error || "Unknown error"}`);
+        return;
+      }
+
+      const data = await response.json();
+      updateMovement(index, { coverImage: data.url });
+      handleMovementCoverStatusChange(index, "✓ Image uploaded. Click Save to persist.");
       setMovementCoverFiles((prev) => {
         const next = [...prev];
         next[index] = null;
         return next;
       });
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      handleMovementCoverStatusChange(index, "Error uploading image: " + String(error));
+    }
   }
 
   return (
