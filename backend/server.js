@@ -194,6 +194,10 @@ function getStorageTarget(file, requestedFolder = "", purpose = "media") {
     return { bucket: "movements", folder: "pdfs" };
   }
 
+  if (purpose === "movement-cover") {
+    return { bucket: "movements", folder: "covers" };
+  }
+
   if (purpose === "movement-image") {
     return { bucket: "movements", folder: "images" };
   }
@@ -2591,10 +2595,9 @@ app.post(
         return;
       }
 
-      const uploaded = await uploadToSupabase(file, {
-        bucket: "booklet-covers",
-        folder: "covers"
-      });
+      const uploaded = await uploadToSupabase(file,
+        getStorageTarget(file, "books/covers", "book-cover")
+      );
 
       response.json({ ok: true, url: uploaded.url });
     } catch (error) {
@@ -2631,10 +2634,9 @@ app.post(
         return;
       }
 
-      const uploaded = await uploadToSupabase(file, {
-        bucket: "movement-covers",
-        folder: "covers"
-      });
+      const uploaded = await uploadToSupabase(file,
+        getStorageTarget(file, "movements/covers", "movement-cover")
+      );
 
       response.json({ ok: true, url: uploaded.url });
     } catch (error) {
