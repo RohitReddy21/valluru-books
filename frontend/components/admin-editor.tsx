@@ -376,9 +376,12 @@ export function AdminEditor({ initialContent, source }: Props) {
       formData.append("file", bookletCoverFile);
       formData.append("slug", selectedBookletSlug);
 
+      const headers = adminHeaders({});
+      delete (headers as any)["Content-Type"];
+
       const response = await fetch(apiUrl("/api/admin/upload-booklet-cover"), {
         method: "POST",
-        headers: adminHeaders({}),
+        headers,
         credentials: "include",
         body: formData
       });
@@ -1904,9 +1907,12 @@ function MovementsPanel({
       const formData = new FormData();
       formData.append("file", file);
 
+      const headers = adminHeaders({});
+      delete (headers as any)["Content-Type"];
+
       const response = await fetch(apiUrl("/api/admin/upload-movement-cover"), {
         method: "POST",
-        headers: adminHeaders({}),
+        headers,
         credentials: "include",
         body: formData
       });
