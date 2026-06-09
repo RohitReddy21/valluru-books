@@ -932,6 +932,8 @@ export function AdminEditor({ initialContent, source }: Props) {
             {tab === "movements" ? (
               <MovementsPanel
                 addBooklet={addBooklet}
+                adminToken={adminToken}
+                password={password}
                 booklets={content.series.booklets}
                 editBooklet={(slug) => {
                   setSelectedBookletSlug(slug);
@@ -1851,6 +1853,8 @@ function MediaPanel({
 
 function MovementsPanel({
   addBooklet,
+  adminToken,
+  password,
   booklets,
   editBooklet,
   movements,
@@ -1858,6 +1862,8 @@ function MovementsPanel({
   uploadMovementPdf
 }: {
   addBooklet: (movementIndex?: number) => void;
+  adminToken: string;
+  password: string;
   booklets: Booklet[];
   editBooklet: (slug: string) => void;
   movements: Movement[];
@@ -1868,6 +1874,14 @@ function MovementsPanel({
   const [movementCoverFiles, setMovementCoverFiles] = useState<(File | null)[]>(movements.map(() => null));
   const [movementUploadStatuses, setMovementUploadStatuses] = useState<string[]>(movements.map(() => "Upload a PDF for this movement."));
   const [movementCoverStatuses, setMovementCoverStatuses] = useState<string[]>(movements.map(() => "Upload a cover image."));
+
+  function adminHeaders(extra?: Record<string, string>) {
+    return {
+      ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+      "X-Admin-Password": password,
+      ...(extra || {})
+    };
+  }
 
   function handleMovementPdfFileChange(index: number, file: File | null) {
     setMovementPdfFiles((prev) => {
