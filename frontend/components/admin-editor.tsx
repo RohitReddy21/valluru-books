@@ -2011,26 +2011,40 @@ function MovementsPanel({
                 />
               </div>
             )}
-            <input
-              accept="image/*"
-              className="mt-4 w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-sm text-parchment file:mr-3 file:rounded-md file:border-0 file:bg-gold/15 file:px-3 file:py-2 file:text-parchment"
-              onChange={(event) => handleMovementCoverFileChange(index, event.target.files?.[0] || null)}
-              type="file"
-            />
-            <button
-              className="mt-4 inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold disabled:opacity-50"
-              disabled={!movementCoverFiles[index]}
-              onClick={() => {
-                if (movementCoverFiles[index]) {
-                  uploadMovementCoverImage(index, movementCoverFiles[index]!);
-                }
-              }}
-              type="button"
-            >
-              <ImageIcon size={16} />
-              Upload Cover
-            </button>
-            <p className="mt-3 text-base italic text-muted">{movementCoverStatuses[index]}</p>
+            <div className="mt-4 grid gap-3">
+              <input
+                className="w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-sm text-parchment outline-none focus:border-gold/60"
+                onChange={(event) => updateMovement(index, { coverImage: event.target.value })}
+                placeholder="Paste image URL or upload from device below"
+                type="text"
+                value={movement.coverImage || ""}
+              />
+            </div>
+            <div className="mt-4 rounded-md border border-gold/20 bg-surface/50 p-4">
+              <p className="font-label text-xs uppercase tracking-[0.2em] text-muted mb-3">
+                Or upload from device
+              </p>
+              <input
+                accept="image/*"
+                className="w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-sm text-parchment file:mr-3 file:rounded-md file:border-0 file:bg-gold/15 file:px-3 file:py-2 file:text-parchment"
+                onChange={(event) => handleMovementCoverFileChange(index, event.target.files?.[0] || null)}
+                type="file"
+              />
+              <button
+                className="mt-3 inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold disabled:opacity-50"
+                disabled={!movementCoverFiles[index]}
+                onClick={() => {
+                  if (movementCoverFiles[index]) {
+                    uploadMovementCoverImage(index, movementCoverFiles[index]!);
+                  }
+                }}
+                type="button"
+              >
+                <ImageIcon size={16} />
+                Upload Cover
+              </button>
+              <p className="mt-3 text-base italic text-muted">{movementCoverStatuses[index]}</p>
+            </div>
           </div>
 
           <div className="rounded-md border border-gold/15 bg-ink p-5">
@@ -2484,22 +2498,35 @@ function BookletPanel({
             />
           </div>
         )}
-        <input
-          accept="image/*"
-          className="mt-4 w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-sm text-parchment file:mr-3 file:rounded-md file:border-0 file:bg-gold/15 file:px-3 file:py-2 file:text-parchment"
-          onChange={(event) => setBookletCoverFile(event.target.files?.[0] || null)}
-          type="file"
-        />
-        <button
-          className="mt-4 inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold disabled:opacity-50"
-          disabled={!bookletCoverFile}
-          onClick={uploadBookletCover}
-          type="button"
-        >
-          <ImageIcon size={16} />
-          Upload Cover
-        </button>
-        <p className="mt-3 text-base italic text-muted">{bookletCoverStatus}</p>
+        <div className="mt-4 grid gap-3">
+          <TextField
+            label="Cover Image URL"
+            onChange={(value) => updateBooklet(booklet.slug, { coverImage: value })}
+            placeholder="Paste image URL or upload from device below"
+            value={booklet.coverImage || ""}
+          />
+        </div>
+        <div className="mt-4 rounded-md border border-gold/20 bg-surface/50 p-4">
+          <p className="font-label text-xs uppercase tracking-[0.2em] text-muted mb-3">
+            Or upload from device
+          </p>
+          <input
+            accept="image/*"
+            className="w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-sm text-parchment file:mr-3 file:rounded-md file:border-0 file:bg-gold/15 file:px-3 file:py-2 file:text-parchment"
+            onChange={(event) => setBookletCoverFile(event.target.files?.[0] || null)}
+            type="file"
+          />
+          <button
+            className="mt-3 inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold disabled:opacity-50"
+            disabled={!bookletCoverFile}
+            onClick={uploadBookletCover}
+            type="button"
+          >
+            <ImageIcon size={16} />
+            Upload Cover
+          </button>
+          <p className="mt-3 text-base italic text-muted">{bookletCoverStatus}</p>
+        </div>
       </div>
       <TextField
         label="Gallery Image URLs (comma separated)"
