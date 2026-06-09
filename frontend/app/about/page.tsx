@@ -8,7 +8,6 @@ export default async function AboutPage() {
   const content = await getSiteContent();
   const { about } = content;
   const media = { ...defaultSiteContent.media, ...(content.media || {}) };
-
   return (
     <PageShell>
       <PageHeader
