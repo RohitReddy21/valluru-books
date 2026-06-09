@@ -106,9 +106,9 @@ export default async function MovementDetailPage({
                   Coming Soon
                 </p>
                 <h3 className="text-2xl font-display text-parchment mb-2">
-                  PDF Reader Coming Soon
+                  Movement Coming Soon
                 </h3>
-                <p className="text-muted">The full movement PDF will be available soon. For now, explore the related booklets below.</p>
+                <p className="text-muted">This movement will be available soon. For now, explore the related booklets below.</p>
               </div>
             ) : movement.pdf ? (
               <MovementPdfReader
