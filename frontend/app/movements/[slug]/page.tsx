@@ -131,7 +131,7 @@ export default async function MovementDetailPage({
                     Explore Booklets in This Movement
                   </h2>
                 </div>
-                <div className="grid gap-8 md:grid-cols-3">
+                <div className="grid gap-6 md:grid-cols-3">
                   {movementBooklets.map((booklet) => (
                     <BookletCard key={booklet.slug} booklet={booklet} />
                   ))}
