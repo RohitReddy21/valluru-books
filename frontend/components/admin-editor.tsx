@@ -1895,7 +1895,31 @@ function MovementsPanel({
           </div>
 
           <TextAreaField label="Description" onChange={(value) => updateMovement(index, { description: value })} value={movement.description} />
-          <TextField label="Booklets Label" onChange={(value) => updateMovement(index, { booklets: value })} value={movement.booklets} />
+
+          <div className="rounded-md border border-gold/15 bg-ink p-5">
+            <p className="font-label text-sm uppercase tracking-[0.2em] text-gold mb-4">
+              Select Booklets in this Movement
+            </p>
+            <div className="grid gap-3">
+              {booklets.map((booklet, bookletIndex) => (
+                <label key={booklet.slug} className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={movement.bookletIndices?.includes(bookletIndex) || false}
+                    onChange={(event) => {
+                      const currentIndices = movement.bookletIndices || [];
+                      const newIndices = event.target.checked
+                        ? [...currentIndices, bookletIndex]
+                        : currentIndices.filter(i => i !== bookletIndex);
+                      updateMovement(index, { bookletIndices: newIndices });
+                    }}
+                    className="rounded border-gold/40 bg-surface"
+                  />
+                  <span className="text-parchment">{booklet.numberLabel}: {booklet.title}</span>
+                </label>
+              ))}
+            </div>
+          </div>
 
           <div className="rounded-md border border-gold/15 bg-ink p-5">
             <p className="font-label text-sm uppercase tracking-[0.2em] text-gold">

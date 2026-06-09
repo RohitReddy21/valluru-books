@@ -12,6 +12,7 @@ export type Movement = {
   status?: PublishStatus;
   pdf?: string;
   coverImage?: string;
+  bookletIndices?: number[];
   seo?: SeoMetadata;
 };
 

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { BackLink, PageShell, PrimaryLink } from "@/components/ui";
+import { BackLink, PageShell, PrimaryLink, BookletCard } from "@/components/ui";
 import { MovementPdfReader } from "@/components/movement-pdf-reader";
 import { defaultSiteContent, movementSlug, isPublished } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
@@ -59,6 +59,12 @@ export default async function MovementDetailPage({
   const previousMovement = currentIndex > 0 ? movements[currentIndex - 1] : null;
   const nextMovement = currentIndex < movements.length - 1 ? movements[currentIndex + 1] : null;
 
+  // Get booklets in this movement
+  const bookletIndices = movement.bookletIndices || [];
+  const movementBooklets = bookletIndices
+    .map(index => content.series.booklets[index])
+    .filter(booklet => booklet && isPublished(booklet.status));
+
   return (
     <PageShell>
       <section
@@ -99,6 +105,19 @@ export default async function MovementDetailPage({
               <div className="mt-8 rounded-md border border-gold/20 bg-surface/50 p-6">
                 <p className="text-muted">PDF content not yet available for this movement.</p>
               </div>
+            )}
+
+            {movementBooklets.length > 0 && (
+              <section className="mt-16">
+                <h2 className="font-display text-2xl text-parchment mb-8">
+                  Booklets in this Movement
+                </h2>
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {movementBooklets.map((booklet) => (
+                    <BookletCard key={booklet.slug} booklet={booklet} />
+                  ))}
+                </div>
+              </section>
             )}
           </article>
 
