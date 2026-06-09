@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /checkout
+Disallow: /admin
+
+# Crawl delay for respectful crawling
+Crawl-delay: 1
+
+# Sitemap
+Sitemap: https://www.thevalluru.org/sitemap.xml

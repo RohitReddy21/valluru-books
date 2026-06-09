@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { BookletReader } from "@/components/booklet-reader";
 import { ReflectionForm } from "@/components/reflection-form";
 import { BackLink, PageShell, PrimaryLink } from "@/components/ui";
+import { Breadcrumb } from "@/components/breadcrumb";
 import { defaultSiteContent, getBookletNeighbors, isPublished } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
 
@@ -17,17 +19,50 @@ export async function generateMetadata({
   params
 }: {
   params: Promise<{ slug: string }>;
-}) {
+}): Promise<Metadata> {
   const { slug } = await params;
   const content = await getSiteContent();
   const booklet = content.series.booklets.find(
     (item) => item.slug === slug && isPublished(item.status)
   );
 
+  if (!booklet) {
+    return {
+      title: "Booklet Not Found — The Valluru"
+    };
+  }
+
+  const title = `${booklet.title} — The Valluru`;
+  const description = booklet.seo?.description || booklet.description || "A booklet from The Inward Fire Series";
+  const ogImage = booklet.coverImage || "https://www.thevalluru.org/og/default.jpg";
+
   return {
-    title: booklet
-      ? `${booklet.title} — The Valluru`
-      : "Booklet — The Valluru"
+    title,
+    description,
+    keywords: booklet.seo?.keywords ? booklet.seo.keywords.split(",").map(k => k.trim()) : ["dharma", "booklet"],
+    openGraph: {
+      type: "website",
+      title,
+      description,
+      url: `https://www.thevalluru.org/series/${slug}`,
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: booklet.title
+        }
+      ]
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage]
+    },
+    alternates: {
+      canonical: `https://www.thevalluru.org/series/${slug}`
+    }
   };
 }
 
@@ -50,8 +85,32 @@ export default async function BookletPage({
 
   const neighbors = getBookletNeighbors(publishedBooklets, slug);
 
+  // Book schema markup
+  const bookSchema = {
+    "@context": "https://schema.org",
+    "@type": "Book",
+    name: booklet.title,
+    author: {
+      "@type": "Person",
+      name: "Sasidhar Valluru"
+    },
+    bookFormat: "EBook",
+    url: `https://www.thevalluru.org/series/${slug}`,
+    image: booklet.coverImage || "https://www.thevalluru.org/og/default.jpg",
+    description: booklet.description,
+    inSeries: {
+      "@type": "BookSeries",
+      name: "The Inward Fire Series"
+    }
+  };
+
   return (
     <PageShell>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(bookSchema) }}
+      />
+
       <section
         className="valluru-hero-image px-4 pb-12 pt-24 sm:px-5 sm:pt-32"
         style={
@@ -64,6 +123,12 @@ export default async function BookletPage({
       >
         <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <article className="max-w-3xl fade-up">
+            <Breadcrumb crumbs={[
+              { label: "Home", href: "/" },
+              { label: "Series", href: "/series" },
+              { label: booklet.title, href: `/series/${slug}` }
+            ]} />
+
             <p className="font-label text-sm uppercase tracking-[0.24em] text-muted">
               The Series / {booklet.numberLabel}
             </p>
