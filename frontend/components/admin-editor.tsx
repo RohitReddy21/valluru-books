@@ -282,21 +282,22 @@ export function AdminEditor({ initialContent, source }: Props) {
             } else {
               payload = null;
             }
-          } catch {
+          } catch (parseError) {
             const statusText = xhr.status === 404 ? "Endpoint not found. Backend may not be deployed." : "Upload failed.";
             payload = { error: statusText } as T & { error?: string };
           }
 
-          resolve({ ok: xhr.status >= 200 && xhr.status < 300, payload, status: xhr.status });
+          const isOk = xhr.status >= 200 && xhr.status < 300;
+          resolve({ ok: isOk, payload, status: xhr.status });
         };
-        xhr.onerror = () =>
+        xhr.onerror = () => {
+          const errorPayload: T & { error?: string } = { error: "Upload failed. Check the storage connection and try again." } as T & { error?: string };
           resolve({
             ok: false,
-            payload: { error: "Upload failed. Check the storage connection and try again." } as T & {
-              error?: string;
-            },
+            payload: errorPayload,
             status: 0
           });
+        };
         xhr.send(formData);
       }
     );
@@ -322,24 +323,29 @@ export function AdminEditor({ initialContent, source }: Props) {
     formData.append("bookletSlug", selectedBooklet.slug);
     formData.append("pdf", pdfFile);
 
-    const { ok, payload } = await uploadFormData<{
-      error?: string;
-      pdf?: string;
-      media?: MediaAsset;
-    }>("/api/admin/upload-pdf", formData, (percent) =>
-      setUploadStatus(`Uploading PDF... ${percent}%`)
-    );
+    try {
+      const { ok, payload } = await uploadFormData<{
+        error?: string;
+        pdf?: string;
+        media?: MediaAsset;
+      }>("/api/admin/upload-pdf", formData, (percent) =>
+        setUploadStatus(`Uploading PDF... ${percent}%`)
+      );
 
-    if (!ok || !payload?.pdf) {
-      setUploadStatus(payload?.error || "PDF upload failed.");
-      return;
-    }
+      if (!ok || !payload?.pdf) {
+        const errorMsg = payload?.error || "PDF upload failed.";
+        setUploadStatus(typeof errorMsg === "string" ? errorMsg : "PDF upload failed.");
+        return;
+      }
 
-    updateBooklet(selectedBooklet.slug, { pdf: payload.pdf });
-    if (payload.media) {
-      setPdfItems((current) => [payload.media as MediaAsset, ...current.filter((item) => item.id !== payload.media?.id)]);
+      updateBooklet(selectedBooklet.slug, { pdf: payload.pdf });
+      if (payload.media) {
+        setPdfItems((current) => [payload.media as MediaAsset, ...current.filter((item) => item.id !== payload.media?.id)]);
+      }
+      setUploadStatus(`Uploaded and attached to ${selectedBooklet.title}.`);
+    } catch (error) {
+      setUploadStatus("PDF upload failed. Check your connection and try again.");
     }
-    setUploadStatus(`Uploaded and attached to ${selectedBooklet.title}.`);
   }
 
   async function uploadMovementPdf(movementIndex: number, movementPdfFile: File, setMovementUploadStatus: (status: string) => void) {
@@ -391,8 +397,12 @@ export function AdminEditor({ initialContent, source }: Props) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        setBookletCoverStatus(`Upload failed: ${error.error || "Unknown error"}`);
+        try {
+          const error = await response.json();
+          setBookletCoverStatus(`Upload failed: ${error.error || "Unknown error"}`);
+        } catch {
+          setBookletCoverStatus(`Upload failed: ${response.statusText || "Unknown error"}`);
+        }
         return;
       }
 
@@ -401,7 +411,8 @@ export function AdminEditor({ initialContent, source }: Props) {
       setBookletCoverStatus("✓ Image uploaded. Click the Save button to persist changes.");
       setBookletCoverFile(null);
     } catch (error) {
-      setBookletCoverStatus("Error uploading image: " + String(error));
+      const errorMessage = error instanceof Error ? error.message : "Error uploading image";
+      setBookletCoverStatus(errorMessage);
     }
   }
 
@@ -1936,8 +1947,12 @@ function MovementsPanel({
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        handleMovementCoverStatusChange(index, `Upload failed: ${error.error || "Unknown error"}`);
+        try {
+          const error = await response.json();
+          handleMovementCoverStatusChange(index, `Upload failed: ${error.error || "Unknown error"}`);
+        } catch {
+          handleMovementCoverStatusChange(index, `Upload failed: ${response.statusText || "Unknown error"}`);
+        }
         return;
       }
 
@@ -1950,7 +1965,8 @@ function MovementsPanel({
         return next;
       });
     } catch (error) {
-      handleMovementCoverStatusChange(index, "Error uploading image: " + String(error));
+      const errorMessage = error instanceof Error ? error.message : "Error uploading image";
+      handleMovementCoverStatusChange(index, errorMessage);
     }
   }
 
