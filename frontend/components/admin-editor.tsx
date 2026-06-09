@@ -2502,9 +2502,9 @@ function BookletPanel({
           <TextField
             label="Cover Image URL"
             onChange={(value) => updateBooklet(booklet.slug, { coverImage: value })}
-            placeholder="Paste image URL or upload from device below"
             value={booklet.coverImage || ""}
           />
+          <p className="text-xs italic text-muted">Paste image URL or upload from device below</p>
         </div>
         <div className="mt-4 rounded-md border border-gold/20 bg-surface/50 p-4">
           <p className="font-label text-xs uppercase tracking-[0.2em] text-muted mb-3">
