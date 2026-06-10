@@ -11,15 +11,15 @@ const staticPages = [
 ];
 
 const booklets = [
-  { slug: 'booklet-one', changefreq: 'monthly' },
-  { slug: 'booklet-two', changefreq: 'monthly' },
-  { slug: 'booklet-three', changefreq: 'monthly' },
-  { slug: 'booklet-four', changefreq: 'monthly' },
-  { slug: 'booklet-five', changefreq: 'monthly' },
-  { slug: 'booklet-six', changefreq: 'monthly' },
-  { slug: 'booklet-seven', changefreq: 'monthly' },
-  { slug: 'booklet-eight', changefreq: 'monthly' },
-  { slug: 'booklet-nine', changefreq: 'monthly' },
+  { slug: 'booklet-one-when-the-gods-fall-silent', changefreq: 'monthly' },
+  { slug: 'booklet-two-when-silence-became-sound', changefreq: 'monthly' },
+  { slug: 'booklet-three-where-language-learns-to-bow', changefreq: 'monthly' },
+  { slug: 'booklet-four-when-the-seeker-stops-optimizing', changefreq: 'monthly' },
+  { slug: 'booklet-five-the-witnesses-who-remain', changefreq: 'monthly' },
+  { slug: 'booklet-six-when-grief-became-nada', changefreq: 'monthly' },
+  { slug: 'booklet-seven-beyond-grief', changefreq: 'monthly' },
+  { slug: 'booklet-eight-nadesvara-ksobhasamana-stotram', changefreq: 'monthly' },
+  { slug: 'booklet-nine-in-ammas-lap', changefreq: 'monthly' },
 ];
 
 const movements = [

@@ -1,17 +1,17 @@
-import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { notFound, permanentRedirect } from "next/navigation";
 import { BookletReader } from "@/components/booklet-reader";
 import { ReflectionForm } from "@/components/reflection-form";
 import { BackLink, PageShell, PrimaryLink } from "@/components/ui";
 import { Breadcrumb } from "@/components/breadcrumb";
-import { defaultSiteContent, getBookletNeighbors, isPublished } from "@/lib/site-content";
+import { bookletMatchesSlug, bookletPublicSlug, defaultSiteContent, getBookletNeighbors, isPublished } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
 
 export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return defaultSiteContent.series.booklets.map((booklet) => ({
-    slug: booklet.slug
+    slug: bookletPublicSlug(booklet)
   }));
 }
 
@@ -23,7 +23,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const content = await getSiteContent();
   const booklet = content.series.booklets.find(
-    (item) => item.slug === slug && isPublished(item.status)
+    (item) => bookletMatchesSlug(item, slug) && isPublished(item.status)
   );
 
   if (!booklet) {
@@ -35,6 +35,7 @@ export async function generateMetadata({
   const title = `${booklet.title} — The Valluru`;
   const description = booklet.seo?.description || booklet.description || "A booklet from The Inward Fire Series";
   const ogImage = booklet.coverImage || "https://www.thevalluru.org/og/default.jpg";
+  const publicSlug = bookletPublicSlug(booklet);
 
   return {
     title,
@@ -44,7 +45,7 @@ export async function generateMetadata({
       type: "website",
       title,
       description,
-      url: `https://www.thevalluru.org/series/${slug}`,
+      url: `https://www.thevalluru.org/series/${publicSlug}`,
       images: [
         {
           url: ogImage,
@@ -61,7 +62,7 @@ export async function generateMetadata({
       images: [ogImage]
     },
     alternates: {
-      canonical: `https://www.thevalluru.org/series/${slug}`
+      canonical: `https://www.thevalluru.org/series/${publicSlug}`
     }
   };
 }
@@ -77,31 +78,88 @@ export default async function BookletPage({
   const publishedBooklets = content.series.booklets.filter((item) =>
     isPublished(item.status)
   );
-  const booklet = publishedBooklets.find((item) => item.slug === slug);
+  const booklet = publishedBooklets.find((item) => bookletMatchesSlug(item, slug));
 
   if (!booklet) {
     notFound();
   }
 
-  const neighbors = getBookletNeighbors(publishedBooklets, slug);
+  const publicSlug = bookletPublicSlug(booklet);
 
-  // Book schema markup
+  if (slug !== publicSlug) {
+    permanentRedirect(`/series/${publicSlug}`);
+  }
+
+  const neighbors = getBookletNeighbors(publishedBooklets, booklet.slug);
+
+  const canonicalUrl = `https://www.thevalluru.org/series/${publicSlug}`;
+  const coverImage = booklet.coverImage || "https://www.thevalluru.org/og/default.jpg";
+  const faqItems = [
+    {
+      question: `What is ${booklet.title} about?`,
+      answer: booklet.description
+    },
+    {
+      question: "Who is this booklet for?",
+      answer:
+        booklet.subtitle ||
+        "It is written for readers seeking a contemplative, literary approach to dharma, grief, language, surrender, and the inner life."
+    },
+    {
+      question: "How should this booklet be read?",
+      answer:
+        "Read it slowly, as a reflective text rather than a rushed manual. Return to key passages, sit with the questions it raises, and let the language do inward work over time."
+    }
+  ];
+
   const bookSchema = {
     "@context": "https://schema.org",
     "@type": "Book",
     name: booklet.title,
+    headline: booklet.title,
+    description: booklet.description,
+    url: canonicalUrl,
+    image: coverImage,
+    inLanguage: "en",
+    bookFormat: "EBook",
+    genre: booklet.categories?.length ? booklet.categories : ["Spiritual Literature"],
+    keywords: booklet.tags?.length ? booklet.tags.join(", ") : booklet.seo?.keywords,
+    isAccessibleForFree: !booklet.price || booklet.price === 0,
     author: {
       "@type": "Person",
       name: "Sasidhar Valluru"
     },
-    bookFormat: "EBook",
-    url: `https://www.thevalluru.org/series/${slug}`,
-    image: booklet.coverImage || "https://www.thevalluru.org/og/default.jpg",
-    description: booklet.description,
+    publisher: {
+      "@type": "Organization",
+      name: "The Valluru",
+      url: "https://www.thevalluru.org"
+    },
+    offers: {
+      "@type": "Offer",
+      price: String(booklet.price ?? 0),
+      priceCurrency: booklet.currency || "INR",
+      availability: "https://schema.org/InStock",
+      url: canonicalUrl
+    },
+    mainEntityOfPage: canonicalUrl,
     inSeries: {
       "@type": "BookSeries",
-      name: "The Inward Fire Series"
+      name: "The Inward Fire Series",
+      url: "https://www.thevalluru.org/series"
     }
+  };
+
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqItems.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer
+      }
+    }))
   };
 
   return (
@@ -109,6 +167,10 @@ export default async function BookletPage({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(bookSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
 
       <section
@@ -126,7 +188,7 @@ export default async function BookletPage({
             <Breadcrumb crumbs={[
               { label: "Home", href: "/" },
               { label: "Series", href: "/series" },
-              { label: booklet.title, href: `/series/${slug}` }
+              { label: booklet.title, href: `/series/${publicSlug}` }
             ]} />
 
             <p className="font-label text-sm uppercase tracking-[0.24em] text-muted">
@@ -172,7 +234,7 @@ export default async function BookletPage({
                     <PrimaryLink
                       cta={{
                         label: "Read",
-                        href: `/series/${neighbors.previous.slug}`
+                        href: `/series/${bookletPublicSlug(neighbors.previous)}`
                       }}
                     />
                   </div>
@@ -190,7 +252,7 @@ export default async function BookletPage({
                     <PrimaryLink
                       cta={{
                         label: "Read",
-                        href: `/series/${neighbors.next.slug}`
+                        href: `/series/${bookletPublicSlug(neighbors.next)}`
                       }}
                     />
                   </div>
@@ -201,7 +263,23 @@ export default async function BookletPage({
         </div>
       </section>
       <section className="quiet-divider px-4 pb-20 pt-4 sm:px-5">
-        <div className="mx-auto max-w-3xl">
+        <div className="mx-auto max-w-3xl space-y-12">
+          <section>
+            <p className="font-label text-sm uppercase tracking-[0.24em] text-gold">
+              FAQ
+            </p>
+            <h2 className="mt-4 font-display text-3xl font-semibold text-parchment">
+              Frequently Asked Questions
+            </h2>
+            <div className="mt-8 space-y-6">
+              {faqItems.map((item) => (
+                <div key={item.question} className="rounded-md border border-gold/15 bg-surface/50 p-6">
+                  <h3 className="font-display text-2xl text-parchment">{item.question}</h3>
+                  <p className="mt-3 text-base leading-7 text-parchment/80">{item.answer}</p>
+                </div>
+              ))}
+            </div>
+          </section>
           <ReflectionForm bookletSlug={booklet.slug} />
         </div>
       </section>

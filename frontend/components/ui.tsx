@@ -2,6 +2,7 @@ import type { HTMLAttributes } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { Booklet, Cta } from "@/lib/site-content";
+import { bookletPublicSlug } from "@/lib/site-content";
 import { AddToCartButton } from "@/components/cart-actions";
 
 export function PageShell({ children }: { children: React.ReactNode }) {
@@ -159,7 +160,7 @@ export function BookletCard({ booklet }: { booklet: Booklet }) {
           </p>
         )}
         <div className="mt-auto flex flex-wrap gap-3 pt-6">
-          <PrimaryLink cta={{ label: "Read Booklet", href: `/series/${booklet.slug}` }} />
+          <PrimaryLink cta={{ label: "Read Booklet", href: `/series/${bookletPublicSlug(booklet)}` }} />
           <AddToCartButton booklet={booklet} />
         </div>
       </div>

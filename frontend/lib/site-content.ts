@@ -28,6 +28,24 @@ export function movementSlug(movement: Pick<Movement, "slug" | "title">, index =
   );
 }
 
+function slugSegment(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+export function bookletPublicSlug(booklet: Pick<Booklet, "slug" | "numberLabel" | "title">) {
+  const numberPart = slugSegment(booklet.numberLabel || "booklet");
+  const titlePart = slugSegment(booklet.title || booklet.slug || "booklet");
+  return `${numberPart}-${titlePart}`;
+}
+
+export function bookletMatchesSlug(booklet: Pick<Booklet, "slug" | "numberLabel" | "title">, slug: string) {
+  return booklet.slug === slug || bookletPublicSlug(booklet) === slug;
+}
+
 export type PublishStatus = "draft" | "published" | "archived";
 
 export type SeoMetadata = {
@@ -161,7 +179,7 @@ export const defaultSiteContent: SiteContent = {
       { label: "Movements", href: "/movements" },
       { label: "About", href: "/about" }
     ],
-    button: { label: "Begin Reading", href: "/series/booklet-one" }
+    button: { label: "Begin Reading", href: "/series/booklet-one-when-the-gods-fall-silent" }
   },
   home: {
     hero: {
@@ -174,7 +192,7 @@ export const defaultSiteContent: SiteContent = {
         "No spiritual performance. No costume. No promise of instant peace.",
         "Only a set of writings for those who are still willing to look inward."
       ],
-      primaryCta: { label: "Begin with Booklet One", href: "/series/booklet-one" },
+      primaryCta: { label: "Begin with Booklet One", href: "/series/booklet-one-when-the-gods-fall-silent" },
       secondaryCta: { label: "View All Nine Booklets", href: "/series" }
     },
     why: {
@@ -199,7 +217,7 @@ export const defaultSiteContent: SiteContent = {
           slug: "the-inward-map",
           title: "The Inward Map",
           booklets: "1-3",
-          href: "/series/booklet-one",
+          href: "/series/booklet-one-when-the-gods-fall-silent",
           description:
             "Dharma is tested. Silence becomes sound. Language learns to bow.",
           status: "draft"
@@ -208,7 +226,7 @@ export const defaultSiteContent: SiteContent = {
           slug: "the-seeker-and-the-long-work",
           title: "The Seeker and the Long Work of Bhagavān",
           booklets: "4-5",
-          href: "/series/booklet-four",
+          href: "/series/booklet-four-when-the-seeker-stops-optimizing",
           description:
             "Māyā, responsibility, surrender, and the Chiranjeevis as witnesses.",
           status: "draft"
@@ -217,7 +235,7 @@ export const defaultSiteContent: SiteContent = {
           slug: "grief-as-fire",
           title: "Grief as Fire",
           booklets: "6-7",
-          href: "/series/booklet-six",
+          href: "/series/booklet-six-when-grief-became-nada",
           description:
             "Grief enters as fire, becomes nāda, becomes vow, becomes offering.",
           status: "published"
@@ -226,7 +244,7 @@ export const defaultSiteContent: SiteContent = {
           slug: "nada-as-offering",
           title: "Nāda as Offering",
           booklets: "8",
-          href: "/series/booklet-eight",
+          href: "/series/booklet-eight-nadesvara-ksobhasamana-stotram",
           description:
             "The seeker turns toward Nādeśvara. The bow becomes rhythm.",
           status: "draft"
@@ -235,7 +253,7 @@ export const defaultSiteContent: SiteContent = {
           slug: "the-child-returns",
           title: "The Child Returns",
           booklets: "9",
-          href: "/series/booklet-nine",
+          href: "/series/booklet-nine-in-ammas-lap",
           description:
             "Bhakti becomes childlike again. The child asks to be held.",
           status: "draft"
