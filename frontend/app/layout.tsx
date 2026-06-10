@@ -33,8 +33,8 @@ export const metadata: Metadata = {
   authors: [{ name: "Sasidhar Valluru" }],
   creator: "Sasidhar Valluru",
   icons: {
-    icon: "https://cdn.builder.io/api/v1/image/assets%2Fa9f0c06f5baf4102aeeefe7a4239e63b%2Fcdc0dbe61d824fa38b1d4d73843cb600?format=webp",
-    apple: "https://cdn.builder.io/api/v1/image/assets%2Fa9f0c06f5baf4102aeeefe7a4239e63b%2Fcdc0dbe61d824fa38b1d4d73843cb600?format=webp"
+    icon: "https://cdn.builder.io/api/v1/image/assets%2Fa9f0c06f5baf4102aeeefe7a4239e63b%2Fcdc0dbe61d824fa38b1d4d73843cb600?format=webp&width=800&height=1200",
+    apple: "https://cdn.builder.io/api/v1/image/assets%2Fa9f0c06f5baf4102aeeefe7a4239e63b%2Fcdc0dbe61d824fa38b1d4d73843cb600?format=webp&width=800&height=1200"
   },
   openGraph: {
     type: "website",
@@ -81,7 +81,7 @@ export default async function RootLayout({
         {/* Google Analytics */}
         <script
           async
-          src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"
+          src="https://www.googletagmanager.com/gtag/js?id=G-HYV3VRYR06"
         />
         <script
           dangerouslySetInnerHTML={{
@@ -89,7 +89,7 @@ export default async function RootLayout({
               window.dataLayer = window.dataLayer || [];
               function gtag(){dataLayer.push(arguments);}
               gtag('js', new Date());
-              gtag('config', 'G-XXXXXXXXXX', {
+              gtag('config', 'G-HYV3VRYR06', {
                 page_path: window.location.pathname,
               });
             `,
