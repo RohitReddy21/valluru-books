@@ -5,13 +5,14 @@ import { Eye, FileText, ImageIcon, Package, Plus, RefreshCw, RotateCcw, Save, Tr
 import { apiUrl } from "@/lib/api";
 import type { Booklet, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
 import { defaultSiteContent, getBookletMovementIndex } from "@/lib/site-content";
+import { ImageManagerPanel } from "@/components/image-manager-panel";
 
 type Props = {
   initialContent: SiteContent;
   source: string;
 };
 
-type Tab = "dashboard" | "booklets" | "movements" | "pages" | "pdfs" | "media" | "orders" | "settings" | "navigation";
+type Tab = "dashboard" | "booklets" | "movements" | "pages" | "pdfs" | "media" | "images" | "orders" | "settings" | "navigation";
 type MediaTarget = "homeHeroImage" | "pageHeroImage" | "authorImage";
 
 type AdminData = {
@@ -908,7 +909,7 @@ export function AdminEditor({ initialContent, source }: Props) {
             </button>
 
             <div className="mt-5 grid gap-2">
-              {(["dashboard", "booklets", "movements", "pages", "pdfs", "media", "orders", "settings", "navigation"] as Tab[]).map((item) => (
+              {(["dashboard", "booklets", "movements", "pages", "pdfs", "media", "images", "orders", "settings", "navigation"] as Tab[]).map((item) => (
                 <button
                   className={`rounded-md border px-4 py-3 text-left font-label text-sm uppercase tracking-[0.18em] transition ${
                     tab === item
@@ -1037,6 +1038,10 @@ export function AdminEditor({ initialContent, source }: Props) {
                 uploadLibraryMedia={uploadLibraryMedia}
                 uploadMedia={uploadMedia}
               />
+            ) : null}
+
+            {tab === "images" ? (
+              <ImageManagerPanel />
             ) : null}
 
             {tab === "orders" ? (
