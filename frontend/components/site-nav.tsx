@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import type { SiteContent } from "@/lib/site-content";
@@ -18,10 +19,20 @@ export function SiteNav({ nav }: Props) {
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-5 sm:py-4">
         <Link
           href="/"
-          className="shrink-0 font-display text-lg font-semibold text-parchment sm:text-xl md:text-2xl"
+          className="shrink-0 flex items-center gap-2"
           onClick={() => setOpen(false)}
         >
-          {nav.logo}
+          <Image
+            src="https://cdn.builder.io/api/v1/image/assets%2Fa9f0c06f5baf4102aeeefe7a4239e63b%2F1b42a302d54345e6a88582345503b13f?format=webp"
+            alt="The Valluru"
+            width={40}
+            height={40}
+            className="h-10 w-auto sm:h-12"
+            priority
+          />
+          <span className="hidden font-display text-lg font-semibold text-parchment sm:text-xl md:text-2xl lg:inline">
+            {nav.logo}
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-5 lg:gap-8 md:flex">

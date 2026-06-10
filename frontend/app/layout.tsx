@@ -32,6 +32,10 @@ export const metadata: Metadata = {
   keywords: ["dharma", "grief", "nada", "bhakti", "sanskrit", "spirituality", "inner life"],
   authors: [{ name: "Sasidhar Valluru" }],
   creator: "Sasidhar Valluru",
+  icons: {
+    icon: "https://cdn.builder.io/api/v1/image/assets%2Fa9f0c06f5baf4102aeeefe7a4239e63b%2Fcdc0dbe61d824fa38b1d4d73843cb600?format=webp",
+    apple: "https://cdn.builder.io/api/v1/image/assets%2Fa9f0c06f5baf4102aeeefe7a4239e63b%2Fcdc0dbe61d824fa38b1d4d73843cb600?format=webp"
+  },
   openGraph: {
     type: "website",
     locale: "en_US",
