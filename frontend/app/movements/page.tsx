@@ -30,7 +30,7 @@ export default async function MovementsPage() {
           </p>
         </div>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12 grid gap-6 md:grid-cols-2">
           {allMovements.map((movement, index) => {
             const slug = movementSlug(movement, index);
             const isPublishedMovement = isPublished(movement.status);
