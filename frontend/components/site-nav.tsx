@@ -25,10 +25,10 @@ export function SiteNav({ nav }: Props) {
           <img
             src="https://cdn.builder.io/api/v1/image/assets%2Fa9f0c06f5baf4102aeeefe7a4239e63b%2F1b42a302d54345e6a88582345503b13f?format=webp&width=800&height=1200"
             alt="The Valluru"
-            className="h-12 w-auto sm:h-14 lg:h-16"
+            className="h-10 w-auto sm:h-12 lg:h-14"
             loading="eager"
           />
-          <span className="hidden font-display text-lg font-semibold text-parchment sm:text-xl md:text-2xl lg:inline">
+          <span className="hidden font-display text-sm font-semibold text-parchment sm:text-base md:text-lg lg:text-xl lg:inline">
             {nav.logo}
           </span>
         </Link>
