@@ -20,17 +20,18 @@ export default async function MovementsPage() {
         subtitle="Five doorways into the same inward fire."
       />
 
-      <WideSection>
-        <div className="mx-auto max-w-3xl text-center">
-          <h2 className="responsive-section-title mb-6 font-display font-semibold text-parchment">
-            Explore the Five Movements
-          </h2>
-          <p className="responsive-prose text-parchment/86">
-            {home.seriesOverview.intro}
-          </p>
-        </div>
+      <section className="quiet-divider px-4 py-12 sm:px-5 sm:py-20">
+        <div className="mx-auto max-w-6xl fade-up">
+          <div className="mx-auto max-w-3xl text-center mb-12">
+            <h2 className="responsive-section-title mb-6 font-display font-semibold text-parchment">
+              Explore the Five Movements
+            </h2>
+            <p className="responsive-prose text-parchment/86">
+              {home.seriesOverview.intro}
+            </p>
+          </div>
 
-        <div className="mt-12 grid gap-6 md:grid-cols-2">
+          <div className="grid gap-8 md:grid-cols-2">
           {allMovements.map((movement, index) => {
             const slug = movementSlug(movement, index);
             const isPublishedMovement = isPublished(movement.status);
@@ -46,7 +47,7 @@ export default async function MovementsPage() {
                 {isPublishedMovement ? (
                   <Link href={`/movements/${slug}`} className="flex flex-col h-full">
                     {movement.coverImage && (
-                      <div className="relative aspect-[4/5] w-full overflow-hidden bg-surface/50 border-b border-gold/10">
+                      <div className="relative aspect-[3/4] w-full overflow-hidden bg-surface/50 border-b border-gold/10">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={movement.coverImage}
@@ -89,8 +90,9 @@ export default async function MovementsPage() {
               </div>
             );
           })}
+          </div>
         </div>
-      </WideSection>
+      </section>
 
       <Section>
         <div>

@@ -15,25 +15,27 @@ export default async function AboutPage() {
         title={about.title}
         subtitle={about.subtitle}
       />
-      <Section className="pt-0">
-        <div className="grid gap-10 md:grid-cols-[320px_1fr] md:items-start">
-          {media.authorImage ? (
-            <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              alt={about.title}
-              className="w-full rounded-md border border-gold/20 object-cover shadow-quiet"
-              src={media.authorImage}
-            />
-            </>
-          ) : (
-            <div className="w-full aspect-[4/5] rounded-md border border-gold/20 bg-surface shadow-quiet" />
-          )}
-          <div>
-            <ProseBlocks blocks={about.bio} />
+      <section className="quiet-divider px-4 py-12 sm:px-5 sm:py-20">
+        <div className="mx-auto max-w-6xl fade-up">
+          <div className="grid gap-10 lg:grid-cols-[450px_1fr] lg:items-start">
+            {media.authorImage ? (
+              <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt={about.title}
+                className="w-full h-auto rounded-md border border-gold/20 object-cover shadow-quiet"
+                src={media.authorImage}
+              />
+              </>
+            ) : (
+              <div className="w-full aspect-[4/5] rounded-md border border-gold/20 bg-surface shadow-quiet" />
+            )}
+            <div>
+              <ProseBlocks blocks={about.bio} />
+            </div>
           </div>
         </div>
-      </Section>
+      </section>
       <Section>
         <div className="grid gap-6">
           {about.pullQuotes.map((quote) => (
