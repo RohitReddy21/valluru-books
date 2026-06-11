@@ -16,19 +16,23 @@ export default async function AboutPage() {
         subtitle={about.subtitle}
       />
       <Section className="pt-0">
-        {media.authorImage ? (
-          <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            alt={about.title}
-            className="mb-10 aspect-square w-44 rounded-md border border-gold/20 object-cover shadow-quiet"
-            src={media.authorImage}
-          />
-          </>
-        ) : (
-          <div className="mb-10 aspect-square w-44 rounded-md border border-gold/20 bg-surface shadow-quiet" />
-        )}
-        <ProseBlocks blocks={about.bio} />
+        <div className="grid gap-8 md:grid-cols-[auto_1fr] md:items-start">
+          {media.authorImage ? (
+            <>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt={about.title}
+              className="w-48 rounded-md border border-gold/20 object-cover shadow-quiet"
+              src={media.authorImage}
+            />
+            </>
+          ) : (
+            <div className="w-48 aspect-[4/5] rounded-md border border-gold/20 bg-surface shadow-quiet" />
+          )}
+          <div>
+            <ProseBlocks blocks={about.bio} />
+          </div>
+        </div>
       </Section>
       <Section>
         <div className="grid gap-6">

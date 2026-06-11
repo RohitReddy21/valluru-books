@@ -37,16 +37,16 @@ export default async function MovementsPage() {
             return (
               <div
                 key={slug}
-                className={`group block overflow-hidden rounded-lg border border-gold/15 bg-surface/70 transition ${
+                className={`group flex flex-col overflow-hidden rounded-lg border border-gold/15 bg-surface/70 transition ${
                   isPublishedMovement
                     ? "hover:border-gold/40 hover:bg-surface/90"
                     : "opacity-80 cursor-not-allowed"
                 }`}
               >
                 {isPublishedMovement ? (
-                  <Link href={`/movements/${slug}`} className="block">
+                  <Link href={`/movements/${slug}`} className="flex flex-col h-full">
                     {movement.coverImage && (
-                      <div className="relative h-40 w-full overflow-hidden bg-surface/50">
+                      <div className="relative aspect-[4/5] w-full overflow-hidden bg-surface/50 border-b border-gold/10">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={movement.coverImage}
@@ -55,7 +55,7 @@ export default async function MovementsPage() {
                         />
                       </div>
                     )}
-                    <div className="p-5">
+                    <div className="flex flex-1 flex-col p-5">
                       <h3 className="font-display text-xl leading-tight text-parchment group-hover:text-gold transition">
                         {movement.title}
                       </h3>
@@ -70,7 +70,7 @@ export default async function MovementsPage() {
                     </div>
                   </Link>
                 ) : (
-                  <div className="p-5">
+                  <div className="flex flex-col h-full p-5">
                     <div className="flex items-center gap-3">
                       <h3 className="font-display text-xl leading-tight text-muted">
                         {movement.title}
