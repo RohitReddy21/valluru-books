@@ -477,10 +477,8 @@ export const defaultSiteContent: SiteContent = {
     }
   },
   media: {
-    homeHeroImage:
-      "https://thevalluru.org/wp-content/uploads/2026/05/chatgpt-image-may-22-2026-02_43_16-pm-1.png?w=1800",
-    pageHeroImage:
-      "https://thevalluru.org/wp-content/uploads/2026/05/chatgpt-image-may-22-2026-02_43_16-pm-1.png?w=1600",
+    homeHeroImage: "",
+    pageHeroImage: "",
     authorImage: ""
   },
   settings: {

@@ -2758,6 +2758,16 @@ function PagesPanel({
     <div className="grid gap-8">
       <FieldGroup title="Home Hero">
         <TextField
+          label="Hero Eyebrow"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              home: { ...current.home, hero: { ...current.home.hero, eyebrow: value } }
+            }))
+          }
+          value={content.home.hero.eyebrow}
+        />
+        <TextField
           label="Hero Title"
           onChange={(value) =>
             setContent((current) => ({
@@ -2766,6 +2776,16 @@ function PagesPanel({
             }))
           }
           value={content.home.hero.title}
+        />
+        <TextField
+          label="Hero Subtitle"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              home: { ...current.home, hero: { ...current.home.hero, subtitle: value } }
+            }))
+          }
+          value={content.home.hero.subtitle}
         />
         <TextAreaField
           label="Hero Body"
@@ -2780,11 +2800,61 @@ function PagesPanel({
           }
           value={fromParagraphs(content.home.hero.body)}
         />
+        <TextField
+          label="Primary CTA Label"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              home: { ...current.home, hero: { ...current.home.hero, primaryCta: { ...current.home.hero.primaryCta, label: value } } }
+            }))
+          }
+          value={content.home.hero.primaryCta.label}
+        />
+        <TextField
+          label="Primary CTA Href"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              home: { ...current.home, hero: { ...current.home.hero, primaryCta: { ...current.home.hero.primaryCta, href: value } } }
+            }))
+          }
+          value={content.home.hero.primaryCta.href}
+        />
+        <TextField
+          label="Secondary CTA Label"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              home: { ...current.home, hero: { ...current.home.hero, secondaryCta: { ...current.home.hero.secondaryCta, label: value } } }
+            }))
+          }
+          value={content.home.hero.secondaryCta.label}
+        />
+        <TextField
+          label="Secondary CTA Href"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              home: { ...current.home, hero: { ...current.home.hero, secondaryCta: { ...current.home.hero.secondaryCta, href: value } } }
+            }))
+          }
+          value={content.home.hero.secondaryCta.href}
+        />
       </FieldGroup>
 
       <FieldGroup title="Home Sections">
+        <TextField
+          label="Why This Exists - Title"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              home: { ...current.home, why: { ...current.home.why, title: value } }
+            }))
+          }
+          value={content.home.why.title}
+        />
         <TextAreaField
-          label="Why This Exists"
+          label="Why This Exists - Body"
           onChange={(value) =>
             setContent((current) => ({
               ...current,
@@ -2797,8 +2867,18 @@ function PagesPanel({
           rows={8}
           value={fromParagraphs(content.home.why.body)}
         />
+        <TextField
+          label="For Whom - Title"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              home: { ...current.home, forWhom: { ...current.home.forWhom, title: value } }
+            }))
+          }
+          value={content.home.forWhom.title}
+        />
         <TextAreaField
-          label="For Whom"
+          label="For Whom - Body"
           onChange={(value) =>
             setContent((current) => ({
               ...current,
@@ -2820,9 +2900,79 @@ function PagesPanel({
           }
           value={content.home.quote.text}
         />
+        <TextField
+          label="Quote Byline"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              home: { ...current.home, quote: { ...current.home.quote, byline: value } }
+            }))
+          }
+          value={content.home.quote.byline}
+        />
+        <TextField
+          label="Newsletter Title"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              home: { ...current.home, newsletter: { ...current.home.newsletter, title: value } }
+            }))
+          }
+          value={content.home.newsletter.title}
+        />
+        <TextAreaField
+          label="Newsletter Body"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              home: { ...current.home, newsletter: { ...current.home.newsletter, body: value } }
+            }))
+          }
+          value={content.home.newsletter.body}
+        />
+        <TextField
+          label="Newsletter Microcopy"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              home: { ...current.home, newsletter: { ...current.home.newsletter, microcopy: value } }
+            }))
+          }
+          value={content.home.newsletter.microcopy}
+        />
+        <TextField
+          label="Home Closing Line"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              home: { ...current.home, closingLine: value }
+            }))
+          }
+          value={content.home.closingLine}
+        />
       </FieldGroup>
 
-      <FieldGroup title="Series and About">
+      <FieldGroup title="Series Page">
+        <TextField
+          label="Series Title"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              series: { ...current.series, title: value }
+            }))
+          }
+          value={content.series.title}
+        />
+        <TextField
+          label="Series Subtitle"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              series: { ...current.series, subtitle: value }
+            }))
+          }
+          value={content.series.subtitle}
+        />
         <TextAreaField
           label="Series Opening"
           onChange={(value) =>
@@ -2831,7 +2981,52 @@ function PagesPanel({
               series: { ...current.series, opening: toParagraphs(value) }
             }))
           }
+          rows={6}
           value={fromParagraphs(content.series.opening)}
+        />
+        <TextField
+          label="Series Reading Order Note"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              series: { ...current.series, readingOrderNote: value }
+            }))
+          }
+          value={content.series.readingOrderNote}
+        />
+        <TextAreaField
+          label="Series Closing"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              series: { ...current.series, closing: toParagraphs(value) }
+            }))
+          }
+          rows={6}
+          value={fromParagraphs(content.series.closing)}
+        />
+      </FieldGroup>
+
+      <FieldGroup title="About Page">
+        <TextField
+          label="About Title"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              about: { ...current.about, title: value }
+            }))
+          }
+          value={content.about.title}
+        />
+        <TextField
+          label="About Subtitle"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              about: { ...current.about, subtitle: value }
+            }))
+          }
+          value={content.about.subtitle}
         />
         <TextAreaField
           label="About Bio"
@@ -2843,6 +3038,58 @@ function PagesPanel({
           }
           rows={7}
           value={fromParagraphs(content.about.bio)}
+        />
+        <TextAreaField
+          label="Pull Quotes"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              about: { ...current.about, pullQuotes: toParagraphs(value) }
+            }))
+          }
+          rows={5}
+          value={fromParagraphs(content.about.pullQuotes)}
+        />
+        <TextAreaField
+          label="What This Is NOT"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              about: { ...current.about, whatThisIsNot: toParagraphs(value) }
+            }))
+          }
+          rows={5}
+          value={fromParagraphs(content.about.whatThisIsNot)}
+        />
+        <TextField
+          label="Contact Intro"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              about: { ...current.about, contact: { ...current.about.contact, intro: value } }
+            }))
+          }
+          value={content.about.contact.intro}
+        />
+        <TextField
+          label="Contact Email"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              about: { ...current.about, contact: { ...current.about.contact, email: value } }
+            }))
+          }
+          value={content.about.contact.email}
+        />
+        <TextField
+          label="Contact Website"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              about: { ...current.about, contact: { ...current.about.contact, website: value } }
+            }))
+          }
+          value={content.about.contact.website}
         />
       </FieldGroup>
     </div>
@@ -2879,7 +3126,70 @@ function NavigationPanel({
           }
           value={content.nav.button.label}
         />
+        <TextField
+          label="Button Href"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              nav: { ...current.nav, button: { ...current.nav.button, href: value } }
+            }))
+          }
+          value={content.nav.button.href}
+        />
+        <button
+          className="mt-2 inline-flex items-center justify-center gap-2 rounded-md border border-red-400/30 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-red-200 transition hover:border-red-300 hover:text-red-100"
+          onClick={() => {
+            if (window.confirm("Delete the navigation button?")) {
+              setContent((current) => ({
+                ...current,
+                nav: { ...current.nav, button: { label: "", href: "" } }
+              }));
+            }
+          }}
+          type="button"
+        >
+          <Trash2 size={16} />
+          Delete Button
+        </button>
       </FieldGroup>
+      <FieldGroup title="Navigation Links">
+        <p className="text-sm text-muted mb-4">Edit the main navigation menu links</p>
+        {content.nav.links.map((link, index) => (
+          <div key={index} className="grid gap-3 md:grid-cols-2 p-4 rounded-md border border-gold/10 bg-ink">
+            <TextField
+              label={`Link ${index + 1} Label`}
+              onChange={(value) =>
+                setContent((current) => ({
+                  ...current,
+                  nav: {
+                    ...current.nav,
+                    links: current.nav.links.map((l, i) =>
+                      i === index ? { ...l, label: value } : l
+                    )
+                  }
+                }))
+              }
+              value={link.label}
+            />
+            <TextField
+              label={`Link ${index + 1} Href`}
+              onChange={(value) =>
+                setContent((current) => ({
+                  ...current,
+                  nav: {
+                    ...current.nav,
+                    links: current.nav.links.map((l, i) =>
+                      i === index ? { ...l, href: value } : l
+                    )
+                  }
+                }))
+              }
+              value={link.href}
+            />
+          </div>
+        ))}
+      </FieldGroup>
+
       <FieldGroup title="Footer">
         <TextField
           label="Footer Title"
@@ -2890,6 +3200,16 @@ function NavigationPanel({
             }))
           }
           value={content.footer.title}
+        />
+        <TextField
+          label="Footer Website"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              footer: { ...current.footer, website: value }
+            }))
+          }
+          value={content.footer.website}
         />
         <TextField
           label="Footer Email"
@@ -2911,6 +3231,41 @@ function NavigationPanel({
           }
           value={content.footer.bottomLine}
         />
+        <p className="text-sm text-muted mt-4">Edit the footer menu links</p>
+        {content.footer.links.map((link, index) => (
+          <div key={index} className="grid gap-3 md:grid-cols-2 p-4 rounded-md border border-gold/10 bg-ink">
+            <TextField
+              label={`Footer Link ${index + 1} Label`}
+              onChange={(value) =>
+                setContent((current) => ({
+                  ...current,
+                  footer: {
+                    ...current.footer,
+                    links: current.footer.links.map((l, i) =>
+                      i === index ? { ...l, label: value } : l
+                    )
+                  }
+                }))
+              }
+              value={link.label}
+            />
+            <TextField
+              label={`Footer Link ${index + 1} Href`}
+              onChange={(value) =>
+                setContent((current) => ({
+                  ...current,
+                  footer: {
+                    ...current.footer,
+                    links: current.footer.links.map((l, i) =>
+                      i === index ? { ...l, href: value } : l
+                    )
+                  }
+                }))
+              }
+              value={link.href}
+            />
+          </div>
+        ))}
       </FieldGroup>
     </div>
   );
