@@ -527,6 +527,51 @@ export function AdminEditor({ initialContent, source }: Props) {
     setTab("booklets");
   }
 
+  function addMovement() {
+    const newMovement: Movement = {
+      title: "New Movement",
+      booklets: "",
+      description: "Add the movement description here.",
+      status: "draft"
+    };
+
+    setContent((current) => ({
+      ...current,
+      home: {
+        ...current.home,
+        seriesOverview: {
+          ...current.home.seriesOverview,
+          movements: [...current.home.seriesOverview.movements, newMovement]
+        }
+      },
+      movements: {
+        ...current.movements,
+        items: [...current.movements.items, newMovement]
+      }
+    }));
+  }
+
+  function deleteMovement(index: number) {
+    if (!window.confirm("Are you sure you want to delete this movement?")) {
+      return;
+    }
+
+    setContent((current) => ({
+      ...current,
+      home: {
+        ...current.home,
+        seriesOverview: {
+          ...current.home.seriesOverview,
+          movements: current.home.seriesOverview.movements.filter((_, i) => i !== index)
+        }
+      },
+      movements: {
+        ...current.movements,
+        items: current.movements.items.filter((_, i) => i !== index)
+      }
+    }));
+  }
+
   function updateMovement(index: number, patch: Partial<Movement>) {
     setContent((current) => ({
       ...current,
@@ -538,6 +583,12 @@ export function AdminEditor({ initialContent, source }: Props) {
             movementIndex === index ? { ...movement, ...patch } : movement
           )
         }
+      },
+      movements: {
+        ...current.movements,
+        items: current.movements.items.map((movement, movementIndex) =>
+          movementIndex === index ? { ...movement, ...patch } : movement
+        )
       }
     }));
   }
@@ -979,6 +1030,8 @@ export function AdminEditor({ initialContent, source }: Props) {
             {tab === "movements" ? (
               <MovementsPanel
                 addBooklet={addBooklet}
+                addMovement={addMovement}
+                deleteMovement={deleteMovement}
                 adminToken={adminToken}
                 password={password}
                 booklets={content.series.booklets}
@@ -1904,6 +1957,8 @@ function MediaPanel({
 
 function MovementsPanel({
   addBooklet,
+  addMovement,
+  deleteMovement,
   adminToken,
   password,
   booklets,
@@ -1913,6 +1968,8 @@ function MovementsPanel({
   uploadMovementPdf
 }: {
   addBooklet: (movementIndex?: number) => void;
+  addMovement: () => void;
+  deleteMovement: (index: number) => void;
   adminToken: string;
   password: string;
   booklets: Booklet[];
@@ -2008,9 +2065,19 @@ function MovementsPanel({
 
   return (
     <div className="grid gap-6">
-      <h2 className="font-display text-2xl text-parchment sm:text-3xl">
-        Five Movements
-      </h2>
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+        <h2 className="font-display text-2xl text-parchment sm:text-3xl">
+          Movements
+        </h2>
+        <button
+          className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
+          onClick={addMovement}
+          type="button"
+        >
+          <Plus size={16} />
+          Add Movement
+        </button>
+      </div>
       {movements.map((movement, index) => (
         <FieldGroup key={`${movement.title}-${index}`} title={`Movement ${index + 1}: ${movement.title}`}>
           <div className="grid gap-4 md:grid-cols-2">
@@ -2135,6 +2202,16 @@ function MovementsPanel({
           </div>
           <TextAreaField label="SEO Description" onChange={(value) => updateMovement(index, { seo: { ...movement.seo, description: value } })} value={movement.seo?.description || ""} />
 
+          <div className="flex justify-end gap-3 mb-4">
+            <button
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-red-500/50 px-4 py-2 font-label text-sm uppercase tracking-[0.18em] text-red-300 transition hover:border-red-500 hover:text-red-200"
+              onClick={() => deleteMovement(index)}
+              type="button"
+            >
+              <Trash2 size={14} />
+              Delete Movement
+            </button>
+          </div>
           <div className="rounded-md border border-gold/15 bg-ink p-4">
             <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
               <div>

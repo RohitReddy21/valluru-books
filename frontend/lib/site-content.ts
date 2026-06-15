@@ -515,9 +515,10 @@ export function isPublished(status?: PublishStatus) {
 
 export function getBookletMovementIndex(booklet: Booklet, fallbackIndex = 0) {
   if (typeof booklet.movementIndex === "number") {
-    return Math.min(4, Math.max(0, booklet.movementIndex));
+    return Math.max(0, booklet.movementIndex);
   }
 
+  // Original fallback logic for backward compatibility
   if (fallbackIndex < 3) {
     return 0;
   }
