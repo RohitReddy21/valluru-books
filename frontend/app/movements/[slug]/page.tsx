@@ -89,14 +89,46 @@ export default async function MovementDetailPage({
             <h1 className="responsive-page-title mt-4 font-display font-semibold text-parchment">
               {movement.title}
             </h1>
-            {movement.description && (
+            {movement.landingHeroLine && (
+              <p className="mt-4 text-xl italic leading-tight text-gold sm:text-2xl">
+                {movement.landingHeroLine}
+              </p>
+            )}
+            {movement.description && !movement.landingHeroLine && (
               <p className="mt-4 text-xl italic leading-tight text-muted sm:text-2xl">
                 {movement.description}
               </p>
             )}
-            <p className="responsive-prose mt-8 text-parchment/88">
-              {movement.booklets || "Explore this movement through reflection and practice."}
-            </p>
+            {movement.openingParagraph && (
+              <p className="responsive-prose mt-8 text-parchment/88">
+                {movement.openingParagraph}
+              </p>
+            )}
+            {movement.pageIntro && !movement.openingParagraph && (
+              <p className="responsive-prose mt-8 text-parchment/88">
+                {movement.pageIntro}
+              </p>
+            )}
+            {!movement.pageIntro && !movement.openingParagraph && (
+              <p className="responsive-prose mt-8 text-parchment/88">
+                {movement.booklets || "Explore this movement through reflection and practice."}
+              </p>
+            )}
+            {movement.arcLine && (
+              <p className="responsive-prose mt-6 text-parchment/88 italic">
+                {movement.arcLine}
+              </p>
+            )}
+            {movement.closingLine && (
+              <p className="responsive-prose mt-6 text-parchment font-medium">
+                {movement.closingLine}
+              </p>
+            )}
+            {movement.bookletInclusionNote && (
+              <p className="mt-6 text-muted text-sm italic">
+                {movement.bookletInclusionNote}
+              </p>
+            )}
             <div className="mt-10">
               <BackLink href="/movements" label="Back to all Movements" />
             </div>

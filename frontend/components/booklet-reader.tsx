@@ -152,15 +152,6 @@ export function BookletReader({ booklet }: Props) {
             <BookOpen size={17} />
             Read Book
           </button>
-          <button
-            aria-disabled="true"
-            className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-md border border-gold/25 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted opacity-75"
-            title="Download functionality will be added later."
-            type="button"
-          >
-            <Download size={17} />
-            Download
-          </button>
         </div>
         {!isFree && status === "success" ? (
           <p className="text-base italic text-muted">

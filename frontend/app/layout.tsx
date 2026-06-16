@@ -33,8 +33,8 @@ export const metadata: Metadata = {
   authors: [{ name: "Sasidhar Valluru" }],
   creator: "Sasidhar Valluru",
   icons: {
-    icon: "https://cdn.builder.io/api/v1/image/assets%2Fa9f0c06f5baf4102aeeefe7a4239e63b%2Fcdc0dbe61d824fa38b1d4d73843cb600?format=webp&width=800&height=1200",
-    apple: "https://cdn.builder.io/api/v1/image/assets%2Fa9f0c06f5baf4102aeeefe7a4239e63b%2Fcdc0dbe61d824fa38b1d4d73843cb600?format=webp&width=800&height=1200"
+    icon: "/valluru-logo.png",
+    apple: "/valluru-logo.png"
   },
   openGraph: {
     type: "website",

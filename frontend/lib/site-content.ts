@@ -14,6 +14,13 @@ export type Movement = {
   coverImage?: string;
   bookletIndices?: number[];
   seo?: SeoMetadata;
+  // New fields for updated copy
+  pageIntro?: string;
+  bookletInclusionNote?: string;
+  landingHeroLine?: string;
+  openingParagraph?: string;
+  arcLine?: string;
+  closingLine?: string;
 };
 
 export function movementSlug(movement: Pick<Movement, "slug" | "title">, index = 0) {
@@ -71,6 +78,9 @@ export type Booklet = {
   galleryImages?: string[];
   categories?: string[];
   tags?: string[];
+  coffeeTableEdition?: boolean | "unavailable";
+  tag?: string;
+  badge?: string;
   price?: number;
   currency?: string;
   seo?: SeoMetadata;
@@ -178,6 +188,7 @@ export const defaultSiteContent: SiteContent = {
       { label: "The Series", href: "/series" },
       { label: "Movements", href: "/movements" },
       { label: "About", href: "/about" }
+      // { label: "Cart", href: "/cart" }
     ],
     button: { label: "Begin Reading", href: "/series/booklet-one-when-the-gods-fall-silent" }
   },
@@ -193,7 +204,7 @@ export const defaultSiteContent: SiteContent = {
         "Only a set of writings for those who are still willing to look inward."
       ],
       primaryCta: { label: "Begin with Booklet One", href: "/series/booklet-one-when-the-gods-fall-silent" },
-      secondaryCta: { label: "View All Nine Booklets", href: "/series" }
+      secondaryCta: { label: "View All Seventeen Booklets", href: "/series" }
     },
     why: {
       title: "Why This Exists",
@@ -209,9 +220,9 @@ export const defaultSiteContent: SiteContent = {
       ]
     },
     seriesOverview: {
-      title: "The Inward Fire Series",
+      title: "The Series in Six Movements",
       intro:
-        "Nine booklets on dharma, māyā, nāda, language, surrender, memory, and the long inward journey. Each booklet takes one doorway. Each one returns, in its own way, to surrender.",
+        "Seventeen booklets on dharma, maya, nada, language, surrender, memory, the long inward journey, and the human field around the seeker.",
       movements: [
         {
           slug: "the-inward-map",
@@ -220,16 +231,20 @@ export const defaultSiteContent: SiteContent = {
           href: "/series/booklet-one-when-the-gods-fall-silent",
           description:
             "Dharma is tested. Silence becomes sound. Language learns to bow.",
-          status: "draft"
+          status: "published"
         },
         {
           slug: "the-seeker-and-the-long-work",
           title: "The Seeker and the Long Work of Bhagavān",
-          booklets: "4-5",
+          booklets: "4-5, 10-11, 13",
           href: "/series/booklet-four-when-the-seeker-stops-optimizing",
           description:
-            "Māyā, responsibility, surrender, and the Chiranjeevis as witnesses.",
-          status: "draft"
+            "Maya, responsibility, surrender, the long witnesses, and the sacred interval where questions exhaust themselves.",
+          pageIntro:
+            "Movement Two follows the seeker after the first inward map has been drawn. The work is no longer only conceptual. Maya appears inside planning, responsibility, happiness, strategy, witness, silence, and surrender. The seeker learns that Bhagavan’s work is long, patient, and often hidden inside ordinary life.",
+          bookletInclusionNote:
+            "Booklets 4, 5, 10, 11, and 13 belong here: optimization giving way to surrender, the Chiranjeevis as witnesses, strategy burning, happiness refusing to stay, and the sacred interval where the mind stops demanding immediate answers.",
+          status: "published"
         },
         {
           slug: "grief-as-fire",
@@ -247,7 +262,7 @@ export const defaultSiteContent: SiteContent = {
           href: "/series/booklet-eight-nadesvara-ksobhasamana-stotram",
           description:
             "The seeker turns toward Nādeśvara. The bow becomes rhythm.",
-          status: "draft"
+          status: "published"
         },
         {
           slug: "the-child-returns",
@@ -256,7 +271,23 @@ export const defaultSiteContent: SiteContent = {
           href: "/series/booklet-nine-in-ammas-lap",
           description:
             "Bhakti becomes childlike again. The child asks to be held.",
-          status: "draft"
+          status: "published"
+        },
+        {
+          slug: "return-to-people",
+          title: "Return to People",
+          booklets: "14-17",
+          description:
+            "Blame, dependency, role, boundary, love, and the difficult return to people after the inward fire.",
+          landingHeroLine:
+            "The inward journey is tested not only in solitude, but in the human field around us.",
+          openingParagraph:
+            "After the seeker has gone inward, he must stand among people again. Family, colleagues, students, teams, old loyalties, wounded minds, loving minds, blaming minds, and dependent minds all become part of the field. Movement Six asks how the seeker remains compassionate without becoming available for every projection, how he helps without replacing another person’s dharma, and how he acts inside roles without being possessed by them.",
+          arcLine:
+            "The seeker learns that other people’s pain must be seen with compassion, but not always obeyed, absorbed, explained, or allowed into the inner sanctum.",
+          closingLine:
+            "This movement is not a withdrawal from people. It is a cleaner return to them.",
+          status: "published"
         }
       ]
     },
@@ -285,7 +316,7 @@ export const defaultSiteContent: SiteContent = {
   series: {
     title: "The Inward Fire Series",
     subtitle:
-      "Nine booklets on dharma, māyā, nāda, language, surrender, memory, and the long inward journey.",
+      "Seventeen booklets on dharma, maya, nada, language, surrender, memory, the long inward journey, and the human field around the seeker.",
     opening: [
       "The Inward Fire Series began with a simple concern. A seeker can drown in vocabulary. Advaita. Bhakti. Tantra. Vedanta. Yoga. Surrender. Inquiry. Breath. Nāma. Śakti. Dharma. Māyā. Grace. All of these may point toward something real. But the modern seeker often stands in the middle of too many words and too little anchoring.",
       "This series does not try to exhaust Sanātana Dharma. It tries to create a set of living doorways. Each booklet asks one inward question. Each one turns toward a different instrument: duty, sound, language, responsibility, memory. Each one returns, in its own way, to surrender."
@@ -305,7 +336,8 @@ export const defaultSiteContent: SiteContent = {
         pdf:
           "https://thevalluru.org/wp-content/uploads/2026/05/when-the-gods-fall-silent-booklet_one.pdf",
         badge: "Free · Begin Here",
-        tag: "Free"
+        tag: "AVAILABLE",
+        movementIndex: 0
       },
       {
         slug: "booklet-two",
@@ -318,7 +350,8 @@ export const defaultSiteContent: SiteContent = {
           "The first booklet ends in silence. This one asks what happens after that silence. Not silence as absence. Silence as pressure before sound. Silence as the field in which Om becomes audible. This booklet turns to nāda: Om, Nataraja, the damaru, rhythm, poetry, the body as instrument, art as offering, and the child's first prayer in the dark: Be with me. It asks whether art can become upāsana. Not decoration. Not performance. Offering.",
         pdf:
           "https://thevalluru.org/wp-content/uploads/2026/05/when-silence-became-sound-booklet_two.pdf",
-        tag: "Available"
+        tag: "AVAILABLE",
+        movementIndex: 0
       },
       {
         slug: "booklet-three",
@@ -331,7 +364,8 @@ export const defaultSiteContent: SiteContent = {
           "After sound comes language. Language is dangerous. It can defend ego, flatter falsehood, decorate pride, manipulate, wound, sell, argue, and hide. It can also pray, confess, praise, console, remember, surrender, and bow. This booklet turns to Telugu poetry and song — not as grammar display, not as literary vanity, but as spiritual instrument. It asks how language bows before Bhagavān. How courage enters meter. How grief enters song. How the tongue finds its place at His feet.",
         pdf:
           "https://thevalluru.org/wp-content/uploads/2026/05/where-language-learns-to-bow-booklet_three.pdf",
-        tag: "Available"
+        tag: "AVAILABLE",
+        movementIndex: 0
       },
       {
         slug: "booklet-four",
@@ -343,7 +377,8 @@ export const defaultSiteContent: SiteContent = {
           "This booklet begins from a modern wound. The human being has turned life into an optimization problem. Career. Money. Reputation. Visa status. Family duty. Children. Health. Productivity. Spirituality. Even rest. Everything becomes something to improve, measure, secure, and own. But when death is certain, what exactly are we optimizing? This booklet reads māyā as the great optimization trap. It asks whether responsibility can become ego in work clothes. It returns to Śrī Rāma, Samvartaka, Arjuna, Vyāsa, Nārada, Hanuman, and the child in the train to ask what it means to just be. Not laziness. Not escape. Surrendered action without false ownership.",
         pdf:
           "https://thevalluru.org/wp-content/uploads/2026/05/when-the-seeker-stops-optimizing-booklet_four.pdf",
-        tag: "Available"
+        tag: "AVAILABLE",
+        movementIndex: 1
       },
       {
         slug: "booklet-five",
@@ -355,7 +390,8 @@ export const defaultSiteContent: SiteContent = {
           "Why do some beings remain? Vyāsa. Hanuman. Mahabali. Aśvatthāma. Vibhīṣaṇa. Kṛpācārya. Paraśurāma. Mārkaṇḍeya. The point is why the tradition preserves the idea that some beings remain available to the loka. This booklet reads the Chiranjeevis as witnesses. Not ornaments. Not fantasy leftovers. Witnesses. Each one carries a lesson human beings keep failing to learn: knowledge is not enough, strength must bow, surrender can emerge where labels fail, atonement is real, mercy is not weakness, duty may have no glamour, and Bhagavān's work is long. Human stupidity is long too. Grace, thankfully, is longer.",
         pdf:
           "https://thevalluru.org/wp-content/uploads/2026/05/the-witnesses-who-remain-booklet_five.pdf",
-        tag: "Available"
+        tag: "AVAILABLE",
+        movementIndex: 1
       },
       {
         slug: "booklet-six",
@@ -367,7 +403,8 @@ export const defaultSiteContent: SiteContent = {
           "Who owns grief? The verses move through Śiva, Annapūrṇa, Dakṣiṇa Kāli, Kṛṣṇa, Vṛndāvana, Kāśī, Dvārakā, the Ganga, and surrender. This booklet reads grief not as biography. Not spectacle. Not complaint. Grief as fire. Grief as teacher. Grief as nāda. The realization is severe: nothing is truly owned. Not the body. Not work. Not skill. Not language. Not children. Not grief. The movement is not from sorrow to explanation. It is from grief to surrender. From surrender to sound. From sound to offering. From offering back into silence.",
         pdf:
           "https://thevalluru.org/wp-content/uploads/2026/05/when-grief-became-nada-booklet_six.pdf",
-        tag: "Available"
+        tag: "AVAILABLE",
+        movementIndex: 2
       },
       {
         slug: "booklet-seven",
@@ -376,7 +413,9 @@ export const defaultSiteContent: SiteContent = {
         subtitle: "The vow, the chariot, and movement before sunset.",
         description:
           "The seeker no longer asks only why. He stands, gathers the bow, remembers the chariot, and keeps moving before sunset. Grief becomes kinetic force: bow, chariot, horses, arrow-fence, Mādhava, vow, dusk, and protected grief.",
-        tag: "Available"
+        tag: "AVAILABLE",
+        movementIndex: 2,
+        coffeeTableEdition: "unavailable"
       },
       {
         slug: "booklet-eight",
@@ -388,7 +427,8 @@ export const defaultSiteContent: SiteContent = {
           "What happens when grief no longer argues? It chants. The seeker turns from battle-readiness to rhythm-alignment. This stotram is offered as nāda at the feet of Nādeśvara — the Lord of sound, rhythm, and the damaru, whose dance restores the broken pulse. Kṣobha is inner agitation — the disturbed movement of grief, desire, memory, ego, and restlessness. Kṣobhaśamana is the calming of turbulence by alignment with Siva's cosmic rhythm. The prayer is simple: Dance, Siva. Let Your damaru reset my rhythm. Let grief turn toward grace.",
         pdf:
           "https://thevalluru.org/wp-content/uploads/2026/05/nadeswara-kshobhasamana-stotram-booklet_eight.pdf",
-        tag: "Available"
+        tag: "AVAILABLE",
+        movementIndex: 3
       },
       {
         slug: "booklet-nine",
@@ -400,7 +440,88 @@ export const defaultSiteContent: SiteContent = {
           "After the maps, the witnesses, the grief, and the stotram, the seeker becomes simpler. Māyā is no longer only a philosophical problem. It becomes a mirror, a food-offering, a costume, a joke, a knot, a noise, a mask. The seeker laughs at himself — not with cynicism, but with tenderness. Here, bhakti becomes childlike again. Krishna is teased. Kāli becomes Amma. Service becomes Father's service. The roles and masks are asked to be broken apart. The child simply asks to be held.",
         pdf:
           "https://thevalluru.org/wp-content/uploads/2026/05/in-ammas-lap-booklet_nine-1.pdf",
-        tag: "Available"
+        tag: "AVAILABLE",
+        movementIndex: 4
+      },
+      {
+        slug: "booklet-ten",
+        numberLabel: "Booklet Ten",
+        title: "The Long Witnesses",
+        subtitle: "Chiranjeevis, Memory, and the Work That Outlives Us",
+        description:
+          "The seeker meets the long witnesses: Hanuman, Vibhishana, Vyasa, Ashwatthama, Kripa, Bali, Parashurama. Not as mythological characters. As living presences who remind us that some work spans lifetimes. Memory becomes anchor, not burden. The seeker learns to bow before what outlives him.",
+        tag: "AVAILABLE",
+        movementIndex: 1
+      },
+      {
+        slug: "booklet-eleven",
+        numberLabel: "Booklet Eleven",
+        title: "When Happiness Refused to Stay",
+        subtitle: "Pleasure, Attachment, and the Real Happiness That Does Not Flee",
+        description:
+          "The seeker asks why happiness keeps leaving. Why pleasure turns to restlessness. Why comfort becomes cage. He learns to distinguish between the happiness that depends on circumstances and the happiness that comes from alignment with dharma and surrender.",
+        tag: "AVAILABLE",
+        movementIndex: 1
+      },
+      {
+        slug: "booklet-twelve",
+        numberLabel: "Booklet Twelve",
+        title: "When Strategy Burned",
+        subtitle: "Planning, Ego, and the Freedom to Trust the Process",
+        description:
+          "The seeker's strategies burn. His plans crumble. His need to control everything is exposed as another face of ego. He learns that surrender is not passivity. It is alignment with something larger than his own small mind.",
+        tag: "AVAILABLE",
+        movementIndex: 1
+      },
+      {
+        slug: "booklet-thirteen",
+        numberLabel: "Booklet Thirteen",
+        title: "The Sacred Interval",
+        subtitle: "When Questions Exhaust Themselves and Silence Becomes Answer",
+        description:
+          "The seeker reaches the place where questions no longer need answers. Where the mind stops demanding immediate solutions. Where silence itself becomes the teacher. This is the sacred interval: the space between asking and receiving, between effort and grace.",
+        tag: "AVAILABLE",
+        movementIndex: 1
+      },
+      {
+        slug: "booklet-fourteen",
+        numberLabel: "Booklet Fourteen",
+        title: "When Blame Arrived",
+        subtitle: "Projection, Responsibility, and Compassion Without Collapse",
+        description:
+          "Blame comes. The seeker is blamed. He feels the urge to blame others. He learns to see blame as projection, not truth. He learns how to hold space for another's pain without absorbing it, how to be compassionate without becoming available for every projection.",
+        tag: "AVAILABLE",
+        movementIndex: 5
+      },
+      {
+        slug: "booklet-fifteen",
+        numberLabel: "Booklet Fifteen",
+        title: "When Dependency Knocked",
+        subtitle: "Neediness, Boundaries, and Love That Does Not Enslave",
+        description:
+          "Dependency arrives in many forms: emotional, financial, psychological. The seeker learns to distinguish between healthy interdependence and unhealthy enmeshment. He learns to set boundaries with love, not anger. He learns that true love does not require sacrificing oneself.",
+        tag: "AVAILABLE",
+        movementIndex: 5
+      },
+      {
+        slug: "booklet-sixteen",
+        numberLabel: "Booklet Sixteen",
+        title: "When Roles Became Masks",
+        subtitle: "Identity, Performance, and the Freedom to Be Human",
+        description:
+          "The seeker sees how roles become masks: professional, parental, social, spiritual. He learns to act within roles without being possessed by them. He learns to take off the masks when needed, to be human, vulnerable, and real.",
+        tag: "AVAILABLE",
+        movementIndex: 5
+      },
+      {
+        slug: "booklet-seventeen",
+        numberLabel: "Booklet Seventeen",
+        title: "The Cleaner Return",
+        subtitle: "Love, Forgiveness, and Standing With People After the Inward Fire",
+        description:
+          "After the inward journey, the seeker returns to people. Not the same person. Cleaner. Clearer. He learns to love without clinging, to forgive without forgetting, to stand with people without losing himself. This is the cleaner return: coming back to the human field with compassion and clarity.",
+        tag: "AVAILABLE",
+        movementIndex: 5
       }
     ],
     closing: [
@@ -416,15 +537,19 @@ export const defaultSiteContent: SiteContent = {
         booklets: "1-3",
         description:
           "Dharma is tested. Silence becomes sound. Language learns to bow.",
-        status: "draft"
+        status: "published"
       },
       {
         slug: "the-seeker-and-the-long-work",
         title: "The Seeker and the Long Work of Bhagavān",
-        booklets: "4-5",
+        booklets: "4-5, 10-11, 13",
         description:
-          "Māyā, responsibility, surrender, and the Chiranjeevis as witnesses.",
-        status: "draft"
+          "Maya, responsibility, surrender, the long witnesses, and the sacred interval where questions exhaust themselves.",
+        pageIntro:
+          "Movement Two follows the seeker after the first inward map has been drawn. The work is no longer only conceptual. Maya appears inside planning, responsibility, happiness, strategy, witness, silence, and surrender. The seeker learns that Bhagavan’s work is long, patient, and often hidden inside ordinary life.",
+        bookletInclusionNote:
+          "Booklets 4, 5, 10, 11, and 13 belong here: optimization giving way to surrender, the Chiranjeevis as witnesses, strategy burning, happiness refusing to stay, and the sacred interval where the mind stops demanding immediate answers.",
+        status: "published"
       },
       {
         slug: "grief-as-fire",
@@ -440,7 +565,7 @@ export const defaultSiteContent: SiteContent = {
         booklets: "8",
         description:
           "The seeker turns toward Nādeśvara. The bow becomes rhythm.",
-        status: "draft"
+        status: "published"
       },
       {
         slug: "the-child-returns",
@@ -448,7 +573,23 @@ export const defaultSiteContent: SiteContent = {
         booklets: "9",
         description:
           "Bhakti becomes childlike again. The child asks to be held.",
-        status: "draft"
+        status: "published"
+      },
+      {
+        slug: "return-to-people",
+        title: "Return to People",
+        booklets: "14-17",
+        description:
+          "Blame, dependency, role, boundary, love, and the difficult return to people after the inward fire.",
+        landingHeroLine:
+          "The inward journey is tested not only in solitude, but in the human field around us.",
+        openingParagraph:
+          "After the seeker has gone inward, he must stand among people again. Family, colleagues, students, teams, old loyalties, wounded minds, loving minds, blaming minds, and dependent minds all become part of the field. Movement Six asks how the seeker remains compassionate without becoming available for every projection, how he helps without replacing another person’s dharma, and how he acts inside roles without being possessed by them.",
+        arcLine:
+          "The seeker learns that other people’s pain must be seen with compassion, but not always obeyed, absorbed, explained, or allowed into the inner sanctum.",
+        closingLine:
+          "This movement is not a withdrawal from people. It is a cleaner return to them.",
+        status: "published"
       }
     ]
   },
@@ -518,24 +659,37 @@ export function getBookletMovementIndex(booklet: Booklet, fallbackIndex = 0) {
     return Math.max(0, booklet.movementIndex);
   }
 
-  // Original fallback logic for backward compatibility
-  if (fallbackIndex < 3) {
+  // Original fallback logic for backward compatibility (0-based)
+  if (fallbackIndex < 3) { // 0-2: Booklets 1-3
     return 0;
   }
 
-  if (fallbackIndex < 5) {
+  // 3-4 (4-5), 9-10 (10-11), 12 (13): Movement 2
+  if (
+    (fallbackIndex >= 3 && fallbackIndex < 5) || 
+    (fallbackIndex >= 9 && fallbackIndex < 11) || 
+    fallbackIndex === 12
+  ) {
     return 1;
   }
 
-  if (fallbackIndex < 7) {
+  if (fallbackIndex >= 5 && fallbackIndex < 7) { //5-6: 6-7
     return 2;
   }
 
-  if (fallbackIndex < 8) {
+  if (fallbackIndex === 7) { //7:8
     return 3;
   }
 
-  return 4;
+  if (fallbackIndex === 8) { //8:9
+    return 4;
+  }
+
+  if (fallbackIndex >= 13) { //13-16: 14-17
+    return 5;
+  }
+
+  return 0;
 }
 
 export function getBookletNeighbors(booklets: Booklet[], slug: string) {

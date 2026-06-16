@@ -9,7 +9,18 @@ export function SiteFooter({ footer }: Props) {
   return (
     <footer className="quiet-divider bg-ink px-5 py-12">
       <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-[1.2fr_1fr_1fr]">
-        <p className="font-display text-2xl text-parchment">{footer.title}</p>
+        <div className="flex flex-col gap-4">
+          <Link href="/" className="flex items-center gap-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/valluru-logo.png"
+              alt="The Valluru"
+               className="h-14 w-auto sm:h-16 lg:h-20"
+              loading="lazy"
+            />
+          </Link>
+          <p className="font-display text-2xl text-parchment">{footer.title}</p>
+        </div>
         <nav className="grid gap-3">
           {footer.links.map((link) => (
             <Link

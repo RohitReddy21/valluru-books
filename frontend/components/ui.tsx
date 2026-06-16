@@ -1,9 +1,10 @@
+"use client";
+
 import type { HTMLAttributes } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { Booklet, Cta } from "@/lib/site-content";
-import { bookletPublicSlug } from "@/lib/site-content";
-import { AddToCartButton } from "@/components/cart-actions";
+import { bookletPublicSlug, movementSlug, isPublished } from "@/lib/site-content";
 
 export function PageShell({ children }: { children: React.ReactNode }) {
   return <main className="pt-20">{children}</main>;
@@ -114,7 +115,7 @@ export function SecondaryLink({ cta }: { cta: Cta }) {
 }
 
 export function BookletCard({ booklet }: { booklet: Booklet }) {
-  const badge = booklet.badge || booklet.tag || "Published";
+  const badge = booklet.badge || booklet.tag || "AVAILABLE";
   // Truncate description to ~120 chars for better card visibility
   const truncatedDescription = booklet.description
     ? booklet.description.length > 120
@@ -123,47 +124,174 @@ export function BookletCard({ booklet }: { booklet: Booklet }) {
     : "";
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-md border border-gold/15 bg-surface/80 shadow-[0_18px_55px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-1 hover:border-gold/45 hover:bg-surface">
-      <div className="relative aspect-[4/5] overflow-hidden border-b border-gold/10 bg-ink flex-shrink-0">
-        {booklet.coverImage ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              alt={booklet.title}
-              className="h-full w-full object-cover opacity-90 transition duration-500 group-hover:scale-[1.03] group-hover:opacity-100"
-              src={booklet.coverImage}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/30 to-transparent" />
-          </>
-        ) : (
-          <div className="h-full w-full bg-[linear-gradient(135deg,rgba(196,169,107,0.16),rgba(15,14,12,0.96))]" />
-        )}
-        <div className="absolute inset-x-4 bottom-4 flex flex-wrap items-center gap-2">
-          <span className="rounded-md border border-gold/30 bg-ink/75 px-3 py-1.5 font-label text-xs uppercase tracking-[0.24em] text-gold backdrop-blur">
-            {booklet.numberLabel}
-          </span>
-          <span className="rounded-md border border-parchment/12 bg-parchment/8 px-3 py-1.5 font-label text-[11px] uppercase tracking-[0.2em] text-parchment/80 backdrop-blur">
-            {badge}
-          </span>
+    <>
+      <article className="group flex h-full flex-col overflow-hidden rounded-md border border-gold/15 bg-surface/80 shadow-[0_18px_55px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-1 hover:border-gold/45 hover:bg-surface">
+        <div className="relative aspect-[4/5] overflow-hidden border-b border-gold/10 bg-ink flex-shrink-0">
+          {booklet.coverImage ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt={booklet.title}
+                className="h-full w-full object-cover opacity-90 transition duration-500 group-hover:scale-[1.03] group-hover:opacity-100"
+                src={booklet.coverImage}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/30 to-transparent" />
+            </>
+          ) : (
+            <div className="h-full w-full bg-[linear-gradient(135deg,rgba(196,169,107,0.16),rgba(15,14,12,0.96))]" />
+          )}
+          <div className="absolute inset-x-4 bottom-4 flex flex-wrap items-center gap-2">
+            <span className="rounded-md border border-gold/30 bg-ink/75 px-3 py-1.5 font-label text-xs uppercase tracking-[0.24em] text-gold backdrop-blur">
+              {booklet.numberLabel}
+            </span>
+            <span className="rounded-md border border-parchment/12 bg-parchment/8 px-3 py-1.5 font-label text-[11px] uppercase tracking-[0.2em] text-parchment/80 backdrop-blur">
+              {badge}
+            </span>
+          </div>
         </div>
-      </div>
-      <div className="flex flex-1 flex-col p-5 sm:p-6">
-        <h2 className="responsive-card-title font-display font-semibold text-parchment transition group-hover:text-gold">
-          {booklet.title}
-        </h2>
-        <p className="mt-2 text-sm italic leading-6 text-muted/85">
-          {booklet.subtitle}
-        </p>
-        {truncatedDescription && (
-          <p className="mt-4 line-clamp-3 text-sm leading-6 text-parchment/75">
-            {truncatedDescription}
+        <div className="flex flex-1 flex-col p-5 sm:p-6">
+          <h2 className="responsive-card-title font-display font-semibold text-parchment transition group-hover:text-gold">
+            {booklet.title}
+          </h2>
+          <p className="mt-2 text-sm italic leading-6 text-muted/85">
+            {booklet.subtitle}
           </p>
-        )}
-        <div className="mt-auto flex flex-wrap gap-3 pt-6">
-          <PrimaryLink cta={{ label: "Read Booklet", href: `/series/${bookletPublicSlug(booklet)}` }} />
-          <AddToCartButton booklet={booklet} />
+          {truncatedDescription && (
+            <p className="mt-4 line-clamp-3 text-sm leading-6 text-parchment/75">
+              {truncatedDescription}
+            </p>
+          )}
+          <div className="mt-auto flex flex-wrap gap-3 pt-6">
+            <PrimaryLink cta={{ label: "Read Booklet", href: `/series/${bookletPublicSlug(booklet)}` }} />
+            {booklet.coffeeTableEdition === "unavailable" ? (
+              <span className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/35 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted cursor-not-allowed">
+                COFFEE-TABLE EDITION UNAVAILABLE
+              </span>
+            ) : null}
+            {/* Add to cart is temporarily disabled.
+              <button
+                className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/35 bg-gold/5 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-gold transition hover:border-gold hover:bg-gold/10"
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+              >
+                Add to Cart
+              </button>
+            */}
+          </div>
         </div>
-      </div>
+      </article>
+      {/* Add to cart modal is temporarily disabled.
+      <CoffeeTableUnavailableModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
+      */}
+    </>
+  );
+}
+
+export function MovementCard({ movement, index }: { movement: any; index: number }) {
+  const isPublishedMovement = isPublished(movement.status);
+  const slug = movementSlug(movement, index);
+  const badge = movement.status === "draft" ? "Coming Soon" : "AVAILABLE";
+  const truncatedDescription = movement.description
+    ? movement.description.length > 120
+      ? movement.description.substring(0, 120) + "..."
+      : movement.description
+    : "";
+
+  if (!isPublishedMovement) {
+    return (
+      <article className="group flex h-full flex-col overflow-hidden rounded-md border border-gold/15 bg-surface/80 shadow-[0_18px_55px_rgba(0,0,0,0.22)] opacity-75 cursor-not-allowed">
+        <div className="relative aspect-[4/5] overflow-hidden border-b border-gold/10 bg-ink flex-shrink-0">
+          {movement.coverImage ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt={movement.title}
+                className="h-full w-full object-cover opacity-90"
+                src={movement.coverImage}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/30 to-transparent" />
+            </>
+          ) : (
+            <div className="h-full w-full bg-[linear-gradient(135deg,rgba(196,169,107,0.16),rgba(15,14,12,0.96))]" />
+          )}
+          <div className="absolute inset-x-4 bottom-4 flex flex-wrap items-center gap-2">
+            <span className="rounded-md border border-gold/30 bg-ink/75 px-3 py-1.5 font-label text-xs uppercase tracking-[0.24em] text-gold backdrop-blur">
+              Movement {index + 1}
+            </span>
+            <span className="rounded-md border border-parchment/12 bg-parchment/8 px-3 py-1.5 font-label text-[11px] uppercase tracking-[0.2em] text-parchment/80 backdrop-blur">
+              {badge}
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-1 flex-col p-5 sm:p-6">
+          <h2 className="responsive-card-title font-display font-semibold text-muted">
+            {movement.title}
+          </h2>
+          {movement.booklets && (
+            <p className="mt-2 text-sm italic leading-6 text-muted/85">
+              {movement.booklets}
+            </p>
+          )}
+          {truncatedDescription && (
+            <p className="mt-4 line-clamp-3 text-sm leading-6 text-muted/75">
+              {truncatedDescription}
+            </p>
+          )}
+        </div>
+      </article>
+    );
+  }
+
+  return (
+    <article className="group flex h-full flex-col overflow-hidden rounded-md border border-gold/15 bg-surface/80 shadow-[0_18px_55px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-1 hover:border-gold/45 hover:bg-surface">
+      <Link href={`/movements/${slug}`} className="block flex flex-col h-full">
+        <div className="relative aspect-[4/5] overflow-hidden border-b border-gold/10 bg-ink flex-shrink-0">
+          {movement.coverImage ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt={movement.title}
+                className="h-full w-full object-cover opacity-90 transition duration-500 group-hover:scale-[1.03] group-hover:opacity-100"
+                src={movement.coverImage}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/30 to-transparent" />
+            </>
+          ) : (
+            <div className="h-full w-full bg-[linear-gradient(135deg,rgba(196,169,107,0.16),rgba(15,14,12,0.96))]" />
+          )}
+          <div className="absolute inset-x-4 bottom-4 flex flex-wrap items-center gap-2">
+            <span className="rounded-md border border-gold/30 bg-ink/75 px-3 py-1.5 font-label text-xs uppercase tracking-[0.24em] text-gold backdrop-blur">
+              Movement {index + 1}
+            </span>
+            <span className="rounded-md border border-parchment/12 bg-parchment/8 px-3 py-1.5 font-label text-[11px] uppercase tracking-[0.2em] text-parchment/80 backdrop-blur">
+              {badge}
+            </span>
+          </div>
+        </div>
+        <div className="flex flex-1 flex-col p-5 sm:p-6">
+          <h2 className="responsive-card-title font-display font-semibold text-parchment transition group-hover:text-gold">
+            {movement.title}
+          </h2>
+          {movement.booklets && (
+            <p className="mt-2 text-sm italic leading-6 text-muted/85">
+              {movement.booklets}
+            </p>
+          )}
+          {truncatedDescription && (
+            <p className="mt-4 line-clamp-3 text-sm leading-6 text-parchment/75">
+              {truncatedDescription}
+            </p>
+          )}
+          <div className="mt-auto flex flex-wrap gap-3 pt-6">
+            <span className="inline-flex items-center justify-center gap-2 font-label text-sm uppercase tracking-[0.2em] text-gold transition group-hover:text-parchment">
+              Explore Movement <ArrowRight size={15} />
+            </span>
+          </div>
+        </div>
+      </Link>
     </article>
   );
 }

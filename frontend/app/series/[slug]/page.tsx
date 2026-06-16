@@ -4,6 +4,8 @@ import { BookletReader } from "@/components/booklet-reader";
 import { ReflectionForm } from "@/components/reflection-form";
 import { BackLink, PageShell, PrimaryLink } from "@/components/ui";
 import { Breadcrumb } from "@/components/breadcrumb";
+import { FaqAccordion } from "@/components/faq-accordion";
+// import { AddToCartButton } from "@/components/add-to-cart-button";
 import { bookletMatchesSlug, bookletPublicSlug, defaultSiteContent, getBookletNeighbors, isPublished } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
 
@@ -211,8 +213,26 @@ export default async function BookletPage({
             <p className="responsive-prose mt-8 text-parchment/88">
               {booklet.description}
             </p>
-            <div className="mt-10">
+            <div className="mt-10 flex flex-wrap gap-3">
               <BackLink href="/series" label="Back to the Series" />
+              {booklet.coffeeTableEdition === "unavailable" ? (
+                <span className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/35 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted cursor-not-allowed">
+                  COFFEE-TABLE EDITION UNAVAILABLE
+                </span>
+              ) : null}
+              {/* Add to cart is temporarily disabled.
+                <AddToCartButton />
+              */}
+              {/* {booklet.pdf ? (
+                <a
+                  className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
+                  href={booklet.pdf}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Download
+                </a>
+              ) : null} */}
             </div>
             <BookletReader booklet={booklet} />
           </article>
@@ -271,14 +291,7 @@ export default async function BookletPage({
             <h2 className="mt-4 font-display text-3xl font-semibold text-parchment">
               Frequently Asked Questions
             </h2>
-            <div className="mt-8 space-y-6">
-              {faqItems.map((item) => (
-                <div key={item.question} className="rounded-md border border-gold/15 bg-surface/50 p-6">
-                  <h3 className="font-display text-2xl text-parchment">{item.question}</h3>
-                  <p className="mt-3 text-base leading-7 text-parchment/80">{item.answer}</p>
-                </div>
-              ))}
-            </div>
+            <FaqAccordion items={faqItems} />
           </section>
           <ReflectionForm bookletSlug={booklet.slug} />
         </div>

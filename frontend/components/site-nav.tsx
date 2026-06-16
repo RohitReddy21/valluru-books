@@ -4,7 +4,6 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import type { SiteContent } from "@/lib/site-content";
-import { CartLink } from "@/components/cart-actions";
 
 type Props = {
   nav: SiteContent["nav"];
@@ -23,14 +22,11 @@ export function SiteNav({ nav }: Props) {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="https://cdn.builder.io/api/v1/image/assets%2Fa9f0c06f5baf4102aeeefe7a4239e63b%2F1b42a302d54345e6a88582345503b13f?format=webp&width=800&height=1200"
+            src="/valluru-logo.png"
             alt="The Valluru"
-            className="h-10 w-auto sm:h-12 lg:h-14"
+            className="h-14 w-auto sm:h-16 lg:h-20"
             loading="eager"
           />
-          <span className="hidden font-display text-sm font-semibold text-parchment sm:text-base md:text-lg lg:text-xl lg:inline">
-            {nav.logo}
-          </span>
         </Link>
 
         <nav className="hidden items-center gap-5 lg:gap-8 md:flex">
@@ -49,7 +45,6 @@ export function SiteNav({ nav }: Props) {
           >
             {nav.button.label}
           </Link>
-          <CartLink />
         </nav>
 
         <button
@@ -81,13 +76,6 @@ export function SiteNav({ nav }: Props) {
               onClick={() => setOpen(false)}
             >
               {nav.button.label}
-            </Link>
-            <Link
-              className="mt-3 rounded-md border border-gold/20 px-4 py-3 text-center font-label text-sm uppercase tracking-[0.2em] text-muted"
-              href="/checkout"
-              onClick={() => setOpen(false)}
-            >
-              Cart
             </Link>
           </nav>
         </div>

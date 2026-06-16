@@ -12,7 +12,9 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
   };
 
   // Ensure "Movements" is in nav links
-  const navLinks = [...(nav.links || [])].filter((link) => link.href !== "/essays");
+  const navLinks = [...(nav.links || [])].filter(
+    (link) => link.href !== "/essays" && link.href !== "/cart" && link.href !== "/checkout"
+  );
   const hasMovementsInNav = navLinks.some((link) => link.href === "/movements");
   if (!hasMovementsInNav) {
     // Insert Movements after "The Series" (href: /series) if possible, otherwise just add it

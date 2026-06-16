@@ -2094,6 +2094,12 @@ function MovementsPanel({
           </div>
 
           <TextAreaField label="Description" onChange={(value) => updateMovement(index, { description: value })} value={movement.description} />
+          <TextAreaField label="Page Intro" onChange={(value) => updateMovement(index, { pageIntro: value })} value={movement.pageIntro || ""} />
+          <TextAreaField label="Booklet Inclusion Note" onChange={(value) => updateMovement(index, { bookletInclusionNote: value })} value={movement.bookletInclusionNote || ""} />
+          <TextAreaField label="Landing Hero Line" onChange={(value) => updateMovement(index, { landingHeroLine: value })} value={movement.landingHeroLine || ""} />
+          <TextAreaField label="Opening Paragraph" onChange={(value) => updateMovement(index, { openingParagraph: value })} value={movement.openingParagraph || ""} />
+          <TextAreaField label="Arc Line" onChange={(value) => updateMovement(index, { arcLine: value })} value={movement.arcLine || ""} />
+          <TextAreaField label="Closing Line" onChange={(value) => updateMovement(index, { closingLine: value })} value={movement.closingLine || ""} />
 
           <div className="rounded-md border border-gold/15 bg-ink p-5">
             <p className="font-label text-sm uppercase tracking-[0.2em] text-gold mb-4">
