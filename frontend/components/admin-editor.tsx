@@ -2705,7 +2705,7 @@ function BookletPanel({
         <TextField
           label="Badge / Tag"
           onChange={(value) => updateBooklet(booklet.slug, { badge: value, tag: value })}
-          value={booklet.badge || booklet.tag}
+          value={booklet.badge || booklet.tag || ""}
         />
       </div>
       <TextField

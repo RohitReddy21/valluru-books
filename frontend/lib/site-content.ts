@@ -84,8 +84,6 @@ export type Booklet = {
   price?: number;
   currency?: string;
   seo?: SeoMetadata;
-  badge?: string;
-  tag: string;
 };
 
 export type SiteMedia = {
