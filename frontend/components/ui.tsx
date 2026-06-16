@@ -230,11 +230,6 @@ export function MovementCard({ movement, index }: { movement: any; index: number
           <h2 className="responsive-card-title font-display font-semibold text-muted">
             {movement.title}
           </h2>
-          {movement.booklets && (
-            <p className="mt-2 text-sm italic leading-6 text-muted/85">
-              {movement.booklets}
-            </p>
-          )}
           {truncatedDescription && (
             <p className="mt-4 line-clamp-3 text-sm leading-6 text-muted/75">
               {truncatedDescription}
@@ -275,11 +270,6 @@ export function MovementCard({ movement, index }: { movement: any; index: number
           <h2 className="responsive-card-title font-display font-semibold text-parchment transition group-hover:text-gold">
             {movement.title}
           </h2>
-          {movement.booklets && (
-            <p className="mt-2 text-sm italic leading-6 text-muted/85">
-              {movement.booklets}
-            </p>
-          )}
           {truncatedDescription && (
             <p className="mt-4 line-clamp-3 text-sm leading-6 text-parchment/75">
               {truncatedDescription}
