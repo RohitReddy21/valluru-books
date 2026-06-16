@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Eye, FileText, ImageIcon, Package, Plus, RefreshCw, RotateCcw, Save, Trash2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, Eye, FileText, ImageIcon, Package, Plus, RefreshCw, RotateCcw, Save, Trash2, Upload } from "lucide-react";
 import { apiUrl } from "@/lib/api";
 import type { Booklet, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
 import { defaultSiteContent, getBookletMovementIndex } from "@/lib/site-content";
@@ -123,6 +123,41 @@ function toParagraphs(value: string) {
     .filter(Boolean);
 }
 
+function moveArrayItem<T>(items: T[], fromIndex: number, toIndex: number) {
+  const nextItems = [...items];
+  const [item] = nextItems.splice(fromIndex, 1);
+  nextItems.splice(toIndex, 0, item);
+  return nextItems;
+}
+
+function remapMovementBookletIndices(
+  movements: Movement[],
+  previousBooklets: Booklet[],
+  nextBooklets: Booklet[]
+) {
+  const previousSlugs = previousBooklets.map((booklet) => booklet.slug);
+  const nextIndexBySlug = new Map(
+    nextBooklets.map((booklet, index) => [booklet.slug, index])
+  );
+
+  return movements.map((movement) => {
+    if (!movement.bookletIndices?.length) {
+      return movement;
+    }
+
+    const nextIndices = Array.from(
+      new Set(
+        movement.bookletIndices
+          .map((index) => previousSlugs[index])
+          .map((slug) => (slug ? nextIndexBySlug.get(slug) : undefined))
+          .filter((index): index is number => typeof index === "number")
+      )
+    ).sort((left, right) => left - right);
+
+    return { ...movement, bookletIndices: nextIndices };
+  });
+}
+
 function fromParagraphs(value: string[]) {
   return value.join("\n\n");
 }
@@ -206,6 +241,47 @@ export function AdminEditor({ initialContent, source }: Props) {
         )
       }
     }));
+  }
+
+  function reorderBooklet(slug: string, targetIndex: number) {
+    setContent((current) => {
+      const booklets = current.series.booklets;
+      const fromIndex = booklets.findIndex((booklet) => booklet.slug === slug);
+      const nextIndex = Math.max(0, Math.min(targetIndex, booklets.length - 1));
+
+      if (fromIndex === -1 || fromIndex === nextIndex) {
+        return current;
+      }
+
+      const nextBooklets = moveArrayItem(booklets, fromIndex, nextIndex);
+
+      return {
+        ...current,
+        series: {
+          ...current.series,
+          booklets: nextBooklets
+        },
+        home: {
+          ...current.home,
+          seriesOverview: {
+            ...current.home.seriesOverview,
+            movements: remapMovementBookletIndices(
+              current.home.seriesOverview.movements,
+              booklets,
+              nextBooklets
+            )
+          }
+        },
+        movements: {
+          ...current.movements,
+          items: remapMovementBookletIndices(
+            current.movements.items,
+            booklets,
+            nextBooklets
+          )
+        }
+      };
+    });
   }
 
   async function save() {
@@ -1016,6 +1092,7 @@ export function AdminEditor({ initialContent, source }: Props) {
                 selectedSlug={selectedBookletSlug}
                 setPdfFile={setPdfFile}
                 setSelectedSlug={setSelectedBookletSlug}
+                reorderBooklet={reorderBooklet}
                 updateBooklet={updateBooklet}
                 updateBookStatus={updateBookStatus}
                 uploadPdf={uploadPdf}
@@ -2114,8 +2191,8 @@ function MovementsPanel({
                     onChange={(event) => {
                       const currentIndices = movement.bookletIndices || [];
                       const newIndices = event.target.checked
-                        ? [...currentIndices, bookletIndex]
-                        : currentIndices.filter(i => i !== bookletIndex);
+                        ? Array.from(new Set([...currentIndices, bookletIndex])).sort((left, right) => left - right)
+                        : currentIndices.filter(i => i !== bookletIndex).sort((left, right) => left - right);
                       updateMovement(index, { bookletIndices: newIndices });
                     }}
                     className="rounded border-gold/40 bg-surface"
@@ -2445,6 +2522,7 @@ function BookletPanel({
   booklets,
   selectedSlug,
   setSelectedSlug,
+  reorderBooklet,
   updateBooklet,
   updateBookStatus,
   bulkBookStatus,
@@ -2464,6 +2542,7 @@ function BookletPanel({
   booklets: Booklet[];
   selectedSlug: string;
   setSelectedSlug: (slug: string) => void;
+  reorderBooklet: (slug: string, targetIndex: number) => void;
   updateBooklet: (slug: string, patch: Partial<Booklet>) => void;
   updateBookStatus: (slug: string, status: PublishStatus) => void;
   bulkBookStatus: (status: PublishStatus) => void;
@@ -2479,9 +2558,10 @@ function BookletPanel({
   uploadBookletCover: () => void;
   bookletCoverStatus: string;
 }) {
+  const currentBookletIndex = booklets.findIndex((item) => item.slug === booklet.slug);
   const currentMovementIndex = getBookletMovementIndex(
     booklet,
-    booklets.findIndex((item) => item.slug === booklet.slug)
+    currentBookletIndex
   );
 
   return (
@@ -2510,6 +2590,80 @@ function BookletPanel({
           Add New Book
         </button>
       </div>
+
+      <div className="rounded-md border border-gold/15 bg-ink p-5">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+          <p className="font-label text-sm uppercase tracking-[0.2em] text-gold">
+            Reading Order
+          </p>
+          <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted md:w-72">
+            Selected Position
+            <select
+              className="mt-3 w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-base normal-case tracking-normal text-parchment outline-none focus:border-gold/60"
+              onChange={(event) => reorderBooklet(booklet.slug, Number(event.target.value))}
+              value={Math.max(0, currentBookletIndex)}
+            >
+              {booklets.map((item, index) => (
+                <option key={item.slug} value={index}>
+                  {index + 1}. {item.numberLabel}: {item.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        <div className="mt-4 grid gap-2">
+          {booklets.map((item, index) => {
+            const isSelected = item.slug === booklet.slug;
+
+            return (
+              <div
+                className={`flex flex-col justify-between gap-3 rounded-md border px-3 py-3 sm:flex-row sm:items-center ${
+                  isSelected
+                    ? "border-gold/50 bg-surface"
+                    : "border-gold/10 bg-surface/60"
+                }`}
+                key={item.slug}
+              >
+                <button
+                  className="min-w-0 text-left"
+                  onClick={() => setSelectedSlug(item.slug)}
+                  type="button"
+                >
+                  <span className="font-label text-xs uppercase tracking-[0.18em] text-gold">
+                    {index + 1}. {item.numberLabel}
+                  </span>
+                  <span className="mt-1 block truncate text-base text-parchment">
+                    {item.title}
+                  </span>
+                </button>
+                <div className="flex gap-2">
+                  <button
+                    aria-label={`Move ${item.title} up`}
+                    className="inline-flex size-10 items-center justify-center rounded-md border border-gold/25 text-muted transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={index === 0}
+                    onClick={() => reorderBooklet(item.slug, index - 1)}
+                    title={`Move ${item.title} up`}
+                    type="button"
+                  >
+                    <ArrowUp size={16} />
+                  </button>
+                  <button
+                    aria-label={`Move ${item.title} down`}
+                    className="inline-flex size-10 items-center justify-center rounded-md border border-gold/25 text-muted transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-40"
+                    disabled={index === booklets.length - 1}
+                    onClick={() => reorderBooklet(item.slug, index + 1)}
+                    title={`Move ${item.title} down`}
+                    type="button"
+                  >
+                    <ArrowDown size={16} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="flex flex-wrap gap-3">
         <button
           className="rounded-md border border-gold/30 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
