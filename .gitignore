@@ -14,6 +14,7 @@ frontend-dev*.log
 data/
 public/uploads/
 frontend/public/uploads/
+frontend/public/pdfjs/
 frontend/.next
 frontend/out
 backend/.env

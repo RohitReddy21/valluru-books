@@ -20,6 +20,8 @@ type PdfPage = {
   height: number;
 };
 
+const PDFJS_ASSET_PATH = "/pdfjs/";
+
 export function PdfBookModal({
   open,
   onClose,
@@ -43,16 +45,22 @@ export function PdfBookModal({
     async function renderPdf() {
       try {
         const pdfjs = await import("pdfjs-dist");
-        pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+        pdfjs.GlobalWorkerOptions.workerSrc = `${PDFJS_ASSET_PATH}pdf.worker.min.mjs`;
 
         const isExternal = /^https?:\/\//.test(pdfUrl);
         const loadingParams = {
           url: pdfUrl,
+          cMapPacked: true,
+          cMapUrl: `${PDFJS_ASSET_PATH}cmaps/`,
           httpHeaders: (!isExternal && accessToken)
             ? {
                 Authorization: `Bearer ${accessToken}`
               }
             : undefined,
+          iccUrl: `${PDFJS_ASSET_PATH}iccs/`,
+          standardFontDataUrl: `${PDFJS_ASSET_PATH}standard_fonts/`,
+          useWasm: true,
+          wasmUrl: `${PDFJS_ASSET_PATH}wasm/`,
           withCredentials: !isExternal
         } as Parameters<typeof pdfjs.getDocument>[0];
         const pdf = await pdfjs.getDocument(loadingParams).promise;

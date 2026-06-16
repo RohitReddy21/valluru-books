@@ -5,9 +5,10 @@
     "node": ">=20.9.0"
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "npm run prepare-pdfjs && next dev",
+    "prepare-pdfjs": "node scripts/copy-pdfjs-assets.mjs",
     "generate-sitemap": "node scripts/generate-sitemap.js",
-    "build": "npm run generate-sitemap && next build",
+    "build": "npm run prepare-pdfjs && npm run generate-sitemap && next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0"
   },
