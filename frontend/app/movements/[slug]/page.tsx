@@ -66,10 +66,11 @@ export default async function MovementDetailPage({
   // Get booklets in this movement, preserving the admin-managed booklet order.
   const bookletIndices = new Set(movement.bookletIndices || []);
   const movementBooklets = content.series.booklets.filter((booklet, bookletIndex) => {
+    const assignedToMovement = getBookletMovementIndex(booklet, bookletIndex) === movementIndex;
     const isInMovement =
       bookletIndices.size > 0
-        ? bookletIndices.has(bookletIndex)
-        : getBookletMovementIndex(booklet, bookletIndex) === movementIndex;
+        ? bookletIndices.has(bookletIndex) || assignedToMovement
+        : assignedToMovement;
 
     return isInMovement && isPublished(booklet.status);
   });

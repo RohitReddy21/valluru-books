@@ -20,14 +20,24 @@ const booklets = [
   { slug: 'booklet-seven-beyond-grief', changefreq: 'monthly' },
   { slug: 'booklet-eight-nadesvara-ksobhasamana-stotram', changefreq: 'monthly' },
   { slug: 'booklet-nine-in-ammas-lap', changefreq: 'monthly' },
+  { slug: 'booklet-ten-the-long-witnesses', changefreq: 'monthly' },
+  { slug: 'booklet-eleven-when-happiness-refused-to-stay', changefreq: 'monthly' },
+  { slug: 'booklet-twelve-when-strategy-burned', changefreq: 'monthly' },
+  { slug: 'booklet-thirteen-the-sacred-interval', changefreq: 'monthly' },
+  { slug: 'booklet-fourteen-when-blame-arrived', changefreq: 'monthly' },
+  { slug: 'booklet-fifteen-when-dependency-knocked', changefreq: 'monthly' },
+  { slug: 'booklet-sixteen-when-roles-became-masks', changefreq: 'monthly' },
+  { slug: 'booklet-seventeen-the-cleaner-return', changefreq: 'monthly' },
+  { slug: 'booklet-eighteen-when-the-bond-becomes-a-claim', changefreq: 'monthly' },
 ];
 
 const movements = [
-  { slug: 'inward-map', changefreq: 'monthly' },
-  { slug: 'seeker-and-bhagavan', changefreq: 'monthly' },
-  { slug: 'nada', changefreq: 'monthly' },
+  { slug: 'the-inward-map', changefreq: 'monthly' },
+  { slug: 'the-seeker-and-the-long-work', changefreq: 'monthly' },
   { slug: 'grief-as-fire', changefreq: 'monthly' },
-  { slug: 'childs-return', changefreq: 'monthly' },
+  { slug: 'nada-as-offering', changefreq: 'monthly' },
+  { slug: 'the-child-returns', changefreq: 'monthly' },
+  { slug: 'return-to-people', changefreq: 'monthly' },
 ];
 
 function generateSitemapXml() {

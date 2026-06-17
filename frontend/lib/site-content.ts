@@ -61,11 +61,27 @@ export type SeoMetadata = {
   keywords?: string;
 };
 
+export type BookletFaq = {
+  question: string;
+  answer: string;
+};
+
 export type Booklet = {
   slug: string;
   numberLabel: string;
   title: string;
   subtitle: string;
+  cardSubtitle?: string;
+  shortCardBody?: string;
+  detailIntro?: string;
+  oneLineHook?: string;
+  detailSubtitle?: string;
+  readerPositioning?: string;
+  explores?: string;
+  readButtonText?: string;
+  downloadButtonText?: string;
+  faqs?: BookletFaq[];
+  relatedBookletSlugs?: string[];
   movementIndex?: number;
   status?: PublishStatus;
   sourcesNote?: string;
@@ -202,7 +218,7 @@ export const defaultSiteContent: SiteContent = {
         "Only a set of writings for those who are still willing to look inward."
       ],
       primaryCta: { label: "Begin with Booklet One", href: "/series/booklet-one-when-the-gods-fall-silent" },
-      secondaryCta: { label: "View All Seventeen Booklets", href: "/series" }
+      secondaryCta: { label: "View All Eighteen Booklets", href: "/series" }
     },
     why: {
       title: "Why This Exists",
@@ -220,7 +236,7 @@ export const defaultSiteContent: SiteContent = {
     seriesOverview: {
       title: "The Series in Six Movements",
       intro:
-        "Seventeen booklets on dharma, maya, nada, language, surrender, memory, the long inward journey, and the human field around the seeker.",
+        "Eighteen booklets on dharma, maya, nada, language, surrender, memory, the long inward journey, and the human field around the seeker.",
       movements: [
         {
           slug: "the-inward-map",
@@ -273,8 +289,8 @@ export const defaultSiteContent: SiteContent = {
         },
         {
           slug: "return-to-people",
-          title: "Return to People",
-          booklets: "14-17",
+          title: "The Human Field Around the Seeker",
+          booklets: "14-18",
           description:
             "Blame, dependency, role, boundary, love, and the difficult return to people after the inward fire.",
           landingHeroLine:
@@ -314,7 +330,7 @@ export const defaultSiteContent: SiteContent = {
   series: {
     title: "The Inward Fire Series",
     subtitle:
-      "Seventeen booklets on dharma, maya, nada, language, surrender, memory, the long inward journey, and the human field around the seeker.",
+      "Eighteen booklets on dharma, maya, nada, language, surrender, memory, the long inward journey, and the human field around the seeker.",
     opening: [
       "The Inward Fire Series began with a simple concern. A seeker can drown in vocabulary. Advaita. Bhakti. Tantra. Vedanta. Yoga. Surrender. Inquiry. Breath. Nāma. Śakti. Dharma. Māyā. Grace. All of these may point toward something real. But the modern seeker often stands in the middle of too many words and too little anchoring.",
       "This series does not try to exhaust Sanātana Dharma. It tries to create a set of living doorways. Each booklet asks one inward question. Each one turns toward a different instrument: duty, sound, language, responsibility, memory. Each one returns, in its own way, to surrender."
@@ -520,6 +536,59 @@ export const defaultSiteContent: SiteContent = {
           "After the inward journey, the seeker returns to people. Not the same person. Cleaner. Clearer. He learns to love without clinging, to forgive without forgetting, to stand with people without losing himself. This is the cleaner return: coming back to the human field with compassion and clarity.",
         tag: "AVAILABLE",
         movementIndex: 5
+      },
+      {
+        slug: "when-the-bond-becomes-a-claim",
+        numberLabel: "Booklet Eighteen",
+        title: "When the Bond Becomes a Claim",
+        subtitle: "Love, Memory, Expectation, and the Dharma of Not Being Owned",
+        cardSubtitle: "Love, Memory, Expectation, and the Dharma of Not Being Owned",
+        shortCardBody:
+          "Some bonds begin in affection and end in claim. This booklet explores memory, expectation, loyalty, gratitude, and the quiet way love begins asking dharma to bend.",
+        detailIntro:
+          "This booklet asks what happens when affection, gratitude, history, and loyalty become silent claims upon another person's dharma. Through professional memory, family expectation, childhood recollection, and Kāśī solitude, it explores how memory edits the people before us, how bonds become ownership, and how the seeker learns to return to Satya before Smṛti becomes Kathā.",
+        oneLineHook:
+          "A bond may give someone a place in your heart. It cannot give them ownership over your dharma.",
+        detailSubtitle:
+          "A meditation on bond, memory, expectation, gratitude, and the inward discipline of not being owned by the reflections others carry of us.",
+        readerPositioning:
+          "For anyone who has been loved, claimed, misunderstood, depended on, idolized, or expected to remain the same version of themselves forever.",
+        explores:
+          "When the Bond Becomes a Claim moves through the hidden grammar of human bonds: affection becoming expectation, mercy becoming precedent, gratitude becoming shrine, and memory becoming evidence. It asks how we keep love without becoming owned by love, how we honor history without letting history overrule dharma, and how Bhagavān remains with Satya before memory turns experience into story.",
+        readButtonText: "READ BOOKLET →",
+        downloadButtonText: "DOWNLOAD",
+        description:
+          "This booklet asks what happens when affection, gratitude, history, and loyalty become silent claims upon another person's dharma. Through professional memory, family expectation, childhood recollection, and Kāśī solitude, it explores how memory edits the people before us, how bonds become ownership, and how the seeker learns to return to Satya before Smṛti becomes Kathā.",
+        faqs: [
+          {
+            question: "What is this booklet about?",
+            answer:
+              "It is about the moment when a real bond begins to behave like a claim. The booklet explores how affection, gratitude, loyalty, family memory, and old professional ties can slowly begin asking dharma to bend."
+          },
+          {
+            question: "Who is this booklet for?",
+            answer:
+              "For readers who have carried people, been claimed by people, disappointed people by changing, or felt trapped by the version of themselves that others still remember."
+          },
+          {
+            question: "How should this booklet be read?",
+            answer:
+              "Read it slowly, as a mirror. It is not a complaint against relationships. It is an inquiry into how love can remain real without becoming ownership."
+          },
+          {
+            question: "What is the central insight?",
+            answer:
+              "The bond is real. The claim is not. The person before us changes through blood, time, fatigue, grief, duty, and life. Their reflection inside us remains edited by memory."
+          }
+        ],
+        relatedBookletSlugs: [
+          "booklet-fifteen",
+          "booklet-sixteen",
+          "booklet-seventeen"
+        ],
+        tag: "AVAILABLE",
+        status: "published",
+        movementIndex: 5
       }
     ],
     closing: [
@@ -575,8 +644,8 @@ export const defaultSiteContent: SiteContent = {
       },
       {
         slug: "return-to-people",
-        title: "Return to People",
-        booklets: "14-17",
+        title: "The Human Field Around the Seeker",
+        booklets: "14-18",
         description:
           "Blame, dependency, role, boundary, love, and the difficult return to people after the inward fire.",
         landingHeroLine:
@@ -652,6 +721,59 @@ export function isPublished(status?: PublishStatus) {
   return !status || status === "published";
 }
 
+export function getBookletCardSubtitle(booklet: Booklet) {
+  return booklet.cardSubtitle || booklet.subtitle;
+}
+
+export function getBookletCardBody(booklet: Booklet) {
+  return booklet.shortCardBody || booklet.description;
+}
+
+export function getBookletDetailSubtitle(booklet: Booklet) {
+  return booklet.detailSubtitle || booklet.subtitle;
+}
+
+export function getBookletDetailIntro(booklet: Booklet) {
+  return booklet.detailIntro || booklet.description;
+}
+
+export function getBookletReadButtonText(booklet: Booklet) {
+  return booklet.readButtonText || "Read Booklet";
+}
+
+export function getBookletDownloadButtonText(booklet: Booklet) {
+  return booklet.downloadButtonText || "Download";
+}
+
+export function getBookletFaqs(booklet: Booklet): BookletFaq[] {
+  const customFaqs = (booklet.faqs || []).filter(
+    (item) => (item.question || "").trim() && (item.answer || "").trim()
+  );
+
+  if (customFaqs.length) {
+    return customFaqs;
+  }
+
+  return [
+    {
+      question: `What is ${booklet.title} about?`,
+      answer: getBookletDetailIntro(booklet)
+    },
+    {
+      question: "Who is this booklet for?",
+      answer:
+        booklet.readerPositioning ||
+        booklet.subtitle ||
+        "It is written for readers seeking a contemplative, literary approach to dharma, grief, language, surrender, and the inner life."
+    },
+    {
+      question: "How should this booklet be read?",
+      answer:
+        "Read it slowly, as a reflective text rather than a rushed manual. Return to key passages, sit with the questions it raises, and let the language do inward work over time."
+    }
+  ];
+}
+
 export function getBookletMovementIndex(booklet: Booklet, fallbackIndex = 0) {
   if (typeof booklet.movementIndex === "number") {
     return Math.max(0, booklet.movementIndex);
@@ -683,7 +805,7 @@ export function getBookletMovementIndex(booklet: Booklet, fallbackIndex = 0) {
     return 4;
   }
 
-  if (fallbackIndex >= 13) { //13-16: 14-17
+  if (fallbackIndex >= 13) { //13+: 14+
     return 5;
   }
 

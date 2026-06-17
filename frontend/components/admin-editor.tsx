@@ -2563,6 +2563,40 @@ function BookletPanel({
     booklet,
     currentBookletIndex
   );
+  const faqs = booklet.faqs || [];
+  const relatedBookletSlugs = new Set(booklet.relatedBookletSlugs || []);
+
+  function updateFaq(index: number, patch: { question?: string; answer?: string }) {
+    const nextFaqs = faqs.map((faq, faqIndex) =>
+      faqIndex === index ? { ...faq, ...patch } : faq
+    );
+
+    updateBooklet(booklet.slug, { faqs: nextFaqs });
+  }
+
+  function addFaq() {
+    updateBooklet(booklet.slug, {
+      faqs: [...faqs, { question: "", answer: "" }]
+    });
+  }
+
+  function removeFaq(index: number) {
+    updateBooklet(booklet.slug, {
+      faqs: faqs.filter((_, faqIndex) => faqIndex !== index)
+    });
+  }
+
+  function toggleRelatedBooklet(slug: string) {
+    const nextSlugs = new Set(relatedBookletSlugs);
+
+    if (nextSlugs.has(slug)) {
+      nextSlugs.delete(slug);
+    } else {
+      nextSlugs.add(slug);
+    }
+
+    updateBooklet(booklet.slug, { relatedBookletSlugs: Array.from(nextSlugs) });
+  }
 
   return (
     <div className="grid gap-6">
@@ -2764,6 +2798,145 @@ function BookletPanel({
         rows={8}
         value={booklet.description}
       />
+      <FieldGroup title="Website Text Package">
+        <div className="grid gap-5 md:grid-cols-2">
+          <TextField
+            label="Card Subtitle"
+            onChange={(value) => updateBooklet(booklet.slug, { cardSubtitle: value })}
+            value={booklet.cardSubtitle || ""}
+          />
+          <TextField
+            label="Detail Page Subtitle / Secondary Line"
+            onChange={(value) => updateBooklet(booklet.slug, { detailSubtitle: value })}
+            value={booklet.detailSubtitle || ""}
+          />
+        </div>
+        <TextAreaField
+          label="Short Card Body"
+          onChange={(value) => updateBooklet(booklet.slug, { shortCardBody: value })}
+          rows={4}
+          value={booklet.shortCardBody || ""}
+        />
+        <TextAreaField
+          label="Longer Card Body / Detail Intro"
+          onChange={(value) => updateBooklet(booklet.slug, { detailIntro: value })}
+          rows={7}
+          value={booklet.detailIntro || ""}
+        />
+        <TextAreaField
+          label="One-Line Hook"
+          onChange={(value) => updateBooklet(booklet.slug, { oneLineHook: value })}
+          rows={3}
+          value={booklet.oneLineHook || ""}
+        />
+        <TextAreaField
+          label="Reader Positioning"
+          onChange={(value) => updateBooklet(booklet.slug, { readerPositioning: value })}
+          rows={4}
+          value={booklet.readerPositioning || ""}
+        />
+        <TextAreaField
+          label="What This Booklet Explores"
+          onChange={(value) => updateBooklet(booklet.slug, { explores: value })}
+          rows={7}
+          value={booklet.explores || ""}
+        />
+        <div className="grid gap-5 md:grid-cols-2">
+          <TextField
+            label="Read Booklet Button Text"
+            onChange={(value) => updateBooklet(booklet.slug, { readButtonText: value })}
+            value={booklet.readButtonText || ""}
+          />
+          <TextField
+            label="Optional Download Button Text"
+            onChange={(value) => updateBooklet(booklet.slug, { downloadButtonText: value })}
+            value={booklet.downloadButtonText || ""}
+          />
+        </div>
+      </FieldGroup>
+
+      <FieldGroup title="Book FAQs">
+        {faqs.length ? (
+          <div className="grid gap-4">
+            {faqs.map((faq, index) => (
+              <div
+                className="rounded-md border border-gold/15 bg-ink p-4"
+                key={`${booklet.slug}-faq-${index}`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
+                    FAQ {index + 1}
+                  </p>
+                  <button
+                    aria-label={`Remove FAQ ${index + 1}`}
+                    className="inline-flex size-10 shrink-0 items-center justify-center rounded-md border border-red-400/30 text-red-200 transition hover:border-red-300 hover:text-red-100"
+                    onClick={() => removeFaq(index)}
+                    type="button"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+                <div className="mt-4 grid gap-4">
+                  <TextField
+                    label="Question"
+                    onChange={(value) => updateFaq(index, { question: value })}
+                    value={faq.question}
+                  />
+                  <TextAreaField
+                    label="Answer"
+                    onChange={(value) => updateFaq(index, { answer: value })}
+                    rows={4}
+                    value={faq.answer}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-base leading-7 text-muted">
+            No custom FAQs yet. Public pages will use the default FAQ fallback until FAQs are added here.
+          </p>
+        )}
+        <button
+          className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
+          onClick={addFaq}
+          type="button"
+        >
+          <Plus size={16} />
+          Add FAQ
+        </button>
+      </FieldGroup>
+
+      <FieldGroup title="Related Booklets">
+        <div className="grid gap-3 md:grid-cols-2">
+          {booklets
+            .filter((item) => item.slug !== booklet.slug)
+            .map((item) => (
+              <label
+                className="flex min-h-16 items-center gap-3 rounded-md border border-gold/15 bg-ink px-4 py-3 text-base text-parchment transition hover:border-gold/35"
+                key={item.slug}
+              >
+                <input
+                  checked={relatedBookletSlugs.has(item.slug)}
+                  className="size-4 accent-[#c4a96b]"
+                  onChange={() => toggleRelatedBooklet(item.slug)}
+                  type="checkbox"
+                />
+                <span>
+                  <span className="block font-label text-xs uppercase tracking-[0.18em] text-gold">
+                    {item.numberLabel}
+                  </span>
+                  <span className="mt-1 block leading-6 text-parchment/88">
+                    {item.title}
+                  </span>
+                </span>
+              </label>
+            ))}
+        </div>
+        <p className="text-sm text-muted">
+          If no related booklets are selected, the detail page falls back to previous and next booklets.
+        </p>
+      </FieldGroup>
       <div className="grid gap-5 md:grid-cols-2">
         <TextField
           label="Price"

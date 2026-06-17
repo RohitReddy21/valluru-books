@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://www.thevalluru.org"),
   title: "The Valluru — The Inward Fire Series",
   description:
-    "Nine booklets on dharma, grief, language, and surrender. For the seeker who still needs an inward anchor.",
+    "Eighteen booklets on dharma, grief, language, and surrender. For the seeker who still needs an inward anchor.",
   keywords: ["dharma", "grief", "nada", "bhakti", "sanskrit", "spirituality", "inner life"],
   authors: [{ name: "Sasidhar Valluru" }],
   creator: "Sasidhar Valluru",
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     url: "https://www.thevalluru.org",
     siteName: "The Valluru",
     title: "The Valluru — The Inward Fire Series",
-    description: "Nine booklets on dharma, grief, language, and surrender.",
+    description: "Eighteen booklets on dharma, grief, language, and surrender.",
     images: [
       {
         url: "https://www.thevalluru.org/og/default.jpg",
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "The Valluru — The Inward Fire Series",
-    description: "Nine booklets on dharma, grief, language, and surrender.",
+    description: "Eighteen booklets on dharma, grief, language, and surrender.",
     images: ["https://www.thevalluru.org/og/default.jpg"]
   },
   robots: "index, follow",

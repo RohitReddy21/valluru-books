@@ -1,5 +1,73 @@
 import { apiUrl } from "@/lib/api";
-import { defaultSiteContent, movementSlug, type SiteContent } from "@/lib/site-content";
+import {
+  defaultSiteContent,
+  movementSlug,
+  type Booklet,
+  type Movement,
+  type SiteContent
+} from "@/lib/site-content";
+
+function sameBooklet(left: Booklet, right: Booklet) {
+  return (
+    left.slug === right.slug ||
+    left.numberLabel === right.numberLabel ||
+    left.title === right.title
+  );
+}
+
+function normalizeBooklets(booklets?: Booklet[]) {
+  const sourceBooklets = booklets?.length ? booklets : defaultSiteContent.series.booklets;
+  const mergedBooklets = sourceBooklets.map((booklet) => {
+    const defaults = defaultSiteContent.series.booklets.find((defaultBooklet) =>
+      sameBooklet(defaultBooklet, booklet)
+    );
+
+    return defaults ? { ...defaults, ...booklet } : booklet;
+  });
+
+  for (const defaultBooklet of defaultSiteContent.series.booklets) {
+    const exists = mergedBooklets.some((booklet) => sameBooklet(defaultBooklet, booklet));
+
+    if (!exists) {
+      mergedBooklets.push(defaultBooklet);
+    }
+  }
+
+  return mergedBooklets;
+}
+
+function normalizeMovementRange(movement: Movement) {
+  const isHumanFieldMovement =
+    movement.slug === "return-to-people" ||
+    movementSlug(movement) === "return-to-people";
+
+  if (
+    isHumanFieldMovement &&
+    movement.booklets === "14-17"
+  ) {
+    return {
+      ...movement,
+      booklets: "14-18",
+      title:
+        movement.title === "Return to People"
+          ? "The Human Field Around the Seeker"
+          : movement.title
+    };
+  }
+
+  if (isHumanFieldMovement && movement.title === "Return to People") {
+    return { ...movement, title: "The Human Field Around the Seeker" };
+  }
+
+  return movement;
+}
+
+function normalizeBookletCountText(value: string) {
+  return value
+    .replaceAll("Seventeen booklets", "Eighteen booklets")
+    .replaceAll("seventeen booklets", "eighteen booklets")
+    .replaceAll("View All Seventeen Booklets", "View All Eighteen Booklets");
+}
 
 function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
   const nav = {
@@ -49,10 +117,29 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
         content?.home?.seriesOverview?.movements ||
         defaultSiteContent.home.seriesOverview.movements
       ).map((movement, index) => ({
-        ...movement,
+        ...normalizeMovementRange(movement),
         slug: movementSlug(movement, index)
       }))
     }
+  };
+  home.hero = {
+    ...home.hero,
+    secondaryCta: {
+      ...home.hero.secondaryCta,
+      label: normalizeBookletCountText(home.hero.secondaryCta.label)
+    }
+  };
+  home.seriesOverview = {
+    ...home.seriesOverview,
+    intro: normalizeBookletCountText(home.seriesOverview.intro)
+  };
+  const series = {
+    ...defaultSiteContent.series,
+    ...(content?.series || {}),
+    subtitle: normalizeBookletCountText(
+      content?.series?.subtitle || defaultSiteContent.series.subtitle
+    ),
+    booklets: normalizeBooklets(content?.series?.booklets)
   };
 
   return {
@@ -75,13 +162,17 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
       links: navLinks
     },
     home,
-    series: {
-      ...defaultSiteContent.series,
-      ...(content?.series || {})
-    },
+    series,
     movements: {
       ...defaultSiteContent.movements,
-      ...(content?.movements || {})
+      ...(content?.movements || {}),
+      items: (
+        content?.movements?.items ||
+        defaultSiteContent.movements.items
+      ).map((movement, index) => ({
+        ...normalizeMovementRange(movement),
+        slug: movementSlug(movement, index)
+      }))
     },
     about: {
       ...defaultSiteContent.about,

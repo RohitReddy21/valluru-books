@@ -5,7 +5,11 @@ import { BookOpen, Download } from "lucide-react";
 import { useState } from "react";
 import { PdfBookModal } from "@/components/pdf-book-modal";
 import { apiUrl } from "@/lib/api";
-import type { Booklet } from "@/lib/site-content";
+import {
+  getBookletDownloadButtonText,
+  getBookletReadButtonText,
+  type Booklet
+} from "@/lib/site-content";
 
 type Props = {
   booklet: Booklet;
@@ -26,6 +30,8 @@ export function BookletReader({ booklet }: Props) {
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">(
     "idle"
   );
+  const readButtonText = getBookletReadButtonText(booklet);
+  const downloadButtonText = getBookletDownloadButtonText(booklet);
 
   async function subscribe(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -150,8 +156,19 @@ export function BookletReader({ booklet }: Props) {
             type="button"
           >
             <BookOpen size={17} />
-            Read Book
+            {readButtonText}
           </button>
+          {booklet.downloadButtonText ? (
+            <a
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/35 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
+              href={apiUrl(`/api/booklets/${booklet.slug}/pdf`)}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <Download size={17} />
+              {downloadButtonText}
+            </a>
+          ) : null}
         </div>
         {!isFree && status === "success" ? (
           <p className="text-base italic text-muted">

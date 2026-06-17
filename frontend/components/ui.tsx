@@ -4,7 +4,14 @@ import type { HTMLAttributes } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { Booklet, Cta } from "@/lib/site-content";
-import { bookletPublicSlug, movementSlug, isPublished } from "@/lib/site-content";
+import {
+  bookletPublicSlug,
+  getBookletCardBody,
+  getBookletCardSubtitle,
+  getBookletReadButtonText,
+  isPublished,
+  movementSlug
+} from "@/lib/site-content";
 
 export function PageShell({ children }: { children: React.ReactNode }) {
   return <main className="pt-20">{children}</main>;
@@ -91,13 +98,15 @@ export function ProseBlocks({ blocks }: { blocks: string[] }) {
 }
 
 export function PrimaryLink({ cta }: { cta: Cta }) {
+  const includesArrow = /(->|→)\s*$/.test(cta.label);
+
   return (
     <Link
       className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-5 py-3 font-label text-sm uppercase tracking-[0.2em] text-parchment transition hover:border-gold hover:text-gold"
       href={cta.href}
     >
       {cta.label}
-      <ArrowRight size={16} />
+      {includesArrow ? null : <ArrowRight size={16} />}
     </Link>
   );
 }
@@ -116,11 +125,12 @@ export function SecondaryLink({ cta }: { cta: Cta }) {
 
 export function BookletCard({ booklet }: { booklet: Booklet }) {
   const badge = booklet.badge || booklet.tag || "AVAILABLE";
+  const cardBody = getBookletCardBody(booklet);
   // Truncate description to ~120 chars for better card visibility
-  const truncatedDescription = booklet.description
-    ? booklet.description.length > 120
-      ? booklet.description.substring(0, 120) + "..."
-      : booklet.description
+  const truncatedDescription = cardBody
+    ? cardBody.length > 120
+      ? cardBody.substring(0, 120) + "..."
+      : cardBody
     : "";
 
   return (
@@ -154,7 +164,7 @@ export function BookletCard({ booklet }: { booklet: Booklet }) {
             {booklet.title}
           </h2>
           <p className="mt-2 text-sm italic leading-6 text-muted/85">
-            {booklet.subtitle}
+            {getBookletCardSubtitle(booklet)}
           </p>
           {truncatedDescription && (
             <p className="mt-4 line-clamp-3 text-sm leading-6 text-parchment/75">
@@ -162,7 +172,7 @@ export function BookletCard({ booklet }: { booklet: Booklet }) {
             </p>
           )}
           <div className="mt-auto flex flex-wrap gap-3 pt-6">
-            <PrimaryLink cta={{ label: "Read Booklet", href: `/series/${bookletPublicSlug(booklet)}` }} />
+            <PrimaryLink cta={{ label: getBookletReadButtonText(booklet), href: `/series/${bookletPublicSlug(booklet)}` }} />
             {booklet.coffeeTableEdition === "unavailable" ? (
               <span className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/35 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted cursor-not-allowed">
                 COFFEE-TABLE EDITION UNAVAILABLE

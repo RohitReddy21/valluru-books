@@ -6,7 +6,16 @@ import { BackLink, PageShell, PrimaryLink } from "@/components/ui";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { FaqAccordion } from "@/components/faq-accordion";
 // import { AddToCartButton } from "@/components/add-to-cart-button";
-import { bookletMatchesSlug, bookletPublicSlug, defaultSiteContent, getBookletNeighbors, isPublished } from "@/lib/site-content";
+import {
+  bookletMatchesSlug,
+  bookletPublicSlug,
+  defaultSiteContent,
+  getBookletDetailIntro,
+  getBookletDetailSubtitle,
+  getBookletFaqs,
+  getBookletNeighbors,
+  isPublished
+} from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +44,7 @@ export async function generateMetadata({
   }
 
   const title = `${booklet.title} — The Valluru`;
-  const description = booklet.seo?.description || booklet.description || "A booklet from The Inward Fire Series";
+  const description = booklet.seo?.description || getBookletDetailIntro(booklet) || "A booklet from The Inward Fire Series";
   const ogImage = booklet.coverImage || "https://www.thevalluru.org/og/default.jpg";
   const publicSlug = bookletPublicSlug(booklet);
 
@@ -93,33 +102,35 @@ export default async function BookletPage({
   }
 
   const neighbors = getBookletNeighbors(publishedBooklets, booklet.slug);
+  const relatedBooklets = (booklet.relatedBookletSlugs || [])
+    .map((relatedSlug) =>
+      publishedBooklets.find(
+        (item) => item.slug === relatedSlug || bookletPublicSlug(item) === relatedSlug
+      )
+    )
+    .filter((item): item is typeof publishedBooklets[number] => Boolean(item))
+    .filter((item) => item.slug !== booklet.slug);
+  const fallbackRelatedBooklets = [
+    neighbors.previous ? { label: "Previous", booklet: neighbors.previous } : null,
+    neighbors.next ? { label: "Next", booklet: neighbors.next } : null
+  ].filter((item): item is { label: string; booklet: typeof publishedBooklets[number] } => Boolean(item));
+  const sidebarBooklets = relatedBooklets.length
+    ? relatedBooklets.map((relatedBooklet) => ({
+        label: relatedBooklet.numberLabel,
+        booklet: relatedBooklet
+      }))
+    : fallbackRelatedBooklets;
 
   const canonicalUrl = `https://www.thevalluru.org/series/${publicSlug}`;
   const coverImage = booklet.coverImage || "https://www.thevalluru.org/og/default.jpg";
-  const faqItems = [
-    {
-      question: `What is ${booklet.title} about?`,
-      answer: booklet.description
-    },
-    {
-      question: "Who is this booklet for?",
-      answer:
-        booklet.subtitle ||
-        "It is written for readers seeking a contemplative, literary approach to dharma, grief, language, surrender, and the inner life."
-    },
-    {
-      question: "How should this booklet be read?",
-      answer:
-        "Read it slowly, as a reflective text rather than a rushed manual. Return to key passages, sit with the questions it raises, and let the language do inward work over time."
-    }
-  ];
+  const faqItems = getBookletFaqs(booklet);
 
   const bookSchema = {
     "@context": "https://schema.org",
     "@type": "Book",
     name: booklet.title,
     headline: booklet.title,
-    description: booklet.description,
+    description: getBookletDetailIntro(booklet),
     url: canonicalUrl,
     image: coverImage,
     inLanguage: "en",
@@ -203,16 +214,41 @@ export default async function BookletPage({
               {booklet.title}
             </h1>
             <p className="mt-4 text-xl italic leading-tight text-muted sm:text-2xl">
-              {booklet.subtitle}
+              {getBookletDetailSubtitle(booklet)}
             </p>
             {booklet.sourcesNote || booklet.authorNote || booklet.note ? (
               <p className="mt-6 text-lg italic leading-8 text-muted">
                 {booklet.sourcesNote || booklet.authorNote || booklet.note}
               </p>
             ) : null}
+            {booklet.oneLineHook ? (
+              <p className="mt-8 border-l border-gold/45 pl-5 text-xl italic leading-8 text-gold sm:text-2xl">
+                {booklet.oneLineHook}
+              </p>
+            ) : null}
             <p className="responsive-prose mt-8 text-parchment/88">
-              {booklet.description}
+              {getBookletDetailIntro(booklet)}
             </p>
+            {booklet.readerPositioning ? (
+              <section className="mt-8 rounded-md border border-gold/15 bg-surface/55 p-5">
+                <p className="font-label text-xs uppercase tracking-[0.24em] text-gold">
+                  Reader Positioning
+                </p>
+                <p className="mt-3 text-lg leading-8 text-parchment/84">
+                  {booklet.readerPositioning}
+                </p>
+              </section>
+            ) : null}
+            {booklet.explores ? (
+              <section className="mt-6 rounded-md border border-gold/15 bg-surface/55 p-5">
+                <p className="font-label text-xs uppercase tracking-[0.24em] text-gold">
+                  What This Booklet Explores
+                </p>
+                <p className="mt-3 text-lg leading-8 text-parchment/84">
+                  {booklet.explores}
+                </p>
+              </section>
+            ) : null}
             <div className="mt-10 flex flex-wrap gap-3">
               <BackLink href="/series" label="Back to the Series" />
               {booklet.coffeeTableEdition === "unavailable" ? (
@@ -242,42 +278,27 @@ export default async function BookletPage({
               Related Booklets
             </h2>
             <div className="mt-5 grid gap-4">
-              {neighbors.previous ? (
-                <div className="rounded-md border border-gold/15 bg-surface/70 p-5">
+              {sidebarBooklets.map((relatedItem) => (
+                <div
+                  className="rounded-md border border-gold/15 bg-surface/70 p-5"
+                  key={`${relatedItem.label}-${relatedItem.booklet.slug}`}
+                >
                   <p className="font-label text-xs uppercase tracking-[0.2em] text-gold">
-                    Previous
+                    {relatedItem.label}
                   </p>
                   <h3 className="mt-3 font-display text-xl text-parchment">
-                    {neighbors.previous.title}
+                    {relatedItem.booklet.title}
                   </h3>
                   <div className="mt-4">
                     <PrimaryLink
                       cta={{
                         label: "Read",
-                        href: `/series/${bookletPublicSlug(neighbors.previous)}`
+                        href: `/series/${bookletPublicSlug(relatedItem.booklet)}`
                       }}
                     />
                   </div>
                 </div>
-              ) : null}
-              {neighbors.next ? (
-                <div className="rounded-md border border-gold/15 bg-surface/70 p-5">
-                  <p className="font-label text-xs uppercase tracking-[0.2em] text-gold">
-                    Next
-                  </p>
-                  <h3 className="mt-3 font-display text-xl text-parchment">
-                    {neighbors.next.title}
-                  </h3>
-                  <div className="mt-4">
-                    <PrimaryLink
-                      cta={{
-                        label: "Read",
-                        href: `/series/${bookletPublicSlug(neighbors.next)}`
-                      }}
-                    />
-                  </div>
-                </div>
-              ) : null}
+              ))}
             </div>
           </aside>
         </div>
