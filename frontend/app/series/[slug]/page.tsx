@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { BookletReader } from "@/components/booklet-reader";
 import { ReflectionForm } from "@/components/reflection-form";
-import { BackLink, PageShell, PrimaryLink } from "@/components/ui";
+import { BackLink, BookletCard, PageShell, PrimaryLink } from "@/components/ui";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { FaqAccordion } from "@/components/faq-accordion";
 // import { AddToCartButton } from "@/components/add-to-cart-button";
@@ -315,6 +315,21 @@ export default async function BookletPage({
             <FaqAccordion items={faqItems} />
           </section>
           <ReflectionForm bookletSlug={booklet.slug} />
+          {relatedBooklets.length > 0 && (
+            <section>
+              <p className="font-label text-sm uppercase tracking-[0.24em] text-gold">
+                Related Booklets
+              </p>
+              <h2 className="mt-4 font-display text-3xl font-semibold text-parchment">
+                Continue Your Journey
+              </h2>
+              <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {relatedBooklets.map((relatedBooklet) => (
+                  <BookletCard booklet={relatedBooklet} key={relatedBooklet.slug} />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       </section>
     </PageShell>

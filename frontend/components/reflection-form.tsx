@@ -28,23 +28,27 @@ export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
       setCommentsStatus("loading");
     }
 
-    const response = await fetch(
-      apiUrl(`/api/reflections?bookletSlug=${encodeURIComponent(bookletSlug)}`),
-      {
-        credentials: "include"
+    try {
+      const response = await fetch(
+        apiUrl(`/api/reflections?bookletSlug=${encodeURIComponent(bookletSlug)}`),
+        {
+          credentials: "include"
+        }
+      );
+      const payload = (await response.json().catch(() => null)) as {
+        comments?: ReaderComment[];
+      } | null;
+
+      if (!response.ok || !payload?.comments) {
+        setCommentsStatus("error");
+        return;
       }
-    );
-    const payload = (await response.json().catch(() => null)) as {
-      comments?: ReaderComment[];
-    } | null;
 
-    if (!response.ok || !payload?.comments) {
+      setComments(payload.comments);
+      setCommentsStatus("ready");
+    } catch (error) {
       setCommentsStatus("error");
-      return;
     }
-
-    setComments(payload.comments);
-    setCommentsStatus("ready");
   }, [bookletSlug]);
 
   useEffect(() => {
@@ -59,19 +63,23 @@ export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
     event.preventDefault();
     setStatus("saving");
 
-    const response = await fetch(apiUrl("/api/reflections"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ bookletSlug, name, rating, comment })
-    });
+    try {
+      const response = await fetch(apiUrl("/api/reflections"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ bookletSlug, name, rating, comment })
+      });
 
-    setStatus(response.ok ? "success" : "error");
-    if (response.ok) {
-      setName("");
-      setComment("");
-      setRating(0);
-      await loadComments();
+      setStatus(response.ok ? "success" : "error");
+      if (response.ok) {
+        setName("");
+        setComment("");
+        setRating(0);
+        await loadComments();
+      }
+    } catch (error) {
+      setStatus("error");
     }
   }
 
