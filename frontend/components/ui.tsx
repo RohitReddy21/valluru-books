@@ -126,12 +126,6 @@ export function SecondaryLink({ cta }: { cta: Cta }) {
 export function BookletCard({ booklet }: { booklet: Booklet }) {
   const badge = booklet.badge || booklet.tag || "AVAILABLE";
   const cardBody = getBookletCardBody(booklet);
-  // Truncate description to ~120 chars for better card visibility
-  const truncatedDescription = cardBody
-    ? cardBody.length > 120
-      ? cardBody.substring(0, 120) + "..."
-      : cardBody
-    : "";
 
   return (
     <>
@@ -166,9 +160,9 @@ export function BookletCard({ booklet }: { booklet: Booklet }) {
           <p className="mt-2 text-sm italic leading-6 text-muted/85">
             {getBookletCardSubtitle(booklet)}
           </p>
-          {truncatedDescription && (
+          {cardBody && (
             <p className="mt-4 line-clamp-3 text-sm leading-6 text-parchment/75">
-              {truncatedDescription}
+              {cardBody}
             </p>
           )}
           <div className="mt-auto flex flex-wrap gap-3 pt-6">
