@@ -315,21 +315,18 @@ export default async function BookletPage({
             <FaqAccordion items={faqItems} />
           </section>
           <ReflectionForm bookletSlug={booklet.slug} />
-          {(neighbors.previous || neighbors.next) && (
+          {relatedBooklets.length > 0 && (
             <section>
               <p className="font-label text-sm uppercase tracking-[0.24em] text-gold">
-                Continue Reading
+                Related Booklets
               </p>
               <h2 className="mt-4 font-display text-3xl font-semibold text-parchment">
-                Previous & Next
+                Related Booklets
               </h2>
-              <div className="mt-8 grid gap-6 md:grid-cols-2">
-                {neighbors.previous && (
-                  <BookletCard booklet={neighbors.previous} key={neighbors.previous.slug} />
-                )}
-                {neighbors.next && (
-                  <BookletCard booklet={neighbors.next} key={neighbors.next.slug} />
-                )}
+              <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {relatedBooklets.map((relatedBooklet) => (
+                  <BookletCard booklet={relatedBooklet} key={relatedBooklet.slug} />
+                ))}
               </div>
             </section>
           )}
