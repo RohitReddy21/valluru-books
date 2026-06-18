@@ -167,11 +167,7 @@ export function BookletCard({ booklet }: { booklet: Booklet }) {
           )}
           <div className="mt-auto flex flex-wrap gap-3 pt-6">
             <PrimaryLink cta={{ label: getBookletReadButtonText(booklet), href: `/series/${bookletPublicSlug(booklet)}` }} />
-            {booklet.coffeeTableEdition === "unavailable" ? (
-              <span className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/35 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted cursor-not-allowed">
-                COFFEE-TABLE EDITION UNAVAILABLE
-              </span>
-            ) : null}
+
             {/* Add to cart is temporarily disabled.
               <button
                 className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/35 bg-gold/5 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-gold transition hover:border-gold hover:bg-gold/10"

@@ -245,11 +245,7 @@ export default async function BookletPage({
             ) : null}
             <div className="mt-10 flex flex-wrap gap-3">
               <BackLink href="/series" label="Back to the Series" />
-              {booklet.coffeeTableEdition === "unavailable" ? (
-                <span className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/35 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted cursor-not-allowed">
-                  COFFEE-TABLE EDITION UNAVAILABLE
-                </span>
-              ) : null}
+
               {/* Add to cart is temporarily disabled.
                 <AddToCartButton />
               */}
