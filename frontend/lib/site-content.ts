@@ -429,7 +429,7 @@ export const defaultSiteContent: SiteContent = {
           "The seeker no longer asks only why. He stands, gathers the bow, remembers the chariot, and keeps moving before sunset. Grief becomes kinetic force: bow, chariot, horses, arrow-fence, Mādhava, vow, dusk, and protected grief.",
         tag: "AVAILABLE",
         movementIndex: 2,
-        coffeeTableEdition: "unavailable"
+        
       },
       {
         slug: "booklet-eight",
