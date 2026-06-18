@@ -303,7 +303,7 @@ export default async function BookletPage({
           </aside>
         </div>
       </section>
-      <section className="quiet-divider px-4 pb-20 pt-4 sm:px-5">
+      <section className="quiet-divider px-4 pb-12 pt-4 sm:px-5">
         <div className="mx-auto max-w-3xl space-y-12">
           <section>
             <p className="font-label text-sm uppercase tracking-[0.24em] text-gold">
@@ -315,23 +315,25 @@ export default async function BookletPage({
             <FaqAccordion items={faqItems} />
           </section>
           <ReflectionForm bookletSlug={booklet.slug} />
-          {relatedBooklets.length > 0 && (
-            <section>
-              <p className="font-label text-sm uppercase tracking-[0.24em] text-gold">
-                Related Booklets
-              </p>
-              <h2 className="mt-4 font-display text-3xl font-semibold text-parchment">
-                Related Booklets
-              </h2>
-              <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {relatedBooklets.map((relatedBooklet) => (
-                  <BookletCard booklet={relatedBooklet} key={relatedBooklet.slug} />
-                ))}
-              </div>
-            </section>
-          )}
         </div>
       </section>
+      {relatedBooklets.length > 0 && (
+        <section className="quiet-divider px-4 pb-20 pt-12 sm:px-5">
+          <div className="mx-auto max-w-6xl">
+            <p className="font-label text-sm uppercase tracking-[0.24em] text-gold">
+              Related Booklets
+            </p>
+            <h2 className="mt-4 font-display text-3xl font-semibold text-parchment">
+              Related Booklets
+            </h2>
+            <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {relatedBooklets.map((relatedBooklet) => (
+                <BookletCard booklet={relatedBooklet} key={relatedBooklet.slug} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
     </PageShell>
   );
 }

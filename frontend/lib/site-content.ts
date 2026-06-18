@@ -236,7 +236,7 @@ export const defaultSiteContent: SiteContent = {
     seriesOverview: {
       title: "The Series in Six Movements",
       intro:
-        "Eighteen booklets on dharma, maya, nada, language, surrender, memory, the long inward journey, and the human field around the seeker.",
+        "Eighteen booklets on dharma, maya, nada, language, surrender, memory, and the long inward journey. Each booklet takes one doorway. Each one returns, in its own way, to surrender.",
       movements: [
         {
           slug: "the-inward-map",
