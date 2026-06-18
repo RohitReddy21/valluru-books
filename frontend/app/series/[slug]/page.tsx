@@ -110,16 +110,10 @@ export default async function BookletPage({
     )
     .filter((item): item is typeof publishedBooklets[number] => Boolean(item))
     .filter((item) => item.slug !== booklet.slug);
-  const fallbackRelatedBooklets = [
-    neighbors.previous ? { label: "Previous", booklet: neighbors.previous } : null,
-    neighbors.next ? { label: "Next", booklet: neighbors.next } : null
+  const navigationBooklets = [
+    neighbors.previous ? { label: "Previous Booklet", booklet: neighbors.previous } : null,
+    neighbors.next ? { label: "Next Booklet", booklet: neighbors.next } : null
   ].filter((item): item is { label: string; booklet: typeof publishedBooklets[number] } => Boolean(item));
-  const sidebarBooklets = relatedBooklets.length
-    ? relatedBooklets.map((relatedBooklet) => ({
-        label: relatedBooklet.numberLabel,
-        booklet: relatedBooklet
-      }))
-    : fallbackRelatedBooklets;
 
   const canonicalUrl = `https://www.thevalluru.org/series/${publicSlug}`;
   const coverImage = booklet.coverImage || "https://www.thevalluru.org/og/default.jpg";
@@ -273,34 +267,36 @@ export default async function BookletPage({
             <BookletReader booklet={booklet} />
           </article>
 
-          <aside className="fade-up lg:sticky lg:top-28 lg:self-start">
-            <h2 className="font-label text-sm uppercase tracking-[0.23em] text-muted">
-              Related Booklets
-            </h2>
-            <div className="mt-5 grid gap-4">
-              {sidebarBooklets.map((relatedItem) => (
-                <div
-                  className="rounded-md border border-gold/15 bg-surface/70 p-5"
-                  key={`${relatedItem.label}-${relatedItem.booklet.slug}`}
-                >
-                  <p className="font-label text-xs uppercase tracking-[0.2em] text-gold">
-                    {relatedItem.label}
-                  </p>
-                  <h3 className="mt-3 font-display text-xl text-parchment">
-                    {relatedItem.booklet.title}
-                  </h3>
-                  <div className="mt-4">
-                    <PrimaryLink
-                      cta={{
-                        label: "Read",
-                        href: `/series/${bookletPublicSlug(relatedItem.booklet)}`
-                      }}
-                    />
+          {navigationBooklets.length > 0 ? (
+            <aside className="fade-up lg:sticky lg:top-28 lg:self-start">
+              <h2 className="font-label text-sm uppercase tracking-[0.23em] text-muted">
+                Previous / Next
+              </h2>
+              <div className="mt-5 grid gap-4">
+                {navigationBooklets.map((navigationItem) => (
+                  <div
+                    className="rounded-md border border-gold/15 bg-surface/70 p-5"
+                    key={`${navigationItem.label}-${navigationItem.booklet.slug}`}
+                  >
+                    <p className="font-label text-xs uppercase tracking-[0.2em] text-gold">
+                      {navigationItem.label}
+                    </p>
+                    <h3 className="mt-3 font-display text-xl text-parchment">
+                      {navigationItem.booklet.title}
+                    </h3>
+                    <div className="mt-4">
+                      <PrimaryLink
+                        cta={{
+                          label: "Read",
+                          href: `/series/${bookletPublicSlug(navigationItem.booklet)}`
+                        }}
+                      />
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </aside>
+                ))}
+              </div>
+            </aside>
+          ) : null}
         </div>
       </section>
       <section className="quiet-divider px-4 pb-12 pt-4 sm:px-5">
