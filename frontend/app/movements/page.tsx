@@ -24,7 +24,7 @@ export default async function MovementsPage() {
         <div className="mx-auto max-w-6xl fade-up">
           <div className="mx-auto max-w-3xl text-center mb-12">
             <h2 className="responsive-section-title mb-6 font-display font-semibold text-parchment">
-              Explore the Six Movements
+              {(content.movements as any)?.heroTitle || "Explore the Six Movements"}
             </h2>
             <p className="responsive-prose text-parchment/86">
               {home.seriesOverview.intro}

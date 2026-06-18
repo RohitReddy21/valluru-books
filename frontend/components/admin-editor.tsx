@@ -3254,6 +3254,27 @@ function PagesPanel({
 
       <FieldGroup title="Home Sections">
         <TextField
+          label="The Series in Six Movements - Title"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              home: { ...current.home, seriesOverview: { ...current.home.seriesOverview, title: value } }
+            }))
+          }
+          value={content.home.seriesOverview.title}
+        />
+        <TextAreaField
+          label="The Series in Six Movements - Intro"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              home: { ...current.home, seriesOverview: { ...current.home.seriesOverview, intro: value } }
+            }))
+          }
+          rows={4}
+          value={content.home.seriesOverview.intro}
+        />
+        <TextField
           label="Why This Exists - Title"
           onChange={(value) =>
             setContent((current) => ({
@@ -3359,6 +3380,29 @@ function PagesPanel({
             }))
           }
           value={content.home.closingLine}
+        />
+      </FieldGroup>
+
+      <FieldGroup title="Movements Page">
+        <TextField
+          label="Movements Page - Hero Title"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              movements: { ...current.movements, heroTitle: value }
+            }))
+          }
+          value={(content.movements as any)?.heroTitle || "Explore the Six Movements"}
+        />
+        <TextField
+          label="Movements Page - Hero Subtitle"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              movements: { ...current.movements, heroSubtitle: value }
+            }))
+          }
+          value={(content.movements as any)?.heroSubtitle || "Six doorways into the same inward fire."}
         />
       </FieldGroup>
 
