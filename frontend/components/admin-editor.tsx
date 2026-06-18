@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Eye, FileText, ImageIcon, Package, Plus, RefreshCw, RotateCcw, Save, Trash2, Upload } from "lucide-react";
 import { apiUrl } from "@/lib/api";
 import type { Booklet, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
-import { defaultSiteContent, getBookletMovementIndex } from "@/lib/site-content";
+import { defaultSiteContent, getBookletMovementIndex, isBookletInMovement } from "@/lib/site-content";
 import { ImageManagerPanel } from "@/components/image-manager-panel";
 
 type Props = {
@@ -2316,7 +2316,7 @@ function MovementsPanel({
             </div>
             <div className="mt-4 grid gap-3">
               {booklets
-                .filter((booklet, bookletIndex) => getBookletMovementIndex(booklet, bookletIndex) === index)
+                .filter((booklet, bookletIndex) => isBookletInMovement(booklet, bookletIndex, movement, index))
                 .map((booklet) => (
                   <div
                     className="flex flex-col justify-between gap-3 rounded-md border border-gold/10 bg-surface px-4 py-3 sm:flex-row sm:items-center"

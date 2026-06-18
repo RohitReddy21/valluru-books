@@ -812,6 +812,19 @@ export function getBookletMovementIndex(booklet: Booklet, fallbackIndex = 0) {
   return 0;
 }
 
+export function isBookletInMovement(
+  booklet: Booklet,
+  bookletIndex: number,
+  movement: Movement,
+  movementIndex: number
+) {
+  if (Array.isArray(movement.bookletIndices)) {
+    return movement.bookletIndices.includes(bookletIndex);
+  }
+
+  return getBookletMovementIndex(booklet, bookletIndex) === movementIndex;
+}
+
 export function getBookletNeighbors(booklets: Booklet[], slug: string) {
   const index = booklets.findIndex((booklet) => booklet.slug === slug);
 

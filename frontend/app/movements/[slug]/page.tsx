@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { BackLink, PageShell, PrimaryLink, BookletCard } from "@/components/ui";
 import { MovementPdfReader } from "@/components/movement-pdf-reader";
-import { defaultSiteContent, getBookletMovementIndex, movementSlug, isPublished } from "@/lib/site-content";
+import { defaultSiteContent, isBookletInMovement, movementSlug, isPublished } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
 
 export const dynamic = "force-dynamic";
@@ -64,15 +64,8 @@ export default async function MovementDetailPage({
   const nextMovement = currentIndex < movements.length - 1 ? movements[currentIndex + 1] : null;
 
   // Get booklets in this movement, preserving the admin-managed booklet order.
-  const bookletIndices = new Set(movement.bookletIndices || []);
   const movementBooklets = content.series.booklets.filter((booklet, bookletIndex) => {
-    const assignedToMovement = getBookletMovementIndex(booklet, bookletIndex) === movementIndex;
-    const isInMovement =
-      bookletIndices.size > 0
-        ? bookletIndices.has(bookletIndex) || assignedToMovement
-        : assignedToMovement;
-
-    return isInMovement && isPublished(booklet.status);
+    return isBookletInMovement(booklet, bookletIndex, movement, movementIndex) && isPublished(booklet.status);
   });
 
   return (
