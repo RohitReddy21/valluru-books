@@ -47,7 +47,7 @@ export function MovementPdfReader({ movement, movementIndex }: Props) {
       {readerOpen ? (
         <PdfBookModal
           accessToken=""
-          numberLabel={movement.booklets}
+          numberLabel="Movement Reader"
           onClose={() => setReaderOpen(false)}
           open={readerOpen}
           pdfUrl={pdfUrl}

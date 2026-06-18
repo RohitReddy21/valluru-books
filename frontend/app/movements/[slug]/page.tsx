@@ -117,7 +117,7 @@ export default async function MovementDetailPage({
             )}
             {!movement.pageIntro && !movement.openingParagraph && (
               <p className="responsive-prose mt-8 text-parchment/88">
-                {movement.booklets || "Explore this movement through reflection and practice."}
+                {movement.description || "Explore this movement through reflection and practice."}
               </p>
             )}
             {movement.arcLine && (
