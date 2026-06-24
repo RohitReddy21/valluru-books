@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Crimson_Pro, Playfair_Display } from "next/font/google";
-import "./globals.css";
+import "../globals.css";
 import { getSiteContent } from "@/lib/content-store";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
