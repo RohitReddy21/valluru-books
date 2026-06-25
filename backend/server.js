@@ -661,6 +661,8 @@ function formatSubscriptionTime(date = new Date()) {
 }
 
 function emailShell({ preheader, eyebrow, title, content, footer }) {
+  const siteUrl = getPublicSiteUrl();
+  const logoUrl = `${siteUrl}/valluru-logo.png`;
   return `<!doctype html>
 <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
   <head>
@@ -711,18 +713,10 @@ function emailShell({ preheader, eyebrow, title, content, footer }) {
           <!-- Floating brand mark -->
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:24px;">
             <tr>
-              <td align="center" style="padding:0 0 8px;">
-                <div style="width:48px;height:2px;background:linear-gradient(90deg,transparent,#c9a24e,transparent);"></div>
-              </td>
-            </tr>
-            <tr>
-              <td align="center" style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:14px;letter-spacing:5px;text-transform:uppercase;color:#c9a24e;">
-                The Valluru
-              </td>
-            </tr>
-            <tr>
-              <td align="center" style="padding:8px 0 0;">
-                <div style="width:48px;height:2px;background:linear-gradient(90deg,transparent,#c9a24e,transparent);"></div>
+              <td align="center">
+                <a href="${siteUrl}" style="text-decoration:none;display:inline-block;">
+                  <img src="${logoUrl}" alt="The Valluru" style="height:60px;width:auto;display:block;border:0;outline:none;text-decoration:none;" />
+                </a>
               </td>
             </tr>
           </table>
@@ -815,7 +809,7 @@ function buildSubscriberEmail({ name, bookletTitle }) {
         <tr>
           <td style="padding:22px 24px;background:linear-gradient(135deg,#f5efe3 0%,#ebe1cf 100%);border-left:4px solid #c9a24e;border-radius:0 10px 10px 0;">
             <div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:#8a6a2e;margin-bottom:8px;">&#9670;&ensp;Your requested booklet</div>
-            <div style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:22px;line-height:30px;color:#2b261f;font-weight:600;">${safeBookletTitle}</div>
+            <div style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:22px;line-height:30px;color:#000000;font-weight:600;">${safeBookletTitle}</div>
           </td>
         </tr>
       </table>`
