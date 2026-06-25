@@ -42,13 +42,13 @@ export const metadata: Metadata = {
     url: "https://www.thevalluru.org",
     siteName: "The Valluru",
     title: "Booklets — The Inward Fire Series | The Valluru",
-    description: "Eighteen booklets on dharma, grief, language, and surrender.",
+    description: "Booklets on dharma, grief, language, and surrender.",
     images: [
       {
         url: "https://www.thevalluru.org/og/default.jpg",
         width: 1200,
         height: 630,
-        alt: "Booklets — The Inward Fire Series | The Valluru"
+        alt: "The Inward Fire Series | The Valluru"
       }
     ]
   },
