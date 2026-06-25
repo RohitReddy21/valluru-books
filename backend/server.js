@@ -2578,7 +2578,7 @@ app.post(
       }
 
       const file = request.file;
-      const { slug } = request.body;
+      const { slug, imageRole } = request.body;
 
       if (!file) {
         response.status(400).json({ error: "Choose an image file." });
@@ -2595,11 +2595,21 @@ app.post(
         return;
       }
 
-      const uploaded = await uploadToSupabase(file,
-        getStorageTarget(file, "books/covers", "book-cover")
+      const isBackground = imageRole === "background";
+      const uploaded = await uploadToSupabase(
+        file,
+        getStorageTarget(
+          file,
+          isBackground ? "books/backgrounds" : "books/covers",
+          isBackground ? "book-background" : "book-cover"
+        )
       );
 
-      response.json({ ok: true, url: uploaded.url });
+      response.json({
+        ok: true,
+        url: uploaded.url,
+        imageRole: isBackground ? "background" : "cover"
+      });
     } catch (error) {
       next(error);
     } finally {

@@ -117,6 +117,7 @@ export default async function BookletPage({
 
   const canonicalUrl = `https://www.thevalluru.org/series/${publicSlug}`;
   const coverImage = booklet.coverImage || "https://www.thevalluru.org/og/default.jpg";
+  const backgroundImage = booklet.backgroundImage || media.pageHeroImage;
   const faqItems = getBookletFaqs(booklet);
 
   const bookSchema = {
@@ -183,9 +184,9 @@ export default async function BookletPage({
       <section
         className="valluru-hero-image px-4 pb-12 pt-24 sm:px-5 sm:pt-32"
         style={
-          media.pageHeroImage
+          backgroundImage
             ? {
-                backgroundImage: `linear-gradient(180deg, rgba(15, 14, 12, 0.42), rgba(15, 14, 12, 0.96)), url("${media.pageHeroImage}")`
+                backgroundImage: `linear-gradient(180deg, rgba(15, 14, 12, 0.42), rgba(15, 14, 12, 0.96)), url("${backgroundImage}")`
               }
             : undefined
         }

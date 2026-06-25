@@ -193,6 +193,10 @@ export function AdminEditor({ initialContent, source }: Props) {
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [bookletCoverFile, setBookletCoverFile] = useState<File | null>(null);
   const [bookletCoverStatus, setBookletCoverStatus] = useState("Upload a cover image for this booklet.");
+  const [bookletBackgroundFile, setBookletBackgroundFile] = useState<File | null>(null);
+  const [bookletBackgroundStatus, setBookletBackgroundStatus] = useState(
+    "Upload a background image for this booklet page."
+  );
   const [status, setStatus] = useState("Edit content and save.");
   const [uploadStatus, setUploadStatus] = useState(
     "Upload a PDF and attach it to a booklet."
@@ -494,8 +498,7 @@ export function AdminEditor({ initialContent, source }: Props) {
       formData.append("file", bookletCoverFile);
       formData.append("slug", selectedBookletSlug);
 
-      const headers = adminHeaders({});
-      delete (headers as any)["Content-Type"];
+      const headers = adminHeaders();
 
       const response = await fetch(apiUrl("/api/admin/upload-booklet-cover"), {
         method: "POST",
@@ -521,6 +524,48 @@ export function AdminEditor({ initialContent, source }: Props) {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error uploading image";
       setBookletCoverStatus(errorMessage);
+    }
+  }
+
+  async function uploadBookletBackground() {
+    if (!bookletBackgroundFile || !selectedBookletSlug) {
+      setBookletBackgroundStatus("Choose a booklet and background image first.");
+      return;
+    }
+
+    setBookletBackgroundStatus("Uploading background image to storage...");
+    try {
+      const formData = new FormData();
+      formData.append("file", bookletBackgroundFile);
+      formData.append("slug", selectedBookletSlug);
+      formData.append("imageRole", "background");
+
+      const headers = adminHeaders();
+
+      const response = await fetch(apiUrl("/api/admin/upload-booklet-cover"), {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: formData
+      });
+
+      if (!response.ok) {
+        try {
+          const error = await response.json();
+          setBookletBackgroundStatus(`Upload failed: ${error.error || "Unknown error"}`);
+        } catch {
+          setBookletBackgroundStatus(`Upload failed: ${response.statusText || "Unknown error"}`);
+        }
+        return;
+      }
+
+      const data = await response.json();
+      updateBooklet(selectedBookletSlug, { backgroundImage: data.url });
+      setBookletBackgroundStatus("✓ Background uploaded. Click the Save button to persist changes.");
+      setBookletBackgroundFile(null);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Error uploading image";
+      setBookletBackgroundStatus(errorMessage);
     }
   }
 
@@ -1101,6 +1146,11 @@ export function AdminEditor({ initialContent, source }: Props) {
                 setBookletCoverFile={setBookletCoverFile}
                 uploadBookletCover={uploadBookletCover}
                 bookletCoverStatus={bookletCoverStatus}
+                bookletBackgroundFile={bookletBackgroundFile}
+                setBookletBackgroundFile={setBookletBackgroundFile}
+                uploadBookletBackground={uploadBookletBackground}
+                bookletBackgroundStatus={bookletBackgroundStatus}
+                fallbackBackgroundImage={content.media.pageHeroImage}
               />
             ) : null}
 
@@ -2536,7 +2586,12 @@ function BookletPanel({
   bookletCoverFile,
   setBookletCoverFile,
   uploadBookletCover,
-  bookletCoverStatus
+  bookletCoverStatus,
+  bookletBackgroundFile,
+  setBookletBackgroundFile,
+  uploadBookletBackground,
+  bookletBackgroundStatus,
+  fallbackBackgroundImage
 }: {
   booklet: Booklet;
   booklets: Booklet[];
@@ -2557,6 +2612,11 @@ function BookletPanel({
   setBookletCoverFile: (file: File | null) => void;
   uploadBookletCover: () => void;
   bookletCoverStatus: string;
+  bookletBackgroundFile: File | null;
+  setBookletBackgroundFile: (file: File | null) => void;
+  uploadBookletBackground: () => void;
+  bookletBackgroundStatus: string;
+  fallbackBackgroundImage: string;
 }) {
   const currentBookletIndex = booklets.findIndex((item) => item.slug === booklet.slug);
   const currentMovementIndex = getBookletMovementIndex(
@@ -2994,6 +3054,55 @@ function BookletPanel({
           <p className="mt-3 text-base italic text-muted">{bookletCoverStatus}</p>
         </div>
       </div>
+      <div className="rounded-md border border-gold/15 bg-ink p-5">
+        <p className="font-label text-sm uppercase tracking-[0.2em] text-gold">
+          Booklet Page Background
+        </p>
+        <p className="mt-2 text-sm text-muted">
+          Each booklet can have its own background. If this is empty, the current shared page image remains in use.
+        </p>
+        {(booklet.backgroundImage || fallbackBackgroundImage) && (
+          <div className="mt-4 overflow-hidden rounded-md border border-gold/20">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt={`${booklet.title} page background`}
+              className="h-48 w-full object-cover"
+              src={booklet.backgroundImage || fallbackBackgroundImage}
+            />
+          </div>
+        )}
+        <div className="mt-4 grid gap-3">
+          <TextField
+            label="Background Image URL"
+            onChange={(value) => updateBooklet(booklet.slug, { backgroundImage: value })}
+            value={booklet.backgroundImage || ""}
+          />
+          {!booklet.backgroundImage ? (
+            <p className="text-xs italic text-muted">Using the current shared page background.</p>
+          ) : null}
+        </div>
+        <div className="mt-4 rounded-md border border-gold/20 bg-surface/50 p-4">
+          <p className="mb-3 font-label text-xs uppercase tracking-[0.2em] text-muted">
+            Upload background from device
+          </p>
+          <input
+            accept="image/*"
+            className="w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-sm text-parchment file:mr-3 file:rounded-md file:border-0 file:bg-gold/15 file:px-3 file:py-2 file:text-parchment"
+            onChange={(event) => setBookletBackgroundFile(event.target.files?.[0] || null)}
+            type="file"
+          />
+          <button
+            className="mt-3 inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold disabled:opacity-50"
+            disabled={!bookletBackgroundFile}
+            onClick={uploadBookletBackground}
+            type="button"
+          >
+            <ImageIcon size={16} />
+            Upload Background
+          </button>
+          <p className="mt-3 text-base italic text-muted">{bookletBackgroundStatus}</p>
+        </div>
+      </div>
       <TextField
         label="Gallery Image URLs (comma separated)"
         onChange={(value) =>
@@ -3066,6 +3175,13 @@ function BookletPanel({
                           type="button"
                         >
                           Use Cover
+                        </button>
+                        <button
+                          className="rounded-md border border-gold/20 px-3 py-2 text-sm text-muted"
+                          onClick={() => updateBooklet(booklet.slug, { backgroundImage: mediaUrl })}
+                          type="button"
+                        >
+                          Use Background
                         </button>
                         <button
                           className="rounded-md border border-gold/20 px-3 py-2 text-sm text-muted"

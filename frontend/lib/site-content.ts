@@ -91,6 +91,7 @@ export type Booklet = {
   pdf?: string;
   samplePdf?: string;
   coverImage?: string;
+  backgroundImage?: string;
   galleryImages?: string[];
   categories?: string[];
   tags?: string[];
