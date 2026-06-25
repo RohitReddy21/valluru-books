@@ -26,9 +26,9 @@ const cormorant = Cormorant_Garamond({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.thevalluru.org"),
-  title: "Booklets — The Inward Fire Series | The Valluru",
+  title: "The Inward Fire Series | The Valluru",
   description:
-    "Eighteen booklets on dharma, grief, language, and surrender. For the seeker who still needs an inward anchor.",
+    "Booklets on dharma, grief, language, and surrender. For the seeker who still needs an inward anchor.",
   keywords: ["dharma", "grief", "nada", "bhakti", "sanskrit", "spirituality", "inner life"],
   authors: [{ name: "Sasidhar Valluru" }],
   creator: "Sasidhar Valluru",
