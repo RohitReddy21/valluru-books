@@ -533,16 +533,50 @@ async function writeGridFileToTemp(bucket, file) {
   };
 }
 
+function isPlaceholderSetting(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+
+  return (
+    !normalized ||
+    normalized.includes("your_") ||
+    normalized.includes("example.com") ||
+    normalized.includes("changeme")
+  );
+}
+
 function getResend() {
-  if (!process.env.RESEND_API_KEY) {
+  const apiKey = String(process.env.RESEND_API_KEY || "").trim();
+
+  if (isPlaceholderSetting(apiKey) || !apiKey.startsWith("re_")) {
     return null;
   }
 
   if (!resendClient) {
-    resendClient = new Resend(process.env.RESEND_API_KEY);
+    resendClient = new Resend(apiKey);
   }
 
   return resendClient;
+}
+
+function getAdminNotificationEmail() {
+  const email = String(process.env.ADMIN_NOTIFICATION_EMAIL || "").trim().toLowerCase();
+
+  if (
+    isPlaceholderSetting(email) ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+  ) {
+    return "";
+  }
+
+  return email;
+}
+
+function getResendFrom() {
+  const from = String(process.env.RESEND_FROM || "").trim();
+
+  return isPlaceholderSetting(from)
+    ? "The Valluru <onboarding@resend.dev>"
+    : from;
 }
 
 function verifyAdmin(request, response, next) {
@@ -610,6 +644,363 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function getPublicSiteUrl() {
+  return String(process.env.PUBLIC_SITE_URL || "https://www.thevalluru.org")
+    .trim()
+    .replace(/\/$/, "");
+}
+
+function formatSubscriptionTime(date = new Date()) {
+  return new Intl.DateTimeFormat("en-IN", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "Asia/Kolkata"
+  }).format(date);
+}
+
+function emailShell({ preheader, eyebrow, title, content, footer }) {
+  return `<!doctype html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>${escapeHtml(title)}</title>
+    <!--[if mso]>
+    <noscript>
+      <xml>
+        <o:OfficeDocumentSettings>
+          <o:PixelsPerInch>96</o:PixelsPerInch>
+        </o:OfficeDocumentSettings>
+      </xml>
+    </noscript>
+    <![endif]-->
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&display=swap');
+
+      body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+      table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+      img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+      body { margin: 0; padding: 0; width: 100% !important; }
+
+      @media only screen and (max-width: 640px) {
+        .email-shell { width: 100% !important; }
+        .email-pad { padding-left: 20px !important; padding-right: 20px !important; }
+        .email-title { font-size: 28px !important; line-height: 36px !important; }
+        .email-hero-pad { padding: 28px 20px 24px !important; }
+        .email-content-pad { padding: 32px 20px 28px !important; }
+        .email-footer-pad { padding: 20px 20px 24px !important; }
+        .email-detail-label { font-size: 10px !important; }
+        .email-detail-value { font-size: 14px !important; }
+      }
+    </style>
+  </head>
+  <body style="margin:0;padding:0;background:#0f0d0a;color:#2b261f;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;font-size:1px;line-height:1px;">
+      ${escapeHtml(preheader)}
+      ${'\u200c\u00a0'.repeat(30)}
+    </div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#0f0d0a;">
+      <tr>
+        <td align="center" style="padding:40px 16px 48px;">
+
+          <!-- Floating brand mark -->
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:24px;">
+            <tr>
+              <td align="center" style="padding:0 0 8px;">
+                <div style="width:48px;height:2px;background:linear-gradient(90deg,transparent,#c9a24e,transparent);"></div>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:14px;letter-spacing:5px;text-transform:uppercase;color:#c9a24e;">
+                The Valluru
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:8px 0 0;">
+                <div style="width:48px;height:2px;background:linear-gradient(90deg,transparent,#c9a24e,transparent);"></div>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Main email card -->
+          <table class="email-shell" role="presentation" width="620" cellspacing="0" cellpadding="0" border="0" style="width:620px;max-width:620px;background:#faf6ef;border-radius:16px;overflow:hidden;box-shadow:0 4px 32px rgba(0,0,0,0.35),0 0 0 1px rgba(181,139,53,0.25);">
+
+            <!-- Hero header -->
+            <tr>
+              <td class="email-hero-pad" style="padding:38px 48px 30px;background:linear-gradient(180deg,#1a1610 0%,#221e16 100%);border-bottom:2px solid #3d3425;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td>
+                      <div style="font-family:'Inter',Arial,Helvetica,sans-serif;font-size:10px;font-weight:600;letter-spacing:3px;text-transform:uppercase;color:#b89446;">${escapeHtml(eyebrow)}</div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:20px 0 0;">
+                      <div style="width:36px;height:2px;background:#b89446;border-radius:1px;margin-bottom:20px;"></div>
+                      <h1 class="email-title" style="margin:0;font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:38px;line-height:46px;font-weight:400;color:#f0e8d8;letter-spacing:-0.3px;">${escapeHtml(title)}</h1>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Decorative gold accent line -->
+            <tr>
+              <td style="height:3px;background:linear-gradient(90deg,#8a6a2e,#d4af37,#c9a24e,#8a6a2e);font-size:0;line-height:0;">&nbsp;</td>
+            </tr>
+
+            <!-- Content -->
+            <tr>
+              <td class="email-content-pad email-pad" style="padding:40px 48px 36px;background:#faf6ef;">
+                ${content}
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="height:1px;background:linear-gradient(90deg,transparent 5%,#d5c3a2 50%,transparent 95%);font-size:0;line-height:0;">&nbsp;</td>
+            </tr>
+            <tr>
+              <td class="email-footer-pad email-pad" style="padding:22px 48px 28px;background:#f0e8d8;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td style="font-family:'Inter',Arial,Helvetica,sans-serif;font-size:11px;line-height:18px;color:#8a7b63;">
+                      ${footer}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:12px 0 0;">
+                      <div style="width:24px;height:1px;background:#c9a24e;opacity:0.5;"></div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 0 0;font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:12px;font-style:italic;color:#a99d87;letter-spacing:0.5px;">
+                      thevalluru.org
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Bottom flourish -->
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top:20px;">
+            <tr>
+              <td align="center">
+                <div style="font-family:'Cormorant Garamond',Georgia,serif;font-size:18px;color:#5d4c2c;letter-spacing:8px;">&#10043;</div>
+              </td>
+            </tr>
+          </table>
+
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+}
+
+function buildSubscriberEmail({ name, bookletTitle }) {
+  const safeName = escapeHtml(name);
+  const safeBookletTitle = bookletTitle ? escapeHtml(bookletTitle) : "";
+  const siteUrl = getPublicSiteUrl();
+  const seriesUrl = `${siteUrl}/series`;
+
+  const requestedBooklet = safeBookletTitle
+    ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0;">
+        <tr>
+          <td style="padding:22px 24px;background:linear-gradient(135deg,#f5efe3 0%,#ebe1cf 100%);border-left:4px solid #c9a24e;border-radius:0 10px 10px 0;">
+            <div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:#8a6a2e;margin-bottom:8px;">&#9670;&ensp;Your requested booklet</div>
+            <div style="font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:22px;line-height:30px;color:#2b261f;font-weight:600;">${safeBookletTitle}</div>
+          </td>
+        </tr>
+      </table>`
+    : "";
+
+  return {
+    subject: safeBookletTitle
+      ? `Your reading access: ${bookletTitle}`
+      : "Welcome to The Inward Fire Letter",
+    html: emailShell({
+      preheader: "Your subscription to The Inward Fire Letter is confirmed.",
+      eyebrow: "The Inward Fire Letter",
+      title: `Welcome, ${name}`,
+      content: `
+        <p style="margin:0 0 20px;font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:20px;line-height:34px;color:#453d32;">
+          Dear ${safeName},
+        </p>
+        <p style="margin:0 0 20px;font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:20px;line-height:34px;color:#453d32;">
+          Thank you for subscribing. You are now part of a quiet correspondence on <em>dharma, grief, language, surrender,</em> and the inner life.
+        </p>
+        ${requestedBooklet}
+        <p style="margin:0 0 32px;font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:20px;line-height:34px;color:#453d32;">
+          No noise and no urgency&mdash;only considered writing for the inward journey.
+        </p>
+
+        <!-- Decorative divider -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 32px;">
+          <tr>
+            <td style="height:1px;background:linear-gradient(90deg,#c9a24e 0%,transparent 100%);font-size:0;line-height:0;">&nbsp;</td>
+          </tr>
+        </table>
+
+        <!-- CTA Button -->
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+          <tr>
+            <td style="border-radius:8px;background:linear-gradient(135deg,#a77d2d 0%,#c9a24e 100%);box-shadow:0 2px 8px rgba(167,125,45,0.3);">
+              <a href="${escapeHtml(seriesUrl)}" style="display:inline-block;padding:16px 32px;font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:600;letter-spacing:2px;text-transform:uppercase;text-decoration:none;color:#ffffff;">Explore the Booklets &rarr;</a>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Sign-off -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:40px 0 0;">
+          <tr>
+            <td style="padding:24px 0 0;border-top:1px solid #e5d7bf;">
+              <p style="margin:0 0 4px;font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:19px;line-height:28px;color:#453d32;font-style:italic;">With warmth,</p>
+              <p style="margin:0;font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:20px;line-height:28px;color:#2b261f;font-weight:600;">Sasidhar Valluru</p>
+            </td>
+          </tr>
+        </table>`,
+      footer: `You received this message because you subscribed at <a href="${escapeHtml(siteUrl)}" style="color:#8a6a2e;text-decoration:underline;">thevalluru.org</a>. We respect your inbox.`
+    }),
+    text: `Dear ${name},
+
+Thank you for subscribing to The Inward Fire Letter.
+${bookletTitle ? `\nRequested booklet: ${bookletTitle}\n` : ""}
+You are now part of a quiet correspondence on dharma, grief, language, surrender, and the inner life.
+
+Explore the booklets: ${seriesUrl}
+
+With warmth,
+Sasidhar Valluru`
+  };
+}
+
+function buildOwnerEmail({ name, email, source, bookletTitle, subscribedAt, isNewSubscriber }) {
+  const siteUrl = getPublicSiteUrl();
+  const safeName = escapeHtml(name);
+  const safeEmail = escapeHtml(email);
+  const safeSource = escapeHtml(
+    source === "booklet-reader" ? "Booklet reader" : "Newsletter form"
+  );
+  const safeBookletTitle = bookletTitle ? escapeHtml(bookletTitle) : "\u2014";
+  const safeTime = escapeHtml(formatSubscriptionTime(subscribedAt));
+  const statusBadge = isNewSubscriber
+    ? `<span style="display:inline-block;padding:4px 12px;background:#2d5a27;color:#a8e6a0;font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;border-radius:20px;">&#9679; New</span>`
+    : `<span style="display:inline-block;padding:4px 12px;background:#5a4a27;color:#e6d3a0;font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;border-radius:20px;">&#9679; Returning</span>`;
+
+  return {
+    subject: `${isNewSubscriber ? "New subscriber" : "Returning subscriber"} \u2014 ${name}`,
+    html: emailShell({
+      preheader: `${name} subscribed to The Inward Fire Letter.`,
+      eyebrow: "Owner Notification",
+      title: isNewSubscriber ? "A new reader has arrived" : "A reader subscribed again",
+      content: `
+        <p style="margin:0 0 8px;font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:19px;line-height:30px;color:#453d32;">
+          A subscription was recorded successfully.
+        </p>
+        <p style="margin:0 0 28px;">${statusBadge}</p>
+
+        <!-- Reader details card -->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-radius:12px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);">
+          <tr>
+            <td style="background:linear-gradient(135deg,#1a1610,#221e16);padding:14px 20px;">
+              <div style="font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;color:#c9a24e;">Reader Details</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:#fffcf5;padding:0;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td class="email-detail-label" style="padding:16px 20px 14px;border-bottom:1px solid #f0e8d8;font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#8a7b63;width:100px;">Name</td>
+                  <td class="email-detail-value" style="padding:16px 20px 14px;border-bottom:1px solid #f0e8d8;font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:18px;color:#2b261f;font-weight:600;">${safeName}</td>
+                </tr>
+                <tr>
+                  <td class="email-detail-label" style="padding:14px 20px;border-bottom:1px solid #f0e8d8;font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#8a7b63;">Email</td>
+                  <td class="email-detail-value" style="padding:14px 20px;border-bottom:1px solid #f0e8d8;font-family:'Inter',Arial,sans-serif;font-size:15px;"><a href="mailto:${safeEmail}" style="color:#8a6a2e;text-decoration:underline;">${safeEmail}</a></td>
+                </tr>
+                <tr>
+                  <td class="email-detail-label" style="padding:14px 20px;border-bottom:1px solid #f0e8d8;font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#8a7b63;">Source</td>
+                  <td class="email-detail-value" style="padding:14px 20px;border-bottom:1px solid #f0e8d8;font-family:'Inter',Arial,sans-serif;font-size:15px;color:#453d32;">${safeSource}</td>
+                </tr>
+                <tr>
+                  <td class="email-detail-label" style="padding:14px 20px;border-bottom:1px solid #f0e8d8;font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#8a7b63;">Booklet</td>
+                  <td class="email-detail-value" style="padding:14px 20px;border-bottom:1px solid #f0e8d8;font-family:'Cormorant Garamond',Georgia,serif;font-size:17px;color:#453d32;font-style:italic;">${safeBookletTitle}</td>
+                </tr>
+                <tr>
+                  <td class="email-detail-label" style="padding:14px 20px;font-family:'Inter',Arial,sans-serif;font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#8a7b63;">Time</td>
+                  <td class="email-detail-value" style="padding:14px 20px;font-family:'Inter',Arial,sans-serif;font-size:14px;color:#6b5f4e;">${safeTime} IST</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Action buttons -->
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top:32px;">
+          <tr>
+            <td style="border-radius:8px;background:linear-gradient(135deg,#a77d2d 0%,#c9a24e 100%);box-shadow:0 2px 8px rgba(167,125,45,0.3);">
+              <a href="mailto:${safeEmail}" style="display:inline-block;padding:14px 28px;font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;text-decoration:none;color:#ffffff;">Reply to Reader</a>
+            </td>
+            <td style="width:12px;"></td>
+            <td style="border:2px solid #c9a24e;border-radius:8px;">
+              <a href="${escapeHtml(`${siteUrl}/admin`)}" style="display:inline-block;padding:12px 26px;font-family:'Inter',Arial,sans-serif;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;text-decoration:none;color:#8a6a2e;">Open Admin</a>
+            </td>
+          </tr>
+        </table>`,
+      footer: "Automated owner notification from The Valluru subscription system."
+    }),
+    text: `${isNewSubscriber ? "New" : "Returning"} subscriber
+
+Name: ${name}
+Email: ${email}
+Source: ${source === "booklet-reader" ? "Booklet reader" : "Newsletter form"}
+Booklet: ${bookletTitle || "\u2014"}
+Time: ${formatSubscriptionTime(subscribedAt)} IST
+
+Admin: ${siteUrl}/admin`
+  };
+}
+
+function emailErrorMessage(error) {
+  if (!error) {
+    return "Unknown email delivery error.";
+  }
+
+  if (typeof error === "string") {
+    return error;
+  }
+
+  return String(error.message || error.name || "Unknown email delivery error.");
+}
+
+async function sendResendEmail(resend, label, payload) {
+  try {
+    console.log(`[email] Attempting to send ${label} to ${payload.to} from ${payload.from}`);
+    const { data, error } = await resend.emails.send(payload);
+
+    if (error) {
+      console.error(`[email] Resend API returned error for ${label}:`, JSON.stringify(error, null, 2));
+      throw new Error(emailErrorMessage(error));
+    }
+
+    console.log(`[email] ${label} accepted by Resend`, { id: data?.id || null, to: payload.to });
+    return { status: "sent", id: data?.id || null };
+  } catch (error) {
+    const message = emailErrorMessage(error);
+    console.error(`[email] ${label} FAILED: ${message}`, {
+      to: payload.to,
+      from: payload.from,
+      subject: payload.subject,
+      errorStack: error?.stack || "no stack"
+    });
+    return { status: "failed", error: message };
+  }
 }
 
 function createSignedToken(payload, maxAgeMs = 1000 * 60 * 60 * 8) {
@@ -1237,6 +1628,60 @@ app.post("/api/admin/login", (request, response) => {
   });
 });
 
+app.get("/api/admin/email-health", verifyAdmin, (_request, response) => {
+  response.json({
+    resendApiKeyConfigured: Boolean(getResend()),
+    senderConfigured: !isPlaceholderSetting(process.env.RESEND_FROM),
+    ownerEmailConfigured: Boolean(getAdminNotificationEmail())
+  });
+});
+
+app.post("/api/admin/test-owner-email", verifyAdmin, async (_request, response) => {
+  const resend = getResend();
+  const adminEmail = getAdminNotificationEmail();
+
+  if (!resend) {
+    response.status(503).json({
+      error: "RESEND_API_KEY is missing or still contains a placeholder."
+    });
+    return;
+  }
+
+  if (!adminEmail) {
+    response.status(503).json({
+      error: "ADMIN_NOTIFICATION_EMAIL is missing, invalid, or still contains a placeholder."
+    });
+    return;
+  }
+
+  const template = buildOwnerEmail({
+    name: "Test Subscriber",
+    email: adminEmail,
+    source: "newsletter",
+    bookletTitle: "Email notification test",
+    subscribedAt: new Date(),
+    isNewSubscriber: true
+  });
+  const result = await sendResendEmail(resend, "owner notification test", {
+    from: getResendFrom(),
+    to: adminEmail,
+    replyTo: adminEmail,
+    subject: `[Test] ${template.subject}`,
+    html: template.html,
+    text: template.text,
+    tags: [{ name: "email_type", value: "owner_notification_test" }]
+  });
+
+  if (result.status !== "sent") {
+    response.status(502).json({
+      error: result.error || "Resend rejected the test owner notification."
+    });
+    return;
+  }
+
+  response.json({ ok: true, id: result.id });
+});
+
 app.get("/api/content", async (_request, response, next) => {
   try {
     response.json({ content: await getSiteContent() });
@@ -1272,8 +1717,8 @@ app.post("/api/subscribe", async (request, response, next) => {
     const email = String(request.body?.email || "").trim().toLowerCase();
     const name = String(request.body?.name || "").trim();
     const bookletSlug = String(request.body.bookletSlug || "").trim();
-    const bookletTitle = request.body.bookletTitle || null;
-    const source = request.body.source || "newsletter";
+    const bookletTitle = String(request.body?.bookletTitle || "").trim() || null;
+    const source = String(request.body?.source || "newsletter").trim() || "newsletter";
 
     if (!name) {
       response.status(400).json({ error: "Name is required." });
@@ -1286,6 +1731,7 @@ app.post("/api/subscribe", async (request, response, next) => {
     }
 
     const db = await getDb();
+    const subscribedAt = new Date();
     const subscriberUpdate = {
       $set: {
         email,
@@ -1293,9 +1739,9 @@ app.post("/api/subscribe", async (request, response, next) => {
         lastSource: source,
         lastBookletSlug: bookletSlug || null,
         lastBookletTitle: bookletTitle,
-        updatedAt: new Date()
+        updatedAt: subscribedAt
       },
-      $setOnInsert: { createdAt: new Date() }
+      $setOnInsert: { createdAt: subscribedAt }
     };
 
     if (bookletSlug) {
@@ -1304,9 +1750,10 @@ app.post("/api/subscribe", async (request, response, next) => {
       };
     }
 
-    await db.collection("subscribers").updateOne({ email }, subscriberUpdate, {
+    const subscriberResult = await db.collection("subscribers").updateOne({ email }, subscriberUpdate, {
       upsert: true
     });
+    const isNewSubscriber = subscriberResult.upsertedCount > 0;
 
     if (bookletSlug) {
       await db.collection("booklet_readers").updateOne(
@@ -1333,44 +1780,96 @@ app.post("/api/subscribe", async (request, response, next) => {
     }
 
     const resend = getResend();
-    if (resend) {
-      const from = process.env.RESEND_FROM || "The Valluru <onboarding@resend.dev>";
-      const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL;
-      const safeName = escapeHtml(name);
-      const safeEmail = escapeHtml(email);
-      const bookletLine = bookletTitle
-        ? `<p>Requested booklet: <strong>${escapeHtml(bookletTitle)}</strong></p>`
-        : "";
-      const safeSource = escapeHtml(source);
+    const from = getResendFrom();
+    const adminEmail = getAdminNotificationEmail();
+    const replyTo = String(process.env.REPLY_TO_EMAIL || adminEmail || "").trim();
+    const emailDelivery = {
+      subscriber: { status: "not_configured" },
+      owner: { status: "not_configured" }
+    };
 
-      await resend.emails.send({
-        from,
-        to: email,
-        subject: "The Inward Fire Letter",
-        html: `
-          <div style="font-family: Georgia, serif; line-height: 1.7; color: #1a1815;">
-            <p>Dear ${safeName}, thank you for subscribing to The Inward Fire Letter.</p>
-            ${bookletLine}
-            <p>You will hear from us quietly.</p>
-          </div>
-        `
-      });
+    console.log(`[email] Subscribe email flow started — resend=${Boolean(resend)}, from=${from}, adminEmail=${adminEmail || "NOT SET"}, replyTo=${replyTo || "NOT SET"}`);
+
+    if (!resend) {
+      console.error(
+        "[email] RESEND_API_KEY is missing or still contains a placeholder. Subscription was saved, but emails were not sent."
+      );
+    } else {
+      const subscriberEmail = buildSubscriberEmail({ name, bookletTitle });
+      const deliveries = [
+        sendResendEmail(resend, "subscriber confirmation", {
+          from,
+          to: email,
+          ...(replyTo ? { replyTo } : {}),
+          subject: subscriberEmail.subject,
+          html: subscriberEmail.html,
+          text: subscriberEmail.text,
+          tags: [
+            { name: "email_type", value: "subscriber_confirmation" },
+            { name: "source", value: source === "booklet-reader" ? "booklet-reader" : "newsletter" }
+          ]
+        }).then((result) => {
+          emailDelivery.subscriber = result;
+          if (result.status !== "sent") {
+            console.error(`[email] Subscriber confirmation to ${email} FAILED:`, result.error);
+          }
+        })
+      ];
 
       if (adminEmail) {
-        await resend.emails.send({
-          from,
-          to: adminEmail,
-          subject: "New Valluru subscriber",
-          html: `
-            <div style="font-family: Georgia, serif; line-height: 1.7; color: #1a1815;">
-              <p>New subscriber: <strong>${safeName}</strong> (${safeEmail})</p>
-              <p>Source: ${safeSource}</p>
-              ${bookletLine}
-            </div>
-          `
+        const ownerEmail = buildOwnerEmail({
+          name,
+          email,
+          source,
+          bookletTitle,
+          subscribedAt,
+          isNewSubscriber
         });
+
+        console.log(`[email] Sending owner notification to ${adminEmail}...`);
+
+        deliveries.push(
+          sendResendEmail(resend, "owner notification", {
+            from,
+            to: adminEmail,
+            replyTo: email,
+            subject: ownerEmail.subject,
+            html: ownerEmail.html,
+            text: ownerEmail.text,
+            tags: [
+              { name: "email_type", value: "owner_notification" },
+              { name: "source", value: source === "booklet-reader" ? "booklet-reader" : "newsletter" }
+            ]
+          }).then((result) => {
+            emailDelivery.owner = result;
+            if (result.status !== "sent") {
+              console.error(`[email] Owner notification to ${adminEmail} FAILED:`, result.error);
+            } else {
+              console.log(`[email] Owner notification to ${adminEmail} sent successfully (id: ${result.id})`);
+            }
+          })
+        );
+      } else {
+        console.error(
+          `[email] ADMIN_NOTIFICATION_EMAIL is missing, invalid, or still a placeholder. Current raw value: "${process.env.ADMIN_NOTIFICATION_EMAIL || ""}". Owner notification was SKIPPED.`
+        );
+        emailDelivery.owner = { status: "skipped", error: "ADMIN_NOTIFICATION_EMAIL not configured" };
       }
+
+      await Promise.all(deliveries);
+
+      console.log(`[email] Delivery results — subscriber: ${emailDelivery.subscriber.status}, owner: ${emailDelivery.owner.status}`);
     }
+
+    await db.collection("subscribers").updateOne(
+      { email },
+      {
+        $set: {
+          lastEmailDelivery: emailDelivery,
+          lastEmailAttemptAt: new Date()
+        }
+      }
+    );
 
     if (bookletSlug) {
       response.cookie(
@@ -1382,6 +1881,10 @@ app.post("/api/subscribe", async (request, response, next) => {
 
     response.json({
       ok: true,
+      emailDelivery: {
+        subscriber: emailDelivery.subscriber.status,
+        owner: emailDelivery.owner.status
+      },
       accessToken: bookletSlug ? createAccessToken(bookletSlug) : undefined
     });
   } catch (error) {
@@ -3028,4 +3531,23 @@ app.put(
 
 app.listen(port, "0.0.0.0", () => {
   console.log(`Valluru backend running on port ${port}`);
+
+  // Startup email configuration check
+  const startupResend = getResend();
+  const startupAdmin = getAdminNotificationEmail();
+  const startupFrom = getResendFrom();
+
+  console.log("[email-config] ========== EMAIL CONFIGURATION CHECK ==========");
+  console.log(`[email-config] RESEND_API_KEY: ${startupResend ? "CONFIGURED ✓" : "MISSING ✗ — no emails will be sent"}`);
+  console.log(`[email-config] RESEND_FROM: ${startupFrom}`);
+  console.log(`[email-config] ADMIN_NOTIFICATION_EMAIL: ${startupAdmin || "NOT SET ✗ — owner will NOT receive subscription notifications"}`);
+  console.log(`[email-config] REPLY_TO_EMAIL: ${process.env.REPLY_TO_EMAIL || "(falls back to ADMIN_NOTIFICATION_EMAIL)"}`);
+
+  if (!startupResend) {
+    console.error("[email-config] ⚠ WARNING: RESEND_API_KEY is missing or invalid. Subscriber welcome emails and owner notifications will NOT be sent.");
+  }
+  if (!startupAdmin) {
+    console.error("[email-config] ⚠ WARNING: ADMIN_NOTIFICATION_EMAIL is not configured. You will NOT receive new subscriber notifications!");
+  }
+  console.log("[email-config] ================================================");
 });

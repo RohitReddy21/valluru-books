@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Eye, FileText, ImageIcon, Package, Plus, RefreshCw, RotateCcw, Save, Trash2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, Eye, FileText, ImageIcon, Mail, Package, Plus, RefreshCw, RotateCcw, Save, Trash2, Upload } from "lucide-react";
 import { apiUrl } from "@/lib/api";
 import type { Booklet, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
 import { defaultSiteContent, getBookletMovementIndex, isBookletInMovement } from "@/lib/site-content";
@@ -217,6 +217,9 @@ export function AdminEditor({ initialContent, source }: Props) {
   const [pdfStatus, setPdfStatus] = useState("Load PDFs from the database.");
   const [orders, setOrders] = useState<AdminData["orders"]>([]);
   const [ordersStatus, setOrdersStatus] = useState("Load orders from the database.");
+  const [emailTestStatus, setEmailTestStatus] = useState(
+    "Send a test to verify the owner notification inbox."
+  );
 
   const selectedBooklet = useMemo(
     () =>
@@ -587,6 +590,26 @@ export function AdminEditor({ initialContent, source }: Props) {
 
     setAdminData(payload);
     setDataStatus("Database data loaded.");
+  }
+
+  async function sendOwnerTestEmail() {
+    setEmailTestStatus("Sending test owner notification...");
+
+    const response = await fetch(apiUrl("/api/admin/test-owner-email"), {
+      method: "POST",
+      credentials: "include",
+      headers: adminHeaders()
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { ok?: boolean; error?: string }
+      | null;
+
+    if (!response.ok || !payload?.ok) {
+      setEmailTestStatus(payload?.error || "The test email could not be sent.");
+      return;
+    }
+
+    setEmailTestStatus("✓ Test accepted by Resend. Check the owner inbox and spam folder.");
   }
 
   async function uploadMedia() {
@@ -1234,7 +1257,12 @@ export function AdminEditor({ initialContent, source }: Props) {
             ) : null}
 
             {tab === "settings" ? (
-              <SettingsPanel content={content} setContent={setContent} />
+              <SettingsPanel
+                content={content}
+                emailTestStatus={emailTestStatus}
+                sendOwnerTestEmail={sendOwnerTestEmail}
+                setContent={setContent}
+              />
             ) : null}
 
             {tab === "navigation" ? (
@@ -2501,9 +2529,13 @@ function OrdersPanel({
 
 function SettingsPanel({
   content,
+  emailTestStatus,
+  sendOwnerTestEmail,
   setContent
 }: {
   content: SiteContent;
+  emailTestStatus: string;
+  sendOwnerTestEmail: () => void;
   setContent: React.Dispatch<React.SetStateAction<SiteContent>>;
 }) {
   const settings = {
@@ -2527,6 +2559,22 @@ function SettingsPanel({
 
   return (
     <div className="grid gap-7">
+      <FieldGroup title="Email Notifications">
+        <p className="text-base leading-7 text-muted">
+          Sends a real owner-notification test using the backend Resend configuration.
+        </p>
+        <div>
+          <button
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
+            onClick={sendOwnerTestEmail}
+            type="button"
+          >
+            <Mail size={16} />
+            Send Owner Test Email
+          </button>
+          <p className="mt-3 text-base italic text-muted">{emailTestStatus}</p>
+        </div>
+      </FieldGroup>
       <FieldGroup title="Checkout Settings">
         <TextField label="WhatsApp Number" onChange={(value) => updateSettings({ whatsappNumber: value })} value={settings.whatsappNumber} />
         <TextField label="Website Name" onChange={(value) => updateSettings({ websiteName: value })} value={settings.websiteName} />
