@@ -5,10 +5,10 @@
     "node": ">=20.9.0"
   },
   "scripts": {
-    "build": "node --check server.js",
+    "build": "node --check server.js && node --check src/routes/admin-data.js && node --check src/routes/images.js && node --check src/routes/subscriptions.js",
     "dev": "node --watch server.js",
     "start": "node server.js",
-    "lint": "node --check server.js"
+    "lint": "node --check server.js && node --check src/routes/admin-data.js && node --check src/routes/images.js && node --check src/routes/subscriptions.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.107.0",

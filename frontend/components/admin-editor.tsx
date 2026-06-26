@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Eye, FileText, ImageIcon, Mail, Package, Plus, RefreshCw, RotateCcw, Save, Trash2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, Eye, FileText, ImageIcon, Mail, Package, Plus, RefreshCw, RotateCcw, Save, Trash2, Upload } from "lucide-react";
 import { apiUrl } from "@/lib/api";
 import type { Booklet, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
 import { defaultSiteContent, getBookletMovementIndex, isBookletInMovement } from "@/lib/site-content";
@@ -14,6 +14,19 @@ type Props = {
 
 type Tab = "dashboard" | "booklets" | "movements" | "pages" | "pdfs" | "media" | "images" | "orders" | "settings" | "navigation";
 type MediaTarget = "homeHeroImage" | "pageHeroImage" | "authorImage";
+type DataExportType = "all" | "subscribers" | "booklet_readers" | "orders" | "comments" | "media" | "pdfs";
+type DataExportFormat = "xls" | "csv";
+
+type SubscriberRecord = {
+  id?: string;
+  name?: string;
+  email?: string;
+  lastSource?: string;
+  lastBookletTitle?: string | null;
+  subscribedBooklets?: string[];
+  createdAt?: string;
+  updatedAt?: string;
+};
 
 type AdminData = {
   counts: {
@@ -30,13 +43,7 @@ type AdminData = {
     draftPosts: number;
     publishedPosts: number;
   };
-  subscribers: Array<{
-    name?: string;
-    email?: string;
-    lastSource?: string;
-    lastBookletTitle?: string | null;
-    updatedAt?: string;
-  }>;
+  subscribers: SubscriberRecord[];
   comments: Array<{
     name?: string;
     bookletSlug?: string;
@@ -174,6 +181,31 @@ function formatFileSize(bytes?: number) {
   }
 
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  window.URL.revokeObjectURL(url);
+}
+
+function filenameFromDisposition(disposition: string | null, fallback: string) {
+  if (!disposition) {
+    return fallback;
+  }
+
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+
+  const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
+  return plainMatch?.[1] || fallback;
 }
 
 export function AdminEditor({ initialContent, source }: Props) {
@@ -590,6 +622,149 @@ export function AdminEditor({ initialContent, source }: Props) {
 
     setAdminData(payload);
     setDataStatus("Database data loaded.");
+  }
+
+  async function exportData(type: DataExportType, format: DataExportFormat = "xls") {
+    setDataStatus(`Exporting ${type} to ${format.toUpperCase()}...`);
+    try {
+      const response = await fetch(apiUrl(`/api/admin/export?type=${type}&format=${format}`), {
+        credentials: "include",
+        headers: adminHeaders()
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        setDataStatus(`Export failed: ${errorText || response.statusText}`);
+        return;
+      }
+
+      const blob = await response.blob();
+      const fallback = `valluru-${type}-export-${new Date().toISOString().split("T")[0]}.${format}`;
+      const filename = filenameFromDisposition(response.headers.get("Content-Disposition"), fallback);
+      downloadBlob(blob, filename);
+      setDataStatus(`Exported ${type} successfully.`);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Error exporting data";
+      setDataStatus(`Export failed: ${errorMessage}`);
+    }
+  }
+
+  async function saveSubscriber(subscriber: SubscriberRecord) {
+    const isUpdate = Boolean(subscriber.id);
+    setDataStatus(isUpdate ? "Updating subscriber..." : "Adding subscriber...");
+
+    const response = await fetch(
+      apiUrl(isUpdate ? `/api/admin/subscribers/${subscriber.id}` : "/api/admin/subscribers"),
+      {
+        method: isUpdate ? "PATCH" : "POST",
+        credentials: "include",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(subscriber)
+      }
+    );
+    const payload = (await response.json().catch(() => null)) as {
+      subscriber?: SubscriberRecord;
+      error?: string;
+    } | null;
+
+    if (!response.ok || !payload?.subscriber) {
+      setDataStatus(payload?.error || "Subscriber save failed.");
+      return false;
+    }
+
+    setAdminData((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const existingIndex = current.subscribers.findIndex((item) => item.id === payload.subscriber?.id);
+      const subscribers =
+        existingIndex >= 0
+          ? current.subscribers.map((item) =>
+              item.id === payload.subscriber?.id ? payload.subscriber : item
+            )
+          : [payload.subscriber, ...current.subscribers];
+
+      return {
+        ...current,
+        counts: {
+          ...current.counts,
+          subscribers:
+            existingIndex >= 0 ? current.counts.subscribers : current.counts.subscribers + 1
+        },
+        subscribers: subscribers.filter(Boolean) as SubscriberRecord[]
+      };
+    });
+    setDataStatus(isUpdate ? "Subscriber updated." : "Subscriber added.");
+    return true;
+  }
+
+  async function deleteSubscriber(id?: string) {
+    if (!id) {
+      return;
+    }
+
+    const confirmed = window.confirm("Delete this subscriber permanently?");
+    if (!confirmed) {
+      return;
+    }
+
+    setDataStatus("Deleting subscriber...");
+    const response = await fetch(apiUrl(`/api/admin/subscribers/${id}`), {
+      method: "DELETE",
+      credentials: "include",
+      headers: adminHeaders()
+    });
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (!response.ok) {
+      setDataStatus(payload?.error || "Subscriber delete failed.");
+      return;
+    }
+
+    setAdminData((current) =>
+      current
+        ? {
+            ...current,
+            counts: {
+              ...current.counts,
+              subscribers: Math.max(0, current.counts.subscribers - 1)
+            },
+            subscribers: current.subscribers.filter((subscriber) => subscriber.id !== id)
+          }
+        : current
+    );
+    setDataStatus("Subscriber deleted.");
+  }
+
+  async function importSubscribers(file: File | null) {
+    if (!file) {
+      setDataStatus("Choose a CSV file exported from Excel first.");
+      return;
+    }
+
+    setDataStatus("Importing subscribers...");
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(apiUrl("/api/admin/subscribers/import"), {
+      method: "POST",
+      credentials: "include",
+      headers: adminHeaders(),
+      body: formData
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { imported?: number; skipped?: number; errors?: string[]; error?: string }
+      | null;
+
+    if (!response.ok) {
+      setDataStatus(payload?.error || "Subscriber import failed.");
+      return;
+    }
+
+    await loadAdminData();
+    const errors = payload?.errors?.length ? ` ${payload.errors.slice(0, 2).join(" ")}` : "";
+    setDataStatus(`Imported ${payload?.imported || 0} subscribers. Skipped ${payload?.skipped || 0}.${errors}`);
   }
 
   async function sendOwnerTestEmail() {
@@ -1143,8 +1318,12 @@ export function AdminEditor({ initialContent, source }: Props) {
             {tab === "dashboard" ? (
               <DashboardPanel
                 adminData={adminData}
+                deleteSubscriber={deleteSubscriber}
                 dataStatus={dataStatus}
+                exportData={exportData}
+                importSubscribers={importSubscribers}
                 loadAdminData={loadAdminData}
+                saveSubscriber={saveSubscriber}
               />
             ) : null}
 
@@ -1253,6 +1432,7 @@ export function AdminEditor({ initialContent, source }: Props) {
                 orders={orders}
                 ordersStatus={ordersStatus}
                 updateOrderStatus={updateOrderStatus}
+                exportData={exportData}
               />
             ) : null}
 
@@ -1322,13 +1502,65 @@ function TextAreaField({
 
 function DashboardPanel({
   adminData,
+  deleteSubscriber,
   dataStatus,
-  loadAdminData
+  exportData,
+  importSubscribers,
+  loadAdminData,
+  saveSubscriber
 }: {
   adminData: AdminData | null;
+  deleteSubscriber: (id?: string) => void;
   dataStatus: string;
+  exportData: (type: DataExportType, format?: DataExportFormat) => void;
+  importSubscribers: (file: File | null) => void;
   loadAdminData: () => void;
+  saveSubscriber: (subscriber: SubscriberRecord) => Promise<boolean>;
 }) {
+  const [subscriberDraft, setSubscriberDraft] = useState<SubscriberRecord>({
+    name: "",
+    email: "",
+    lastSource: "admin",
+    lastBookletTitle: "",
+    subscribedBooklets: []
+  });
+  const [bookletsText, setBookletsText] = useState("");
+  const [subscriberImportFile, setSubscriberImportFile] = useState<File | null>(null);
+
+  function resetSubscriberDraft() {
+    setSubscriberDraft({
+      name: "",
+      email: "",
+      lastSource: "admin",
+      lastBookletTitle: "",
+      subscribedBooklets: []
+    });
+    setBookletsText("");
+  }
+
+  function editSubscriber(subscriber: SubscriberRecord) {
+    setSubscriberDraft({
+      ...subscriber,
+      lastBookletTitle: subscriber.lastBookletTitle || "",
+      lastSource: subscriber.lastSource || "admin"
+    });
+    setBookletsText((subscriber.subscribedBooklets || []).join(", "));
+  }
+
+  async function submitSubscriber() {
+    const ok = await saveSubscriber({
+      ...subscriberDraft,
+      subscribedBooklets: bookletsText
+        .split(/[;,]/g)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    });
+
+    if (ok) {
+      resetSubscriberDraft();
+    }
+  }
+
   return (
     <div className="grid gap-7">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
@@ -1340,14 +1572,24 @@ function DashboardPanel({
             View stored subscribers, comments, uploaded PDFs, media, and content records.
           </p>
         </div>
-        <button
-          className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
-          onClick={loadAdminData}
-          type="button"
-        >
-          <RefreshCw size={16} />
-          Load DB Data
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/40 bg-gold/5 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:bg-gold/15"
+            onClick={() => exportData("all")}
+            type="button"
+          >
+            <Download size={16} />
+            Export All Excel
+          </button>
+          <button
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
+            onClick={loadAdminData}
+            type="button"
+          >
+            <RefreshCw size={16} />
+            Load DB Data
+          </button>
+        </div>
       </div>
       <p className="text-base italic text-muted">{dataStatus}</p>
 
@@ -1392,9 +1634,109 @@ function DashboardPanel({
             ))}
           </div>
 
-          <FieldGroup title="Subscribers">
+          <FieldGroup
+            title="Subscribers"
+            action={
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
+                  onClick={() => exportData("subscribers")}
+                  type="button"
+                >
+                  <Download size={14} />
+                  Export Excel
+                </button>
+                <button
+                  className="inline-flex items-center gap-2 rounded border border-gold/20 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-muted transition hover:border-gold/40 hover:text-parchment"
+                  onClick={() => exportData("subscribers", "csv")}
+                  type="button"
+                >
+                  <Download size={14} />
+                  Export CSV
+                </button>
+              </div>
+            }
+          >
+            <div className="rounded-md border border-gold/15 bg-ink p-4">
+              <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
+                {subscriberDraft.id ? "Edit Subscriber" : "Add Subscriber"}
+              </p>
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <TextField
+                  label="Name"
+                  onChange={(value) => setSubscriberDraft((current) => ({ ...current, name: value }))}
+                  value={subscriberDraft.name || ""}
+                />
+                <TextField
+                  label="Email"
+                  onChange={(value) => setSubscriberDraft((current) => ({ ...current, email: value }))}
+                  value={subscriberDraft.email || ""}
+                />
+                <TextField
+                  label="Source"
+                  onChange={(value) => setSubscriberDraft((current) => ({ ...current, lastSource: value }))}
+                  value={subscriberDraft.lastSource || ""}
+                />
+                <TextField
+                  label="Last Booklet"
+                  onChange={(value) =>
+                    setSubscriberDraft((current) => ({ ...current, lastBookletTitle: value }))
+                  }
+                  value={subscriberDraft.lastBookletTitle || ""}
+                />
+                <TextField
+                  label="Booklet Slugs"
+                  onChange={setBookletsText}
+                  value={bookletsText}
+                />
+              </div>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <button
+                  className="inline-flex items-center gap-2 rounded border border-gold/50 bg-gold/10 px-4 py-2 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/20"
+                  onClick={submitSubscriber}
+                  type="button"
+                >
+                  <Save size={14} />
+                  {subscriberDraft.id ? "Update Subscriber" : "Add Subscriber"}
+                </button>
+                <button
+                  className="inline-flex items-center gap-2 rounded border border-gold/20 px-4 py-2 font-label text-xs uppercase tracking-wider text-muted transition hover:border-gold/40 hover:text-parchment"
+                  onClick={resetSubscriberDraft}
+                  type="button"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-md border border-gold/15 bg-ink p-4">
+              <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
+                Import Subscribers from Excel
+              </p>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                Save the sheet as CSV from Excel, then upload it here. Required column: email. Optional columns: name,
+                source, lastBooklet, subscribedBooklets.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <input
+                  accept=".csv,text/csv"
+                  className="max-w-full text-sm text-muted"
+                  onChange={(event) => setSubscriberImportFile(event.target.files?.[0] || null)}
+                  type="file"
+                />
+                <button
+                  className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-4 py-2 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
+                  onClick={() => importSubscribers(subscriberImportFile)}
+                  type="button"
+                >
+                  <Upload size={14} />
+                  Import CSV
+                </button>
+              </div>
+            </div>
+
             <div className="overflow-x-auto rounded-md border border-gold/15">
-              <table className="w-full min-w-[680px] text-left text-base">
+              <table className="w-full min-w-[860px] text-left text-base">
                 <thead className="bg-ink text-muted">
                   <tr>
                     <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
@@ -1402,11 +1744,12 @@ function DashboardPanel({
                     <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Source</th>
                     <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
                     <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Updated</th>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {adminData.subscribers.map((subscriber, index) => (
-                    <tr className="border-t border-gold/10" key={`${subscriber.email}-${index}`}>
+                    <tr className="border-t border-gold/10" key={`${subscriber.id || subscriber.email}-${index}`}>
                       <td className="px-4 py-3 text-parchment">{subscriber.name || "-"}</td>
                       <td className="px-4 py-3 text-parchment">{subscriber.email}</td>
                       <td className="px-4 py-3 text-muted">{subscriber.lastSource}</td>
@@ -1415,6 +1758,24 @@ function DashboardPanel({
                         {subscriber.updatedAt
                           ? new Date(subscriber.updatedAt).toLocaleString()
                           : "-"}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            className="rounded border border-gold/20 px-3 py-1 font-label text-xs uppercase tracking-wider text-muted transition hover:border-gold/50 hover:text-parchment"
+                            onClick={() => editSubscriber(subscriber)}
+                            type="button"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="rounded border border-red-300/30 px-3 py-1 font-label text-xs uppercase tracking-wider text-red-100 transition hover:border-red-300/70"
+                            onClick={() => deleteSubscriber(subscriber.id)}
+                            type="button"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -1442,7 +1803,19 @@ function DashboardPanel({
             </div>
           </FieldGroup>
 
-          <FieldGroup title="Book Readers">
+          <FieldGroup
+            title="Book Readers"
+            action={
+              <button
+                className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
+                onClick={() => exportData("booklet_readers")}
+                type="button"
+              >
+                <Download size={14} />
+                Export to Excel
+              </button>
+            }
+          >
             <div className="overflow-x-auto rounded-md border border-gold/15">
               <table className="w-full min-w-[820px] text-left text-base">
                 <thead className="bg-ink text-muted">
@@ -1475,7 +1848,19 @@ function DashboardPanel({
             </div>
           </FieldGroup>
 
-          <FieldGroup title="Comments">
+          <FieldGroup
+            title="Comments"
+            action={
+              <button
+                className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
+                onClick={() => exportData("comments")}
+                type="button"
+              >
+                <Download size={14} />
+                Export to Excel
+              </button>
+            }
+          >
             <div className="grid gap-3">
               {adminData.comments.map((comment, index) => (
                 <article className="rounded-md border border-gold/15 bg-ink p-4" key={index}>
@@ -2427,12 +2812,14 @@ function OrdersPanel({
   loadOrders,
   orders,
   ordersStatus,
-  updateOrderStatus
+  updateOrderStatus,
+  exportData
 }: {
   loadOrders: () => void;
   orders: AdminData["orders"];
   ordersStatus: string;
   updateOrderStatus: (id: string | undefined, status: string) => void;
+  exportData: (type: DataExportType, format?: DataExportFormat) => void;
 }) {
   const [search, setSearch] = useState("");
   const filteredOrders = orders.filter((order) => {
@@ -2460,14 +2847,24 @@ function OrdersPanel({
           </h2>
           <p className="mt-2 text-lg text-muted">Search and status updates can be handled from this order list.</p>
         </div>
-        <button
-          className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
-          onClick={loadOrders}
-          type="button"
-        >
-          <RefreshCw size={16} />
-          Load Orders
-        </button>
+        <div className="flex flex-wrap gap-3">
+          <button
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
+            onClick={loadOrders}
+            type="button"
+          >
+            <RefreshCw size={16} />
+            Load Orders
+          </button>
+          <button
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
+            onClick={() => exportData("orders")}
+            type="button"
+          >
+            <Download size={16} />
+            Export to Excel
+          </button>
+        </div>
       </div>
       <TextField label="Search Orders" onChange={setSearch} value={search} />
       <p className="text-base italic text-muted">{ordersStatus}</p>
@@ -2510,22 +2907,6 @@ function OrdersPanel({
     </div>
   );
 }
-/*
-              <span>{order.currency} {Number(order.total || 0).toFixed(2)}</span>
-            </div>
-            <p className="mt-3 text-lg text-parchment">
-              {order.customer?.name} · {order.customer?.phone} · {order.customer?.email}
-            </p>
-            <p className="mt-2 text-muted">
-              {(order.items || []).map((item) => `${item.title} x ${item.quantity}`).join(", ")}
-            </p>
-          </article>
-        ))}
-      </div>
-    </div>
-  );
-}
-*/
 
 function SettingsPanel({
   content,
@@ -3891,14 +4272,19 @@ function NavigationPanel({
 
 function FieldGroup({
   title,
+  action,
   children
 }: {
   title: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section className="grid gap-5 border-t border-gold/15 pt-6 first:border-t-0 first:pt-0">
-      <h2 className="font-display text-2xl text-parchment sm:text-3xl">{title}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h2 className="font-display text-2xl text-parchment sm:text-3xl">{title}</h2>
+        {action}
+      </div>
       {children}
     </section>
   );

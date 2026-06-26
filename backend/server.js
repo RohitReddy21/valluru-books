@@ -12,6 +12,9 @@ const os = require("node:os");
 const path = require("node:path");
 const { Readable } = require("node:stream");
 const { pipeline } = require("node:stream/promises");
+const { registerAdminDataRoutes } = require("./src/routes/admin-data");
+const { registerImageRoutes } = require("./src/routes/images");
+const { registerSubscriptionRoutes } = require("./src/routes/subscriptions");
 
 function uploadErrorMessage(error) {
   if (!error) {
@@ -947,7 +950,7 @@ function buildOwnerEmail({ name, email, source, bookletTitle, subscribedAt, isNe
             </td>
           </tr>
         </table>`,
-      footer: "Automated owner notification from The Valluru subscription system."
+      // footer: "Automated owner notification from The Valluru subscription system."
     }),
     text: `${isNewSubscriber ? "New" : "Returning"} subscriber
 
@@ -1702,190 +1705,18 @@ app.put("/api/content", verifyAdmin, async (request, response, next) => {
   }
 });
 
-app.post("/api/subscribe", async (request, response, next) => {
-  try {
-    if (!requireMongo(response)) {
-      return;
-    }
-
-    const email = String(request.body?.email || "").trim().toLowerCase();
-    const name = String(request.body?.name || "").trim();
-    const bookletSlug = String(request.body.bookletSlug || "").trim();
-    const bookletTitle = String(request.body?.bookletTitle || "").trim() || null;
-    const source = String(request.body?.source || "newsletter").trim() || "newsletter";
-
-    if (!name) {
-      response.status(400).json({ error: "Name is required." });
-      return;
-    }
-
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      response.status(400).json({ error: "A valid email is required." });
-      return;
-    }
-
-    const db = await getDb();
-    const subscribedAt = new Date();
-    const subscriberUpdate = {
-      $set: {
-        email,
-        name,
-        lastSource: source,
-        lastBookletSlug: bookletSlug || null,
-        lastBookletTitle: bookletTitle,
-        updatedAt: subscribedAt
-      },
-      $setOnInsert: { createdAt: subscribedAt }
-    };
-
-    if (bookletSlug) {
-      subscriberUpdate.$addToSet = {
-        subscribedBooklets: bookletSlug
-      };
-    }
-
-    const subscriberResult = await db.collection("subscribers").updateOne({ email }, subscriberUpdate, {
-      upsert: true
-    });
-    const isNewSubscriber = subscriberResult.upsertedCount > 0;
-
-    if (bookletSlug) {
-      await db.collection("booklet_readers").updateOne(
-        { email, bookletSlug },
-        {
-          $set: {
-            email,
-            name,
-            bookletSlug,
-            bookletTitle,
-            source,
-            updatedAt: new Date(),
-            lastReadAt: new Date()
-          },
-          $inc: {
-            readCount: 1
-          },
-          $setOnInsert: {
-            createdAt: new Date()
-          }
-        },
-        { upsert: true }
-      );
-    }
-
-    const resend = getResend();
-    const from = getResendFrom();
-    const adminEmail = getAdminNotificationEmail();
-    const replyTo = String(process.env.REPLY_TO_EMAIL || adminEmail || "").trim();
-    const emailDelivery = {
-      subscriber: { status: "not_configured" },
-      owner: { status: "not_configured" }
-    };
-
-    console.log(`[email] Subscribe email flow started — resend=${Boolean(resend)}, from=${from}, adminEmail=${adminEmail || "NOT SET"}, replyTo=${replyTo || "NOT SET"}`);
-
-    if (!resend) {
-      console.error(
-        "[email] RESEND_API_KEY is missing or still contains a placeholder. Subscription was saved, but emails were not sent."
-      );
-    } else {
-      const subscriberEmail = buildSubscriberEmail({ name, bookletTitle });
-      const deliveries = [
-        sendResendEmail(resend, "subscriber confirmation", {
-          from,
-          to: email,
-          ...(replyTo ? { replyTo } : {}),
-          subject: subscriberEmail.subject,
-          html: subscriberEmail.html,
-          text: subscriberEmail.text,
-          tags: [
-            { name: "email_type", value: "subscriber_confirmation" },
-            { name: "source", value: source === "booklet-reader" ? "booklet-reader" : "newsletter" }
-          ]
-        }).then((result) => {
-          emailDelivery.subscriber = result;
-          if (result.status !== "sent") {
-            console.error(`[email] Subscriber confirmation to ${email} FAILED:`, result.error);
-          }
-        })
-      ];
-
-      if (adminEmail) {
-        const ownerEmail = buildOwnerEmail({
-          name,
-          email,
-          source,
-          bookletTitle,
-          subscribedAt,
-          isNewSubscriber
-        });
-
-        console.log(`[email] Sending owner notification to ${adminEmail}...`);
-
-        deliveries.push(
-          sendResendEmail(resend, "owner notification", {
-            from,
-            to: adminEmail,
-            replyTo: email,
-            subject: ownerEmail.subject,
-            html: ownerEmail.html,
-            text: ownerEmail.text,
-            tags: [
-              { name: "email_type", value: "owner_notification" },
-              { name: "source", value: source === "booklet-reader" ? "booklet-reader" : "newsletter" }
-            ]
-          }).then((result) => {
-            emailDelivery.owner = result;
-            if (result.status !== "sent") {
-              console.error(`[email] Owner notification to ${adminEmail} FAILED:`, result.error);
-            } else {
-              console.log(`[email] Owner notification to ${adminEmail} sent successfully (id: ${result.id})`);
-            }
-          })
-        );
-      } else {
-        console.error(
-          `[email] ADMIN_NOTIFICATION_EMAIL is missing, invalid, or still a placeholder. Current raw value: "${process.env.ADMIN_NOTIFICATION_EMAIL || ""}". Owner notification was SKIPPED.`
-        );
-        emailDelivery.owner = { status: "skipped", error: "ADMIN_NOTIFICATION_EMAIL not configured" };
-      }
-
-      await Promise.all(deliveries);
-
-      console.log(`[email] Delivery results — subscriber: ${emailDelivery.subscriber.status}, owner: ${emailDelivery.owner.status}`);
-    }
-
-    await db.collection("subscribers").updateOne(
-      { email },
-      {
-        $set: {
-          lastEmailDelivery: emailDelivery,
-          lastEmailAttemptAt: new Date()
-        }
-      }
-    );
-
-    if (bookletSlug) {
-      response.cookie(
-        `valluru_booklet_${bookletSlug}`,
-        "true",
-        cookieOptions(request)
-      );
-    }
-
-    response.json({
-      ok: true,
-      emailDelivery: {
-        subscriber: emailDelivery.subscriber.status,
-        owner: emailDelivery.owner.status
-      },
-      accessToken: bookletSlug ? createAccessToken(bookletSlug) : undefined
-    });
-  } catch (error) {
-    next(error);
-  }
+registerSubscriptionRoutes(app, {
+  requireMongo,
+  getDb,
+  getResend,
+  getResendFrom,
+  getAdminNotificationEmail,
+  buildSubscriberEmail,
+  buildOwnerEmail,
+  sendResendEmail,
+  cookieOptions,
+  createAccessToken
 });
-
 app.get("/api/cloudinary/signature", verifyAdmin, async (request, response, next) => {
   try {
     response.status(410).json({
@@ -2804,79 +2635,15 @@ app.post("/api/reflections", async (request, response, next) => {
   }
 });
 
-app.get("/api/admin/data", verifyAdmin, async (_request, response, next) => {
-  try {
-    if (!requireMongo(response)) {
-      return;
-    }
-
-    const db = await getDb();
-    const content = await getSiteContent();
-    await syncContentPdfAssets(db, content);
-    const booklets = content?.series?.booklets || [];
-    const [subscribers, comments, bookletReaders, orders, recentMedia, counts] = await Promise.all([
-      db.collection("subscribers").find({}).sort({ updatedAt: -1 }).limit(100).project({ _id: 0 }).toArray(),
-      db.collection("comments").find({}).sort({ createdAt: -1 }).limit(100).project({ _id: 0 }).toArray(),
-      db.collection("booklet_readers").find({}).sort({ updatedAt: -1 }).limit(150).project({ _id: 0 }).toArray(),
-      db.collection("orders").find({}).sort({ createdAt: -1 }).limit(100).project({ _id: 0 }).toArray(),
-      db.collection("media_assets").find({}).sort({ createdAt: -1 }).limit(12).project({ _id: 0 }).toArray(),
-      Promise.all([
-        db.collection("content").countDocuments({}),
-        db.collection("subscribers").countDocuments({}),
-        db.collection("comments").countDocuments({}),
-        db.collection("booklet_readers").countDocuments({}),
-        db.collection("orders").countDocuments({}),
-        db.collection("media_assets").countDocuments({}),
-        db.collection("media_assets").countDocuments({ kind: "pdf" })
-      ])
-    ]);
-    const statusCount = (items, status) =>
-      items.filter((item) => (item.status || "published") === status).length;
-
-    response.json({
-      counts: {
-        content: counts[0],
-        subscribers: counts[1],
-        comments: counts[2],
-        pdfs: counts[6],
-        media: counts[5],
-        bookReaders: counts[3],
-        orders: counts[4],
-        draftBooks: statusCount(booklets, "draft"),
-        publishedBooks: statusCount(booklets, "published"),
-        archivedBooks: statusCount(booklets, "archived")
-      },
-      subscribers,
-      bookletReaders,
-      orders,
-      comments,
-      recentMedia,
-      recentActivity: [
-        ...orders.slice(0, 5).map((order) => ({
-          type: "order",
-          label: `${order.orderNumber} - ${order.customer?.name || "Customer"}`,
-          createdAt: order.createdAt
-        })),
-        ...comments.slice(0, 5).map((comment) => ({
-          type: "comment",
-          label: `${comment.name || "Reader"} commented on ${comment.bookletSlug}`,
-          createdAt: comment.createdAt
-        })),
-        ...bookletReaders.slice(0, 5).map((reader) => ({
-          type: "reader",
-          label: `${reader.name || "Reader"} opened ${reader.bookletTitle || reader.bookletSlug}`,
-          createdAt: reader.updatedAt
-        }))
-      ]
-        .filter((item) => item.createdAt)
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, 10)
-    });
-  } catch (error) {
-    next(error);
-  }
+registerAdminDataRoutes(app, {
+  verifyAdmin,
+  requireMongo,
+  getDb,
+  getSiteContent,
+  syncContentPdfAssets,
+  upload,
+  cleanupUploadedFile
 });
-
 app.post(
   "/api/admin/upload-pdf",
   verifyAdmin,
@@ -3334,6 +3101,16 @@ app.get("/api/movements/:index/pdf", async (request, response, next) => {
 });
 
 
+registerImageRoutes(app, {
+  verifyAdmin,
+  upload,
+  requireMongo,
+  requireSupabase,
+  uploadToSupabase,
+  getDb,
+  cleanupUploadedFile
+});
+
 app.use((error, _request, response, _next) => {
   if (error instanceof multer.MulterError) {
     if (error.code === "LIMIT_FILE_SIZE") {
@@ -3350,179 +3127,6 @@ app.use((error, _request, response, _next) => {
   console.error(error);
   response.status(500).json({ error: "Server error." });
 });
-
-// Image Management API
-app.post(
-  "/api/admin/images/upload",
-  verifyAdmin,
-  upload.single("image"),
-  async (request, response, next) => {
-    try {
-      if (!requireMongo(response)) {
-        return;
-      }
-
-      if (!requireSupabase(response)) {
-        return;
-      }
-
-      const file = request.file;
-      const { movement, booklet, imageType, safeZones } = request.body;
-
-      if (!file) {
-        response.status(400).json({ error: "Image file is required." });
-        return;
-      }
-
-      if (!movement) {
-        response.status(400).json({ error: "Movement is required." });
-        return;
-      }
-
-      // Upload to Supabase
-      const uploaded = await uploadToSupabase(file, {
-        bucket: "books",
-        folder: `images/${movement}${booklet ? `/${booklet}` : ""}`
-      });
-
-      // Store metadata in MongoDB
-      const db = await getDb();
-      const imageDoc = {
-        title: request.body.title || file.originalname,
-        movement: Number(movement),
-        booklet: booklet ? Number(booklet) : null,
-        imageType: imageType || "cover",
-        originalImage: uploaded.url,
-        originalPath: uploaded.storagePath,
-        safeZones: safeZones ? JSON.parse(safeZones) : {},
-        crops: {
-          square: null,
-          portrait: null,
-          mobile: null,
-          hero: null
-        },
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-
-      const result = await db.collection("images").insertOne(imageDoc);
-
-      response.json({
-        ok: true,
-        imageId: String(result.insertedId),
-        image: { ...imageDoc, id: String(result.insertedId) }
-      });
-    } catch (error) {
-      next(error);
-    } finally {
-      await cleanupUploadedFile(request.file);
-    }
-  }
-);
-
-app.post(
-  "/api/admin/images/:id/crops",
-  verifyAdmin,
-  async (request, response, next) => {
-    try {
-      if (!requireMongo(response)) {
-        return;
-      }
-
-      const { id } = request.params;
-      const { cropType, cropData } = request.body;
-
-      if (!cropType || !cropData) {
-        response.status(400).json({ error: "Crop type and data are required." });
-        return;
-      }
-
-      const db = await getDb();
-      const result = await db.collection("images").updateOne(
-        { _id: new ObjectId(id) },
-        {
-          $set: {
-            [`crops.${cropType}`]: cropData,
-            updatedAt: new Date()
-          }
-        }
-      );
-
-      if (result.matchedCount === 0) {
-        response.status(404).json({ error: "Image not found." });
-        return;
-      }
-
-      response.json({ ok: true });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-app.get(
-  "/api/admin/images",
-  verifyAdmin,
-  async (request, response, next) => {
-    try {
-      if (!requireMongo(response)) {
-        return;
-      }
-
-      const db = await getDb();
-      const images = await db
-        .collection("images")
-        .find({})
-        .sort({ createdAt: -1 })
-        .toArray();
-
-      const formatted = images.map((img) => ({
-        ...img,
-        id: String(img._id)
-      }));
-
-      response.json({ images: formatted });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-app.put(
-  "/api/admin/images/:id",
-  verifyAdmin,
-  async (request, response, next) => {
-    try {
-      if (!requireMongo(response)) {
-        return;
-      }
-
-      const { id } = request.params;
-      const updates = request.body;
-
-      const db = await getDb();
-      const result = await db.collection("images").updateOne(
-        { _id: new ObjectId(id) },
-        {
-          $set: {
-            ...updates,
-            updatedAt: new Date()
-          }
-        }
-      );
-
-      if (result.matchedCount === 0) {
-        response.status(404).json({ error: "Image not found." });
-        return;
-      }
-
-      response.json({ ok: true });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
 app.listen(port, "0.0.0.0", () => {
   console.log(`Valluru backend running on port ${port}`);
 
