@@ -69,6 +69,18 @@ function normalizeBookletCountText(value: string) {
     .replaceAll("View All Seventeen Booklets", "View All Eighteen Booklets");
 }
 
+function normalizeSearchSnippetText(value: string) {
+  return normalizeBookletCountText(value)
+    .replaceAll(
+      "Eighteen booklets on dharma, grief, language, and surrender. For the seeker who still needs an inward anchor.",
+      "Booklets on dharma, grief, language, and surrender. For the seeker who still needs an inward anchor."
+    )
+    .replaceAll(
+      "Eighteen booklets on dharma, grief, language, and surrender",
+      "Booklets on dharma, grief, language, and surrender"
+    );
+}
+
 function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
   const nav = {
     ...defaultSiteContent.nav,
@@ -124,6 +136,8 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
   };
   home.hero = {
     ...home.hero,
+    subtitle: normalizeSearchSnippetText(home.hero.subtitle),
+    body: home.hero.body.map(normalizeSearchSnippetText),
     secondaryCta: {
       ...home.hero.secondaryCta,
       label: normalizeBookletCountText(home.hero.secondaryCta.label)
@@ -131,12 +145,12 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
   };
   home.seriesOverview = {
     ...home.seriesOverview,
-    intro: normalizeBookletCountText(home.seriesOverview.intro)
+    intro: normalizeSearchSnippetText(home.seriesOverview.intro)
   };
   const series = {
     ...defaultSiteContent.series,
     ...(content?.series || {}),
-    subtitle: normalizeBookletCountText(
+    subtitle: normalizeSearchSnippetText(
       content?.series?.subtitle || defaultSiteContent.series.subtitle
     ),
     booklets: normalizeBooklets(content?.series?.booklets)

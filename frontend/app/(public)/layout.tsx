@@ -26,7 +26,7 @@ const cormorant = Cormorant_Garamond({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.thevalluru.org"),
-  title: "The Inward Fire Series | The Valluru",
+  title: "Booklets - The Inward Fire Series | The Valluru",
   description:
     "Booklets on dharma, grief, language, and surrender. For the seeker who still needs an inward anchor.",
   keywords: ["dharma", "grief", "nada", "bhakti", "sanskrit", "spirituality", "inner life"],
@@ -41,21 +41,23 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: "https://www.thevalluru.org",
     siteName: "The Valluru",
-    title: "Booklets — The Inward Fire Series | The Valluru",
-    description: "Booklets on dharma, grief, language, and surrender.",
+    title: "Booklets - The Inward Fire Series | The Valluru",
+    description:
+      "Booklets on dharma, grief, language, and surrender. For the seeker who still needs an inward anchor.",
     images: [
       {
         url: "https://www.thevalluru.org/og/default.jpg",
         width: 1200,
         height: 630,
-        alt: "The Inward Fire Series | The Valluru"
+        alt: "Booklets - The Inward Fire Series | The Valluru"
       }
     ]
   },
   twitter: {
     card: "summary_large_image",
-    title: "Booklets — The Inward Fire Series | The Valluru",
-    description: "Eighteen booklets on dharma, grief, language, and surrender.",
+    title: "Booklets - The Inward Fire Series | The Valluru",
+    description:
+      "Booklets on dharma, grief, language, and surrender. For the seeker who still needs an inward anchor.",
     images: ["https://www.thevalluru.org/og/default.jpg"]
   },
   robots: "index, follow",
@@ -132,7 +134,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "WebSite",
-              name: "Booklets — The Inward Fire Series | The Valluru",
+              name: "Booklets - The Inward Fire Series | The Valluru",
               url: "https://www.thevalluru.org",
               author: {
                 "@type": "Person",
