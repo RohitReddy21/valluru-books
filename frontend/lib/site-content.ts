@@ -157,6 +157,8 @@ export type SiteContent = {
     closing: string[];
   };
   movements: {
+    heroTitle?: string;
+    heroSubtitle?: string;
     items: Movement[];
   };
   about: {
@@ -235,7 +237,7 @@ export const defaultSiteContent: SiteContent = {
       ]
     },
     seriesOverview: {
-      title: "The Series Movements",
+      title: "The Series of Movements",
       intro:
         "Booklets on dharma, maya, nada, language, surrender, memory, and the long inward journey. Each booklet takes one doorway. Each one returns, in its own way, to surrender.",
       movements: [

@@ -3937,7 +3937,7 @@ function PagesPanel({
               movements: { ...current.movements, heroTitle: value }
             }))
           }
-          value={(content.movements as any)?.heroTitle || "Explore the Six Movements"}
+          value={content.movements.heroTitle || "Explore the Six Movements"}
         />
         <TextField
           label="Movements Page - Hero Subtitle"
@@ -3947,7 +3947,7 @@ function PagesPanel({
               movements: { ...current.movements, heroSubtitle: value }
             }))
           }
-          value={(content.movements as any)?.heroSubtitle || "Six doorways into the same inward fire."}
+          value={content.movements.heroSubtitle || "Six doorways into the same inward fire."}
         />
       </FieldGroup>
 

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { NewsletterForm } from "@/components/newsletter-form";
 import {
   PageShell,
@@ -11,7 +10,7 @@ import {
   MovementCard
 } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
-import { defaultSiteContent, movementSlug, isPublished } from "@/lib/site-content";
+import { defaultSiteContent, movementSlug } from "@/lib/site-content";
 
 export const dynamic = "force-dynamic";
 
@@ -63,7 +62,7 @@ export default async function HomePage() {
 
       <WideSection>
         <div className="mx-auto max-w-3xl text-center">
-          <SectionTitle>The Series in Six Movements</SectionTitle>
+          <SectionTitle>{home.seriesOverview.title}</SectionTitle>
           <p className="responsive-prose text-parchment/86">
             {home.seriesOverview.intro}
           </p>

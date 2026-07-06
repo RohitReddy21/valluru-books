@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { NewsletterForm } from "@/components/newsletter-form";
-import { PageHeader, PageShell, Section, WideSection, MovementCard } from "@/components/ui";
+import { PageHeader, PageShell, Section, MovementCard } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
-import { defaultSiteContent, movementSlug, isPublished } from "@/lib/site-content";
+import { defaultSiteContent, movementSlug } from "@/lib/site-content";
 
 export const dynamic = "force-dynamic";
 
@@ -17,14 +16,14 @@ export default async function MovementsPage() {
       <PageHeader
         backgroundImage={media.pageHeroImage}
         title="Movements"
-        subtitle="Doorways into the same inward fire."
+        subtitle={content.movements.heroSubtitle || "Doorways into the same inward fire."}
       />
 
       <section className="quiet-divider px-4 py-12 sm:px-5 sm:py-20">
         <div className="mx-auto max-w-6xl fade-up">
           <div className="mx-auto max-w-3xl text-center mb-12">
             <h2 className="responsive-section-title mb-6 font-display font-semibold text-parchment">
-              {(content.movements as any)?.heroTitle || "Explore the Movements"}
+              {content.movements.heroTitle || home.seriesOverview.title}
             </h2>
             <p className="responsive-prose text-parchment/86">
               {home.seriesOverview.intro}

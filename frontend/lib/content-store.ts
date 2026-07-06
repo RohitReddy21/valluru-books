@@ -81,6 +81,57 @@ function normalizeSearchSnippetText(value: string) {
     );
 }
 
+const movementAssetFields = ["pdf", "coverImage"] as const;
+
+function findMovementOverride(
+  movements: Movement[] | undefined,
+  defaultMovement: Movement,
+  defaultIndex: number
+) {
+  if (!movements?.length) {
+    return undefined;
+  }
+
+  const defaultSlug = movementSlug(defaultMovement, defaultIndex);
+
+  return (
+    movements.find(
+      (movement, index) =>
+        movement.slug === defaultSlug ||
+        movementSlug(movement, index) === defaultSlug ||
+        movement.title === defaultMovement.title
+    ) || movements[defaultIndex]
+  );
+}
+
+function codeDrivenMovement(
+  defaultMovement: Movement,
+  index: number,
+  movementSources: Array<Movement[] | undefined>
+) {
+  const assetPatch: Partial<Pick<Movement, (typeof movementAssetFields)[number]>> = {};
+
+  for (const movements of movementSources) {
+    const savedMovement = findMovementOverride(movements, defaultMovement, index);
+
+    if (!savedMovement) {
+      continue;
+    }
+
+    for (const field of movementAssetFields) {
+      if (savedMovement[field]) {
+        assetPatch[field] = savedMovement[field];
+      }
+    }
+  }
+
+  return {
+    ...normalizeMovementRange(defaultMovement),
+    ...assetPatch,
+    slug: movementSlug(defaultMovement, index)
+  };
+}
+
 function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
   const nav = {
     ...defaultSiteContent.nav,
@@ -119,19 +170,23 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
     }
   }
 
+  const codeSeriesOverviewMovements = defaultSiteContent.home.seriesOverview.movements.map(
+    (movement, index) =>
+      codeDrivenMovement(movement, index, [
+        content?.home?.seriesOverview?.movements,
+        content?.movements?.items
+      ])
+  );
+
   const home = {
     ...defaultSiteContent.home,
     ...(content?.home || {}),
     seriesOverview: {
       ...defaultSiteContent.home.seriesOverview,
       ...(content?.home?.seriesOverview || {}),
-      movements: (
-        content?.home?.seriesOverview?.movements ||
-        defaultSiteContent.home.seriesOverview.movements
-      ).map((movement, index) => ({
-        ...normalizeMovementRange(movement),
-        slug: movementSlug(movement, index)
-      }))
+      title: defaultSiteContent.home.seriesOverview.title,
+      intro: defaultSiteContent.home.seriesOverview.intro,
+      movements: codeSeriesOverviewMovements
     }
   };
   home.hero = {
@@ -180,13 +235,7 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
     movements: {
       ...defaultSiteContent.movements,
       ...(content?.movements || {}),
-      items: (
-        content?.movements?.items ||
-        defaultSiteContent.movements.items
-      ).map((movement, index) => ({
-        ...normalizeMovementRange(movement),
-        slug: movementSlug(movement, index)
-      }))
+      items: codeSeriesOverviewMovements
     },
     about: {
       ...defaultSiteContent.about,
