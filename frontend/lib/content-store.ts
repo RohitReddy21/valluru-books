@@ -93,14 +93,17 @@ function findMovementOverride(
   }
 
   const defaultSlug = movementSlug(defaultMovement, defaultIndex);
+  const normalizedDefaultMovement = normalizeMovementRange(defaultMovement);
 
   return (
     movements.find(
       (movement, index) =>
         movement.slug === defaultSlug ||
         movementSlug(movement, index) === defaultSlug ||
-        movement.title === defaultMovement.title
-    ) || movements[defaultIndex]
+        normalizeMovementRange(movement).title === defaultMovement.title ||
+        movement.title === defaultMovement.title ||
+        normalizeMovementRange(movement).booklets === normalizedDefaultMovement.booklets
+    )
   );
 }
 
@@ -130,6 +133,66 @@ function codeDrivenMovement(
     ...assetPatch,
     slug: movementSlug(defaultMovement, index)
   };
+}
+
+function savedMovementMatchesDefault(
+  movement: Movement,
+  index: number,
+  defaultMovement: Movement,
+  defaultIndex: number
+) {
+  const defaultSlug = movementSlug(defaultMovement, defaultIndex);
+  const normalizedMovement = normalizeMovementRange(movement);
+  const normalizedDefaultMovement = normalizeMovementRange(defaultMovement);
+
+  return (
+    movement.slug === defaultSlug ||
+    movementSlug(movement, index) === defaultSlug ||
+    movementSlug(normalizedMovement, index) === defaultSlug ||
+    movement.title === defaultMovement.title ||
+    normalizedMovement.title === defaultMovement.title ||
+    normalizedMovement.booklets === normalizedDefaultMovement.booklets
+  );
+}
+
+function isDefaultMovement(movement: Movement, index: number) {
+  return defaultSiteContent.home.seriesOverview.movements.some((defaultMovement, defaultIndex) =>
+    savedMovementMatchesDefault(movement, index, defaultMovement, defaultIndex)
+  );
+}
+
+function appendSavedMovements(
+  codeMovements: Movement[],
+  movementSources: Array<Movement[] | undefined>
+) {
+  const mergedMovements = [...codeMovements];
+  const seenSlugs = new Set(
+    mergedMovements.map((movement, index) => movementSlug(movement, index))
+  );
+
+  for (const movements of movementSources) {
+    for (const [sourceIndex, movement] of (movements || []).entries()) {
+      if (isDefaultMovement(movement, sourceIndex)) {
+        continue;
+      }
+
+      const normalizedMovement = normalizeMovementRange(movement);
+      const nextIndex = mergedMovements.length;
+      const slug = movementSlug(normalizedMovement, nextIndex);
+
+      if (seenSlugs.has(slug)) {
+        continue;
+      }
+
+      mergedMovements.push({
+        ...normalizedMovement,
+        slug
+      });
+      seenSlugs.add(slug);
+    }
+  }
+
+  return mergedMovements;
 }
 
 function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
@@ -177,6 +240,10 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
         content?.movements?.items
       ])
   );
+  const seriesOverviewMovements = appendSavedMovements(codeSeriesOverviewMovements, [
+    content?.home?.seriesOverview?.movements,
+    content?.movements?.items
+  ]);
 
   const home = {
     ...defaultSiteContent.home,
@@ -186,7 +253,7 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
       ...(content?.home?.seriesOverview || {}),
       title: defaultSiteContent.home.seriesOverview.title,
       intro: defaultSiteContent.home.seriesOverview.intro,
-      movements: codeSeriesOverviewMovements
+      movements: seriesOverviewMovements
     }
   };
   home.hero = {
@@ -235,7 +302,7 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
     movements: {
       ...defaultSiteContent.movements,
       ...(content?.movements || {}),
-      items: codeSeriesOverviewMovements
+      items: seriesOverviewMovements
     },
     about: {
       ...defaultSiteContent.about,

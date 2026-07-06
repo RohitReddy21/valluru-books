@@ -54,10 +54,6 @@ export default async function MovementDetailPage({
     notFound();
   }
 
-  // Movements with coming soon PDFs (1, 2, 4, 5 = indices 0, 1, 3, 4)
-  const comingSoonMovementIndices = [0, 1, 3, 4];
-  const isComingSoon = comingSoonMovementIndices.includes(movementIndex);
-
   const movements = content.home.seriesOverview.movements.filter(m => isPublished(m.status));
   const currentIndex = movements.findIndex((item, index) => movementSlug(item, index) === slug);
   const previousMovement = currentIndex > 0 ? movements[currentIndex - 1] : null;
@@ -131,17 +127,7 @@ export default async function MovementDetailPage({
             <div className="mt-10">
               <BackLink href="/movements" label="Back to all Movements" />
             </div>
-            {isComingSoon ? (
-              <div className="mt-8 rounded-md border border-gold/20 bg-surface/50 p-8">
-                <p className="font-label text-sm uppercase tracking-[0.24em] text-gold mb-3">
-                  Coming Soon
-                </p>
-                <h3 className="text-2xl font-display text-parchment mb-2">
-                  Movement Coming Soon
-                </h3>
-                <p className="text-muted">This movement will be available soon. For now, explore the related booklets below.</p>
-              </div>
-            ) : movement.pdf ? (
+            {movement.pdf ? (
               <MovementPdfReader
                 movement={movement}
                 movementIndex={movementIndex}
