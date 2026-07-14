@@ -23,20 +23,6 @@ export function AdsSubscriptionGate({ children }: { children: ReactNode }) {
     setIsClient(true);
   }, []);
 
-  // Lock body scroll when subscription is required (hasAccess is false)
-  useEffect(() => {
-    if (hasAccess || !isClient) {
-      return;
-    }
-
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = originalOverflow;
-    };
-  }, [hasAccess, isClient]);
-
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("saving");
@@ -68,20 +54,17 @@ export function AdsSubscriptionGate({ children }: { children: ReactNode }) {
     }
   }
 
-  return (
-    <div className="relative min-h-screen">
-      {/* Background content */}
-      <div
-        className={`transition-all duration-700 ease-in-out ${
-          !hasAccess ? "filter blur-lg select-none pointer-events-none" : ""
-        }`}
-      >
-        {children}
-      </div>
+  if (hasAccess) {
+    return <>{children}</>;
+  }
 
-      {/* Modal popup */}
-      {!hasAccess && isClient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+  return (
+    <section
+      aria-labelledby={titleId}
+      aria-describedby={descriptionId}
+      className="flex min-h-[calc(100dvh-5rem)] items-center justify-center px-4 py-16 sm:px-5"
+    >
+      {isClient ? (
           <div className="w-full max-w-lg rounded-md border border-gold/30 bg-[#141210] p-6 shadow-[0_26px_90px_rgba(0,0,0,0.7)] sm:p-8 fade-up">
             <p className="font-label text-xs uppercase tracking-[0.24em] text-gold/90">
               The Inward Fire Letter
@@ -142,8 +125,7 @@ export function AdsSubscriptionGate({ children }: { children: ReactNode }) {
               </p>
             </form>
           </div>
-        </div>
-      )}
-    </div>
+      ) : null}
+    </section>
   );
 }

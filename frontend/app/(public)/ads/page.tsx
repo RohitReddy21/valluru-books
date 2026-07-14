@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowRight, BookOpen, Flame, Mail, Layers, Quote } from "lucide-react";
+import { BookOpen, Flame, Mail, Layers, Quote } from "lucide-react";
 import { AdsSubscriptionGate } from "@/components/ads-subscription-gate";
 import { NewsletterForm } from "@/components/newsletter-form";
 import {
@@ -49,7 +48,7 @@ const pillars = [
 
 export default async function AdsPage() {
   const content = await getSiteContent();
-  const { home, series, settings } = content;
+  const { home, series } = content;
   const media = { ...defaultSiteContent.media, ...(content.media || {}) };
   const publishedMovements = home.seriesOverview.movements.filter((movement) =>
     isPublished(movement.status)
@@ -105,23 +104,6 @@ export default async function AdsPage() {
               <SecondaryLink cta={{ label: "View Movements", href: "/movements" }} />
             </div>
 
-            {/* Trust bar */}
-            <div className="mt-14 flex flex-wrap items-center gap-x-8 gap-y-3">
-              {[
-                { n: publishedBooklets.length || "6+", label: "Booklets published" },
-                { n: publishedMovements.length || "3", label: "Movements available" },
-                { n: "Free", label: "To read, always" }
-              ].map(({ n, label }) => (
-                <div key={label} className="flex items-baseline gap-2">
-                  <span className="font-display text-2xl font-semibold text-gold">
-                    {n}
-                  </span>
-                  <span className="font-label text-xs uppercase tracking-[0.18em] text-muted">
-                    {label}
-                  </span>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
       </section>
@@ -237,29 +219,23 @@ export default async function AdsPage() {
           <div className="grid gap-0 md:grid-cols-3">
             {[
               {
-                step: "01",
                 title: "Choose a movement",
                 body: "Each movement is a curated reading path through the booklets. Pick the one whose theme speaks first."
               },
               {
-                step: "02",
                 title: "Read the booklets slowly",
                 body: "These are not summaries. Each booklet is a sustained encounter. Give it an hour. Return the next day."
               },
               {
-                step: "03",
                 title: "Stay with quiet updates",
                 body: "Subscribe below. Receive a short note whenever new booklets or movements are published — nothing else."
               }
-            ].map(({ step, title, body }, i) => (
+            ].map(({ title, body }, i) => (
               <div
-                key={step}
+                key={title}
                 className={`relative px-8 py-8 ${i > 0 ? "md:border-l md:border-gold/12" : ""}`}
               >
-                <span className="font-display text-5xl font-semibold text-gold/10 select-none">
-                  {step}
-                </span>
-                <h3 className="mt-3 font-display text-xl font-semibold text-parchment">
+                <h3 className="font-display text-xl font-semibold text-parchment">
                   {title}
                 </h3>
                 <p className="mt-3 text-sm leading-7 text-parchment/62">{body}</p>
