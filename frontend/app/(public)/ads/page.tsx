@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import { BookOpen, Flame, Mail, Layers, Quote } from "lucide-react";
+import { BookOpen, Flame, Mail, Quote } from "lucide-react";
 import { AdsSubscriptionGate } from "@/components/ads-subscription-gate";
 import { NewsletterForm } from "@/components/newsletter-form";
 import {
   BookletCard,
-  MovementCard,
   PageShell,
   PrimaryLink,
   SecondaryLink,
@@ -13,8 +12,7 @@ import {
 import { getSiteContent } from "@/lib/content-store";
 import {
   defaultSiteContent,
-  isPublished,
-  movementSlug
+  isPublished
 } from "@/lib/site-content";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +20,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "The Inward Fire Series | The Valluru",
   description:
-    "Booklets and movements on dharma, grief, language, surrender, and the inner life."
+    "Books on dharma, grief, language, surrender, and the inner life."
 };
 
 const pillars = [
@@ -30,19 +28,19 @@ const pillars = [
     icon: Flame,
     label: "The Fire",
     heading: "Writing that does not comfort, but clarifies",
-    body: "Each booklet enters a territory where easy answers have already failed. The prose stays close to the difficulty without resolving it prematurely."
-  },
-  {
-    icon: Layers,
-    label: "The Structure",
-    heading: "Movements give the work a stable reading path",
-    body: "Rather than a loose collection, the series is organized into movements — thematic arcs that let readers pass through the work with direction and return."
+    body: "Each book enters a territory where easy answers have already failed. The prose stays close to the difficulty without resolving it prematurely."
   },
   {
     icon: BookOpen,
-    label: "The Practice",
-    heading: "Slow reading is built into the form",
-    body: "Short, dense booklets designed to be reread. The language rewards patience. A second pass through almost every page will reveal a different register."
+    label: "The Form",
+    heading: "Short, dense books designed to be reread",
+    body: "The language rewards patience. A second pass through almost every page will reveal a different register. This is not speed reading."
+  },
+  {
+    icon: Flame,
+    label: "The Purpose",
+    heading: "For readers who need the work, not the noise",
+    body: "Written for those who have already looked inward. No spiritual performance. Just quiet writing that stays with you."
   }
 ];
 
@@ -50,9 +48,6 @@ export default async function AdsPage() {
   const content = await getSiteContent();
   const { home, series } = content;
   const media = { ...defaultSiteContent.media, ...(content.media || {}) };
-  const publishedMovements = home.seriesOverview.movements.filter((movement) =>
-    isPublished(movement.status)
-  );
   const publishedBooklets = series.booklets.filter((booklet) =>
     isPublished(booklet.status)
   );
@@ -89,19 +84,18 @@ export default async function AdsPage() {
             </h1>
 
             <p className="mt-8 max-w-2xl text-xl leading-9 text-parchment/80 sm:text-2xl">
-              Booklets and movements on dharma, grief, language, surrender, and
-              the inner life — written for those who need the work, not the noise.
+              Books on dharma, grief, language, surrender, and the inner life —
+              written for those who need the work, not the noise.
             </p>
 
             <div className="mt-4 max-w-xl text-base leading-7 text-parchment/58">
               A serious path into the work for readers who arrived from ads and stayed
-              for the writing. Begin with the series. Understand the movements. Stay
-              with quiet updates when new writing is added.
+              for the writing. Begin with the series, read slowly, stay with quiet
+              updates when new writing is added.
             </div>
 
             <div className="mt-10 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-              <PrimaryLink cta={{ label: "Enter the Series", href: "/series" }} />
-              <SecondaryLink cta={{ label: "View Movements", href: "/movements" }} />
+              <PrimaryLink cta={{ label: "Browse the Books", href: "/series" }} />
             </div>
 
           </div>
@@ -116,7 +110,7 @@ export default async function AdsPage() {
               Why this work
             </p>
             <h2 className="responsive-section-title font-display font-semibold text-parchment">
-              Three things that make the series different
+              Three things that make these books different
             </h2>
           </div>
 
@@ -162,30 +156,6 @@ export default async function AdsPage() {
         </div>
       </section>
 
-      {/* ── MOVEMENTS ────────────────────────────────────────────────── */}
-      <section className="quiet-divider px-4 py-16 sm:px-5 sm:py-24">
-        <div className="mx-auto max-w-6xl fade-up">
-          <div className="mx-auto mb-14 max-w-3xl text-center">
-            <p className="mb-4 font-label text-xs uppercase tracking-[0.28em] text-gold/80">
-              Reading paths
-            </p>
-            <SectionTitle>Movements</SectionTitle>
-            <p className="responsive-prose mx-auto max-w-2xl text-parchment/80">
-              {home.seriesOverview.intro}
-            </p>
-          </div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {publishedMovements.map((movement, index) => (
-              <MovementCard
-                index={index}
-                key={movementSlug(movement, index)}
-                movement={movement}
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ── BOOKLETS ─────────────────────────────────────────────────── */}
       <section className="quiet-divider px-4 py-16 sm:px-5 sm:py-24">
         <div className="mx-auto max-w-6xl fade-up">
@@ -194,13 +164,13 @@ export default async function AdsPage() {
               <p className="mb-4 font-label text-xs uppercase tracking-[0.28em] text-gold/80">
                 The series
               </p>
-              <SectionTitle>Booklets</SectionTitle>
+              <SectionTitle>Books</SectionTitle>
               <p className="responsive-prose text-parchment/80">
                 A curated beginning from the published reading order. Read
                 slowly — return when the language asks for another pass.
               </p>
             </div>
-            <SecondaryLink cta={{ label: "View all booklets", href: "/series" }} />
+            <SecondaryLink cta={{ label: "View all books", href: "/series" }} />
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {featuredBooklets.map((booklet) => (
@@ -219,16 +189,16 @@ export default async function AdsPage() {
           <div className="grid gap-0 md:grid-cols-3">
             {[
               {
-                title: "Choose a movement",
-                body: "Each movement is a curated reading path through the booklets. Pick the one whose theme speaks first."
+                title: "Pick a book that speaks to you",
+                body: "Browse the list, read the descriptions, pick the one whose theme feels most relevant right now."
               },
               {
-                title: "Read the booklets slowly",
-                body: "These are not summaries. Each booklet is a sustained encounter. Give it an hour. Return the next day."
+                title: "Read slowly, with patience",
+                body: "These are not summaries. Each book is a sustained encounter. Give it time, return to it."
               },
               {
                 title: "Stay with quiet updates",
-                body: "Subscribe below. Receive a short note whenever new booklets or movements are published — nothing else."
+                body: "Subscribe below. Receive a short note whenever new books are published — nothing else."
               }
             ].map(({ title, body }, i) => (
               <div
