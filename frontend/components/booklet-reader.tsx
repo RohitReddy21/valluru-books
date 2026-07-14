@@ -12,6 +12,7 @@ import {
 } from "@/lib/site-content";
 
 const globalStorageKey = "valluru_global_subscribed";
+const subscriberInfoKey = "valluru_subscriber_info";
 
 type Props = {
   booklet: Booklet;
@@ -45,13 +46,25 @@ export function BookletReader({ booklet }: Props) {
 
   async function trackUnlock() {
     try {
+      let subscriberInfo = null;
+      try {
+        const stored = window.localStorage.getItem(subscriberInfoKey);
+        if (stored) {
+          subscriberInfo = JSON.parse(stored);
+        }
+      } catch {
+        // ignore parsing errors
+      }
+
       await fetch(apiUrl("/api/track-unlock"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
           bookletSlug: booklet.slug,
-          bookletTitle: booklet.title
+          bookletTitle: booklet.title,
+          name: subscriberInfo?.name || "",
+          email: subscriberInfo?.email || ""
         })
       });
     } catch (e) {
@@ -105,6 +118,7 @@ export function BookletReader({ booklet }: Props) {
         window.localStorage.setItem(accessStorageKey, payload.accessToken);
       }
       window.localStorage.setItem(globalStorageKey, "subscribed");
+      window.localStorage.setItem(subscriberInfoKey, JSON.stringify({ name, email }));
       setHasAccess(true);
       setStatus("success");
       return;

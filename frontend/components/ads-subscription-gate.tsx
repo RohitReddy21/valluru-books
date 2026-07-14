@@ -5,6 +5,7 @@ import { useEffect, useId, useState, type ReactNode } from "react";
 import { apiUrl } from "@/lib/api";
 
 const storageKey = "valluru_ads_subscription_gate";
+const subscriberInfoKey = "valluru_subscriber_info";
 
 export function AdsSubscriptionGate({ children }: { children: ReactNode }) {
   const titleId = useId();
@@ -49,9 +50,13 @@ export function AdsSubscriptionGate({ children }: { children: ReactNode }) {
       }
 
       setStatus("success");
+      // Save subscriber info before clearing name/email
+      const subscriberName = name;
+      const subscriberEmail = email;
       setName("");
       setEmail("");
       window.localStorage.setItem(storageKey, "subscribed");
+      window.localStorage.setItem(subscriberInfoKey, JSON.stringify({ name: subscriberName, email: subscriberEmail }));
       setHasAccess(true);
     } catch {
       setStatus("error");

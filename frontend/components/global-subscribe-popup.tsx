@@ -5,6 +5,7 @@ import { useEffect, useId, useState, type ReactNode } from "react";
 import { apiUrl } from "@/lib/api";
 
 const storageKey = "valluru_global_subscribed";
+const subscriberInfoKey = "valluru_subscriber_info";
 
 export function GlobalSubscribePopup() {
   const titleId = useId();
@@ -54,9 +55,13 @@ export function GlobalSubscribePopup() {
       }
 
       setStatus("success");
+      // Save subscriber info before clearing name/email
+      const subscriberName = name;
+      const subscriberEmail = email;
       setName("");
       setEmail("");
       window.localStorage.setItem(storageKey, "subscribed");
+      window.localStorage.setItem(subscriberInfoKey, JSON.stringify({ name: subscriberName, email: subscriberEmail }));
       setHasSubscribed(true);
       
       // Hide popup after success
