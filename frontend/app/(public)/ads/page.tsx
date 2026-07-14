@@ -153,8 +153,8 @@ export default async function AdsPage() {
         <div className="mx-auto max-w-4xl fade-up text-center">
           <Quote className="mx-auto mb-6 text-gold/30" size={36} />
           <blockquote className="font-display text-2xl font-semibold italic leading-relaxed text-parchment/90 sm:text-3xl">
-            "The inward fire does not burn for those who only look at it.
-            It burns for those who walk into it."
+            &ldquo;The inward fire does not burn for those who only look at it.
+            It burns for those who walk into it.&rdquo;
           </blockquote>
           <p className="mt-6 font-label text-xs uppercase tracking-[0.26em] text-gold/60">
             — The Inward Fire Series, Booklet One

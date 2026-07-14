@@ -2,7 +2,7 @@
 
 import { Mail } from "lucide-react";
 import { BookOpen, Download } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PdfBookModal } from "@/components/pdf-book-modal";
 import { apiUrl } from "@/lib/api";
 import {
@@ -10,6 +10,8 @@ import {
   getBookletReadButtonText,
   type Booklet
 } from "@/lib/site-content";
+
+const globalStorageKey = "valluru_global_subscribed";
 
 type Props = {
   booklet: Booklet;
@@ -24,14 +26,57 @@ export function BookletReader({ booklet }: Props) {
       : "";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [hasAccess, setHasAccess] = useState(isFree || Boolean(storedAccessToken));
+  const [hasAccess, setHasAccess] = useState(false);
   const [accessToken, setAccessToken] = useState(storedAccessToken);
   const [readerOpen, setReaderOpen] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">(
     "idle"
   );
+  const [isClient, setIsClient] = useState(false);
   const readButtonText = getBookletReadButtonText(booklet);
   const downloadButtonText = getBookletDownloadButtonText(booklet);
+
+  useEffect(() => {
+    const globalSubscribed = window.localStorage.getItem(globalStorageKey) === "subscribed";
+    const hasLocalAccess = isFree || Boolean(storedAccessToken);
+    setHasAccess(globalSubscribed || hasLocalAccess);
+    setIsClient(true);
+  }, [isFree, storedAccessToken]);
+
+  async function trackUnlock() {
+    try {
+      await fetch(apiUrl("/api/track-unlock"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          bookletSlug: booklet.slug,
+          bookletTitle: booklet.title
+        })
+      });
+    } catch (e) {
+      // Ignore tracking errors
+    }
+  }
+
+  async function unlock() {
+    setStatus("saving");
+    
+    // Check if we're already globally subscribed
+    if (window.localStorage.getItem(globalStorageKey) === "subscribed") {
+      trackUnlock();
+      setHasAccess(true);
+      window.localStorage.setItem(accessStorageKey, "granted");
+      setStatus("success");
+      return;
+    }
+
+    // If not subscribed, we should already have the popup, but just in case, grant access
+    trackUnlock();
+    setHasAccess(true);
+    window.localStorage.setItem(accessStorageKey, "granted");
+    setStatus("success");
+  }
 
   async function subscribe(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -59,6 +104,7 @@ export function BookletReader({ booklet }: Props) {
         setAccessToken(payload.accessToken);
         window.localStorage.setItem(accessStorageKey, payload.accessToken);
       }
+      window.localStorage.setItem(globalStorageKey, "subscribed");
       setHasAccess(true);
       setStatus("success");
       return;
@@ -81,56 +127,30 @@ export function BookletReader({ booklet }: Props) {
     return (
       <section className="mt-12 rounded-md border border-gold/15 bg-surface/70 p-6 sm:p-8">
         <p className="font-label text-sm uppercase tracking-[0.24em] text-gold">
-          Subscriber Reading
+          Reader Access
         </p>
         <h2 className="mt-4 font-display text-2xl text-parchment sm:text-3xl">
-          Subscribe to read this booklet
+          Unlock to read this booklet
         </h2>
         <p className="mt-4 text-lg leading-7 text-parchment/82">
-          Booklet One is free. The remaining booklets open after a quiet email
-          subscription, so readers can receive updates and future reading notes.
+          Booklet One is free. The remaining booklets open with one click.
         </p>
-        <form className="mt-7" onSubmit={subscribe}>
-          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-            <label className="sr-only" htmlFor="booklet-subscribe-name">
-              Name
-            </label>
-            <input
-              className="min-h-12 rounded-md border border-gold/20 bg-ink px-4 py-3 text-lg text-parchment outline-none transition placeholder:text-muted/70 focus:border-gold/60"
-              id="booklet-subscribe-name"
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Your name"
-              required
-              type="text"
-              value={name}
-            />
-            <label className="sr-only" htmlFor="booklet-subscribe-email">
-              Email address
-            </label>
-            <input
-              className="min-h-12 rounded-md border border-gold/20 bg-ink px-4 py-3 text-lg text-parchment outline-none transition placeholder:text-muted/70 focus:border-gold/60"
-              id="booklet-subscribe-email"
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="you@example.com"
-              required
-              type="email"
-              value={email}
-            />
-            <button
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-gold/60 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-60"
-              disabled={status === "saving"}
-              type="submit"
-            >
-              <Mail size={16} />
-              Subscribe & Read
-            </button>
-          </div>
+        <div className="mt-7">
+          <button
+            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-gold/60 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={status === "saving"}
+            onClick={unlock}
+            type="button"
+          >
+            <BookOpen size={16} />
+            Unlock & Read
+          </button>
           <p className="mt-3 text-base italic text-muted">
             {status === "error"
-              ? "The subscription could not be saved. Please try again."
-              : "Quiet updates only. Unsubscribe any time."}
+              ? "Something went wrong. Please try again."
+              : "You'll receive quiet updates when new content is added."}
           </p>
-        </form>
+        </div>
       </section>
     );
   }

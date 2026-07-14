@@ -1,3 +1,11 @@
+function subscriptionSourceTag(source) {
+  if (source === "booklet-reader" || source === "ads-landing") {
+    return source;
+  }
+
+  return "newsletter";
+}
+
 function registerSubscriptionRoutes(
   app,
   {
@@ -115,7 +123,7 @@ function registerSubscriptionRoutes(
             text: subscriberEmail.text,
             tags: [
               { name: "email_type", value: "subscriber_confirmation" },
-              { name: "source", value: source === "booklet-reader" ? "booklet-reader" : "newsletter" }
+              { name: "source", value: subscriptionSourceTag(source) }
             ]
           }).then((result) => {
             emailDelivery.subscriber = result;
@@ -147,7 +155,7 @@ function registerSubscriptionRoutes(
               text: ownerEmail.text,
               tags: [
                 { name: "email_type", value: "owner_notification" },
-                { name: "source", value: source === "booklet-reader" ? "booklet-reader" : "newsletter" }
+                { name: "source", value: subscriptionSourceTag(source) }
               ]
             }).then((result) => {
               emailDelivery.owner = result;

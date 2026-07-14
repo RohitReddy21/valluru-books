@@ -444,7 +444,7 @@ async function deleteSupabaseFile(media) {
   }
 }
 
-dotenv.config();
+dotenv.config({ override: true });
 dotenv.config({ path: ".env.local", override: false });
 
 const app = express();
@@ -878,13 +878,23 @@ Sasidhar Valluru`
   };
 }
 
+function subscriptionSourceLabel(source) {
+  if (source === "booklet-reader") {
+    return "Booklet reader";
+  }
+
+  if (source === "ads-landing") {
+    return "Ads landing page";
+  }
+
+  return "Newsletter form";
+}
+
 function buildOwnerEmail({ name, email, source, bookletTitle, subscribedAt, isNewSubscriber }) {
   const siteUrl = getPublicSiteUrl();
   const safeName = escapeHtml(name);
   const safeEmail = escapeHtml(email);
-  const safeSource = escapeHtml(
-    source === "booklet-reader" ? "Booklet reader" : "Newsletter form"
-  );
+  const safeSource = escapeHtml(subscriptionSourceLabel(source));
   const safeBookletTitle = bookletTitle ? escapeHtml(bookletTitle) : "\u2014";
   const safeTime = escapeHtml(formatSubscriptionTime(subscribedAt));
   const statusBadge = isNewSubscriber
@@ -956,7 +966,7 @@ function buildOwnerEmail({ name, email, source, bookletTitle, subscribedAt, isNe
 
 Name: ${name}
 Email: ${email}
-Source: ${source === "booklet-reader" ? "Booklet reader" : "Newsletter form"}
+Source: ${subscriptionSourceLabel(source)}
 Booklet: ${bookletTitle || "\u2014"}
 Time: ${formatSubscriptionTime(subscribedAt)} IST
 
@@ -998,6 +1008,347 @@ async function sendResendEmail(resend, label, payload) {
     });
     return { status: "failed", error: message };
   }
+}
+
+function cloneContent(content) {
+  return content ? JSON.parse(JSON.stringify(content)) : null;
+}
+
+function isPublishedStatus(status) {
+  return !status || status === "published";
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim());
+}
+
+function slugSegment(value = "") {
+  return String(value)
+    .toLowerCase()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function bookletPublicSlug(booklet = {}) {
+  const numberPart = slugSegment(booklet.numberLabel || "booklet");
+  const titlePart = slugSegment(booklet.title || booklet.slug || "booklet");
+  return `${numberPart}-${titlePart}`;
+}
+
+function movementAnnouncementSlug(movement = {}, index = 0) {
+  return (
+    slugSegment(movement.slug) ||
+    slugSegment(movement.title) ||
+    `movement-${index + 1}`
+  );
+}
+
+function getMovementAnnouncementSources(content = {}) {
+  const sources = [];
+
+  if (Array.isArray(content?.home?.seriesOverview?.movements)) {
+    sources.push(content.home.seriesOverview.movements);
+  }
+
+  if (Array.isArray(content?.movements?.items)) {
+    sources.push(content.movements.items);
+  }
+
+  return sources;
+}
+
+function getAnnouncementCandidates(content = {}) {
+  const siteUrl = getPublicSiteUrl();
+  const candidates = new Map();
+
+  for (const booklet of content?.series?.booklets || []) {
+    const slug = String(booklet?.slug || "").trim();
+
+    if (!slug || !isPublishedStatus(booklet?.status)) {
+      continue;
+    }
+
+    const title = String(booklet.title || booklet.numberLabel || slug).trim();
+    const key = `booklet:${slug}`;
+
+    candidates.set(key, {
+      key,
+      type: "booklet",
+      slug,
+      title,
+      description: booklet.subtitle || booklet.description || "",
+      hasPdf: Boolean(booklet.pdf),
+      ctaUrl: `${siteUrl}/series/${bookletPublicSlug(booklet)}`
+    });
+  }
+
+  for (const movements of getMovementAnnouncementSources(content)) {
+    for (const [index, movement] of movements.entries()) {
+      if (!movement || !isPublishedStatus(movement.status) || movement.published === false) {
+        continue;
+      }
+
+      const slug = movementAnnouncementSlug(movement, index);
+      const title = String(movement.title || `Movement ${index + 1}`).trim();
+      const key = `movement:${slug}`;
+
+      if (candidates.has(key)) {
+        continue;
+      }
+
+      candidates.set(key, {
+        key,
+        type: "movement",
+        slug,
+        title,
+        description: movement.description || movement.landingHeroLine || "",
+        hasPdf: Boolean(movement.pdf),
+        ctaUrl: `${siteUrl}/movements/${slug}`
+      });
+    }
+  }
+
+  return candidates;
+}
+
+function getNewSubscriberAnnouncementCandidates(previousContent, nextContent) {
+  if (!previousContent || !nextContent) {
+    return [];
+  }
+
+  const previousCandidates = getAnnouncementCandidates(previousContent || {});
+  const nextCandidates = getAnnouncementCandidates(nextContent || {});
+  const announcements = [];
+
+  for (const candidate of nextCandidates.values()) {
+    const previousCandidate = previousCandidates.get(candidate.key);
+    const becameAvailableWithPdf =
+      previousCandidate && !previousCandidate.hasPdf && candidate.hasPdf;
+
+    if (!previousCandidate || becameAvailableWithPdf) {
+      announcements.push({
+        ...candidate,
+        reason: previousCandidate ? "pdf-available" : "published"
+      });
+    }
+  }
+
+  return announcements;
+}
+
+function buildSubscriberAnnouncementEmail(announcement, recipient) {
+  const safeName = escapeHtml(recipient.name || "Reader");
+  const safeDescription = escapeHtml(announcement.description || "");
+  const safeUrl = escapeHtml(announcement.ctaUrl);
+  const isBooklet = announcement.type === "booklet";
+  const subject = isBooklet
+    ? `New booklet: ${announcement.title}`
+    : `New movement: ${announcement.title}`;
+  const eyebrow = isBooklet ? "New Booklet" : "New Movement";
+  const ctaLabel = isBooklet ? "Read the booklet" : "Explore the movement";
+
+  return {
+    subject,
+    html: emailShell({
+      preheader: `${announcement.title} has been added to The Valluru.`,
+      eyebrow,
+      title: announcement.title,
+      content: `
+        <p style="margin:0 0 20px;font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:20px;line-height:34px;color:#453d32;">
+          Dear ${safeName},
+        </p>
+        <p style="margin:0 0 20px;font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:20px;line-height:34px;color:#453d32;">
+          A new ${isBooklet ? "booklet" : "movement"} has been added to <em>The Inward Fire Series</em>.
+        </p>
+        ${
+          safeDescription
+            ? `<p style="margin:0 0 30px;font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:20px;line-height:34px;color:#453d32;">${safeDescription}</p>`
+            : ""
+        }
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+          <tr>
+            <td style="border-radius:8px;background:linear-gradient(135deg,#a77d2d 0%,#c9a24e 100%);box-shadow:0 2px 8px rgba(167,125,45,0.3);">
+              <a href="${safeUrl}" style="display:inline-block;padding:16px 32px;font-family:'Inter',Arial,sans-serif;font-size:12px;font-weight:600;letter-spacing:2px;text-transform:uppercase;text-decoration:none;color:#ffffff;">${escapeHtml(ctaLabel)} &rarr;</a>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:32px 0 0;font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:18px;line-height:30px;color:#6b5f4e;font-style:italic;">
+          Quietly sent because you subscribed to receive updates from The Valluru.
+        </p>`,
+      footer: `You received this message because you subscribed at <a href="${escapeHtml(getPublicSiteUrl())}" style="color:#8a6a2e;text-decoration:underline;">thevalluru.org</a>. We respect your inbox.`
+    }),
+    text: `Dear ${recipient.name || "Reader"},
+
+A new ${isBooklet ? "booklet" : "movement"} has been added to The Inward Fire Series.
+
+${announcement.title}
+${announcement.description ? `\n${announcement.description}\n` : ""}
+${ctaLabel}: ${announcement.ctaUrl}
+
+Quietly sent because you subscribed to receive updates from The Valluru.`
+  };
+}
+
+async function sendSubscriberAnnouncements(announcements, reason = "content-update") {
+  if (!announcements.length || !hasMongoConfig()) {
+    return;
+  }
+
+  const resend = getResend();
+
+  if (!resend) {
+    console.warn(
+      `[subscriber-announcements] Skipping ${announcements.length} announcement(s): Resend is not configured.`
+    );
+    return;
+  }
+
+  const db = await getDb();
+  const subscribers = await db
+    .collection("subscribers")
+    .find({})
+    .project({ email: 1, name: 1 })
+    .toArray();
+  const recipientsByEmail = new Map();
+
+  for (const subscriber of subscribers) {
+    const email = String(subscriber.email || "").trim().toLowerCase();
+
+    if (!isValidEmail(email) || recipientsByEmail.has(email)) {
+      continue;
+    }
+
+    recipientsByEmail.set(email, {
+      email,
+      name: String(subscriber.name || "").trim()
+    });
+  }
+
+  const recipients = [...recipientsByEmail.values()];
+
+  if (!recipients.length) {
+    console.warn(
+      `[subscriber-announcements] Skipping ${announcements.length} announcement(s): no subscriber recipients.`
+    );
+    return;
+  }
+
+  const ledger = db.collection("subscriber_announcements");
+
+  try {
+    await ledger.createIndex({ key: 1 }, { unique: true });
+  } catch (error) {
+    console.warn("[subscriber-announcements] Ledger unique index could not be ensured:", error.message);
+  }
+
+  for (const announcement of announcements) {
+    const now = new Date();
+    let reserved = false;
+
+    try {
+      const reservation = await ledger.updateOne(
+        { key: announcement.key },
+        {
+          $setOnInsert: {
+            key: announcement.key,
+            type: announcement.type,
+            slug: announcement.slug,
+            title: announcement.title,
+            ctaUrl: announcement.ctaUrl,
+            reason: announcement.reason || reason,
+            status: "sending",
+            recipientCount: recipients.length,
+            sentCount: 0,
+            failedCount: 0,
+            createdAt: now,
+            sendingStartedAt: now,
+            updatedAt: now
+          }
+        },
+        { upsert: true }
+      );
+      reserved = reservation.upsertedCount > 0;
+    } catch (error) {
+      if (error?.code === 11000) {
+        reserved = false;
+      } else {
+        console.error(
+          `[subscriber-announcements] Could not reserve ${announcement.key}:`,
+          error
+        );
+        continue;
+      }
+    }
+
+    if (!reserved) {
+      continue;
+    }
+
+    const deliveries = await Promise.all(
+      recipients.map(async (recipient) => {
+        const template = buildSubscriberAnnouncementEmail(announcement, recipient);
+        const result = await sendResendEmail(resend, `subscriber announcement ${announcement.key}`, {
+          from: getResendFrom(),
+          to: recipient.email,
+          subject: template.subject,
+          html: template.html,
+          text: template.text,
+          tags: [
+            { name: "email_type", value: "subscriber_announcement" },
+            { name: "announcement_type", value: announcement.type }
+          ]
+        });
+
+        return {
+          email: recipient.email,
+          ...result
+        };
+      })
+    );
+    const sent = deliveries.filter((delivery) => delivery.status === "sent");
+    const failed = deliveries.filter((delivery) => delivery.status !== "sent");
+
+    if (!sent.length) {
+      await ledger.deleteOne({ key: announcement.key, status: "sending" });
+      console.error(
+        `[subscriber-announcements] No deliveries succeeded for ${announcement.key}; announcement was not marked as sent.`
+      );
+      continue;
+    }
+
+    await ledger.updateOne(
+      { key: announcement.key },
+      {
+        $set: {
+          status: failed.length ? "partial" : "sent",
+          recipientCount: recipients.length,
+          sentCount: sent.length,
+          failedCount: failed.length,
+          resendIds: sent.map((delivery) => delivery.id).filter(Boolean),
+          lastError: failed[0]?.error || null,
+          announcedAt: new Date(),
+          updatedAt: new Date()
+        }
+      }
+    );
+
+    console.log(
+      `[subscriber-announcements] ${announcement.key} sent to ${sent.length}/${recipients.length} subscribers.`
+    );
+  }
+}
+
+function queueSubscriberAnnouncementCheck(previousContent, nextContent, reason) {
+  const announcements = getNewSubscriberAnnouncementCandidates(previousContent, nextContent);
+
+  if (!announcements.length) {
+    return;
+  }
+
+  void sendSubscriberAnnouncements(announcements, reason).catch((error) => {
+    console.error("[subscriber-announcements] Announcement check failed:", error);
+  });
 }
 
 function createSignedToken(payload, maxAgeMs = 1000 * 60 * 60 * 8) {
@@ -1409,6 +1760,8 @@ async function applyPdfAssignment(media, assignment) {
     throw new Error("Please save site content first before assigning PDFs.");
   }
 
+  const previousContent = cloneContent(content);
+
   if (assignment.type === "booklet") {
     const booklet = content?.series?.booklets?.find((item) => item.slug === assignment.slug);
 
@@ -1419,6 +1772,7 @@ async function applyPdfAssignment(media, assignment) {
     const field = assignment.field === "samplePdf" ? "samplePdf" : "pdf";
     booklet[field] = media.url;
     await saveSiteContent(content);
+    queueSubscriberAnnouncementCheck(previousContent, content, "pdf-assignment");
 
     return {
       content,
@@ -1440,6 +1794,7 @@ async function applyPdfAssignment(media, assignment) {
 
     movement.pdf = media.url;
     await saveSiteContent(content);
+    queueSubscriberAnnouncementCheck(previousContent, content, "pdf-assignment");
 
     return {
       content,
@@ -1698,7 +2053,10 @@ app.put("/api/content", verifyAdmin, async (request, response, next) => {
       return;
     }
 
+    const previousContent = await getSiteContent();
+
     await saveSiteContent(request.body.content);
+    queueSubscriberAnnouncementCheck(previousContent, request.body.content, "content-save");
     response.json({ ok: true });
   } catch (error) {
     next(error);
@@ -1716,6 +2074,37 @@ registerSubscriptionRoutes(app, {
   sendResendEmail,
   cookieOptions,
   createAccessToken
+});
+
+app.post("/api/track-unlock", async (request, response, next) => {
+  try {
+    if (!requireMongo(response)) {
+      return;
+    }
+
+    const bookletSlug = String(request.body?.bookletSlug || "").trim();
+    const bookletTitle = String(request.body?.bookletTitle || "").trim() || null;
+
+    if (!bookletSlug) {
+      response.status(400).json({ error: "bookletSlug is required." });
+      return;
+    }
+
+    const db = await getDb();
+
+    // Track the unlock
+    await db.collection("booklet_unlocks").insertOne({
+      bookletSlug,
+      bookletTitle,
+      unlockedAt: new Date(),
+      userAgent: request.headers["user-agent"] || null,
+      ip: request.ip || request.socket?.remoteAddress || null
+    });
+
+    response.json({ ok: true });
+  } catch (error) {
+    next(error);
+  }
 });
 app.get("/api/cloudinary/signature", verifyAdmin, async (request, response, next) => {
   try {
@@ -2696,6 +3085,7 @@ app.post(
         return;
       }
 
+      const previousContent = cloneContent(content);
       let uploaded;
       try {
         const storageTarget = getStorageTarget(file, "books/pdfs", "book-pdf");
@@ -2711,6 +3101,7 @@ app.post(
       console.log("[upload-pdf] Uploaded successfully, updating content");
       booklet.pdf = publicUrl;
       await saveSiteContent(content);
+      queueSubscriberAnnouncementCheck(previousContent, content, "booklet-pdf-upload");
       const media = await savePdfAsset(file, uploaded, {
         folder: "valluru/books/pdfs",
         source: "booklet-pdf",
@@ -2790,6 +3181,7 @@ app.post(
         return;
       }
 
+      const previousContent = cloneContent(content);
       let uploaded;
       try {
         const storageTarget = getStorageTarget(file, "movements/pdfs", "movement-pdf");
@@ -2805,6 +3197,7 @@ app.post(
       console.log("[upload-movement-pdf] Uploaded successfully, updating content");
       movement.pdf = publicUrl;
       await saveSiteContent(content);
+      queueSubscriberAnnouncementCheck(previousContent, content, "movement-pdf-upload");
       const media = await savePdfAsset(file, uploaded, {
         folder: "valluru/movements/pdfs",
         source: "movement-pdf",

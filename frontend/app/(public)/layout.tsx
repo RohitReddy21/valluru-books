@@ -4,6 +4,7 @@ import "../globals.css";
 import { getSiteContent } from "@/lib/content-store";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
+import { GlobalSubscribePopup } from "@/components/global-subscribe-popup";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -165,6 +166,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         <SiteNav nav={content.nav} />
         {children}
         <SiteFooter footer={content.footer} />
+        <GlobalSubscribePopup />
       </body>
     </html>
   );
