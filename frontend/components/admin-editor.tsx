@@ -14,7 +14,16 @@ type Props = {
 
 type Tab = "dashboard" | "booklets" | "movements" | "pages" | "pdfs" | "media" | "images" | "orders" | "settings" | "navigation";
 type MediaTarget = "homeHeroImage" | "pageHeroImage" | "authorImage";
-type DataExportType = "all" | "subscribers" | "booklet_readers" | "booklet_unlocks" | "orders" | "comments" | "media" | "pdfs";
+type DataExportType =
+  | "all"
+  | "subscribers"
+  | "subscribers_without_unlock"
+  | "booklet_readers"
+  | "booklet_unlocks"
+  | "orders"
+  | "comments"
+  | "media"
+  | "pdfs";
 type DataExportFormat = "xls" | "csv";
 
 type SubscriberRecord = {
@@ -43,8 +52,10 @@ type AdminData = {
     draftPosts: number;
     publishedPosts: number;
     bookletUnlocks: number;
+    subscribersWithoutUnlock?: number;
   };
   subscribers: SubscriberRecord[];
+  subscribersWithoutUnlock?: SubscriberRecord[];
   comments: Array<{
     name?: string;
     bookletSlug?: string;
@@ -1811,6 +1822,69 @@ function DashboardPanel({
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </FieldGroup>
+
+          <FieldGroup
+            title="Subscribers Without Unlock"
+            action={
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
+                  onClick={() => exportData("subscribers_without_unlock")}
+                  type="button"
+                >
+                  <Download size={14} />
+                  Export Excel
+                </button>
+                <button
+                  className="inline-flex items-center gap-2 rounded border border-gold/20 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-muted transition hover:border-gold/40 hover:text-parchment"
+                  onClick={() => exportData("subscribers_without_unlock", "csv")}
+                  type="button"
+                >
+                  <Download size={14} />
+                  Export CSV
+                </button>
+              </div>
+            }
+          >
+            <p className="text-sm leading-6 text-muted">
+              People who subscribed from the popup or newsletter but have not unlocked or opened a booklet yet.
+            </p>
+            <div className="overflow-x-auto rounded-md border border-gold/15">
+              <table className="w-full min-w-[820px] text-left text-base">
+                <thead className="bg-ink text-muted">
+                  <tr>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Email</th>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Source</th>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Subscribed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(adminData.subscribersWithoutUnlock || []).map((subscriber, index) => (
+                    <tr className="border-t border-gold/10" key={`${subscriber.id || subscriber.email}-${index}`}>
+                      <td className="px-4 py-3 text-parchment">{subscriber.name || "-"}</td>
+                      <td className="px-4 py-3 text-parchment">{subscriber.email || "-"}</td>
+                      <td className="px-4 py-3 text-muted">{subscriber.lastSource || "-"}</td>
+                      <td className="px-4 py-3 text-muted">{subscriber.lastBookletTitle || "-"}</td>
+                      <td className="px-4 py-3 text-muted">
+                        {subscriber.updatedAt || subscriber.createdAt
+                          ? new Date(subscriber.updatedAt || subscriber.createdAt || "").toLocaleString()
+                          : "-"}
+                      </td>
+                    </tr>
+                  ))}
+                  {(adminData.subscribersWithoutUnlock || []).length === 0 ? (
+                    <tr className="border-t border-gold/10">
+                      <td className="px-4 py-4 text-muted" colSpan={5}>
+                        No subscribers are waiting to unlock a booklet.
+                      </td>
+                    </tr>
+                  ) : null}
                 </tbody>
               </table>
             </div>
