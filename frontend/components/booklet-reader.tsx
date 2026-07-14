@@ -72,59 +72,57 @@ export function BookletReader({ booklet }: Props) {
     }
   }
 
-  async function unlock() {
+  async function unlockAndRead() {
     setStatus("saving");
+    await trackUnlock();
     
-    // Check if we're already globally subscribed
-    if (window.localStorage.getItem(globalStorageKey) === "subscribed") {
-      trackUnlock();
-      setHasAccess(true);
-      window.localStorage.setItem(accessStorageKey, "granted");
-      setStatus("success");
-      return;
-    }
+    // Check if we need to subscribe first
+    if (window.localStorage.getItem(globalStorageKey) !== "subscribed" && !isFree) {
+      // If we have name and email in state, subscribe
+      if (name && email) {
+        const response = await fetch(apiUrl("/api/subscribe"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            name,
+            email,
+            source: "booklet-reader",
+            bookletSlug: booklet.slug,
+            bookletTitle: booklet.title
+          })
+        });
 
-    // If not subscribed, we should already have the popup, but just in case, grant access
-    trackUnlock();
-    setHasAccess(true);
-    window.localStorage.setItem(accessStorageKey, "granted");
-    setStatus("success");
-  }
+        const payload = (await response.json().catch(() => null)) as {
+          accessToken?: string;
+        } | null;
 
-  async function subscribe(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setStatus("saving");
-
-    const response = await fetch(apiUrl("/api/subscribe"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({
-        name,
-        email,
-        source: "booklet-reader",
-        bookletSlug: booklet.slug,
-        bookletTitle: booklet.title
-      })
-    });
-
-    const payload = (await response.json().catch(() => null)) as {
-      accessToken?: string;
-    } | null;
-
-    if (response.ok) {
-      if (payload?.accessToken) {
-        setAccessToken(payload.accessToken);
-        window.localStorage.setItem(accessStorageKey, payload.accessToken);
+        if (response.ok) {
+          if (payload?.accessToken) {
+            setAccessToken(payload.accessToken);
+            window.localStorage.setItem(accessStorageKey, payload.accessToken);
+          }
+          window.localStorage.setItem(globalStorageKey, "subscribed");
+          window.localStorage.setItem(subscriberInfoKey, JSON.stringify({ name, email }));
+          setHasAccess(true);
+          setStatus("success");
+        } else {
+          setStatus("error");
+          return;
+        }
+      } else {
+        // If no name/email, just grant local access for now
+        window.localStorage.setItem(accessStorageKey, "granted");
+        setHasAccess(true);
+        setStatus("success");
       }
-      window.localStorage.setItem(globalStorageKey, "subscribed");
-      window.localStorage.setItem(subscriberInfoKey, JSON.stringify({ name, email }));
-      setHasAccess(true);
+    } else {
+      // Already have access, just mark as success
       setStatus("success");
-      return;
     }
 
-    setStatus("error");
+    // Open the reader
+    setReaderOpen(true);
   }
 
   if (!booklet.pdf) {
@@ -137,38 +135,7 @@ export function BookletReader({ booklet }: Props) {
     );
   }
 
-  if (!hasAccess) {
-    return (
-      <section className="mt-12 rounded-md border border-gold/15 bg-surface/70 p-6 sm:p-8">
-        <p className="font-label text-sm uppercase tracking-[0.24em] text-gold">
-          Reader Access
-        </p>
-        <h2 className="mt-4 font-display text-2xl text-parchment sm:text-3xl">
-          Unlock to read this booklet
-        </h2>
-        <p className="mt-4 text-lg leading-7 text-parchment/82">
-          Booklet One is free. The remaining booklets open with one click.
-        </p>
-        <div className="mt-7">
-          <button
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-gold/60 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={status === "saving"}
-            onClick={unlock}
-            type="button"
-          >
-            <BookOpen size={16} />
-            Unlock & Read
-          </button>
-          <p className="mt-3 text-base italic text-muted">
-            {status === "error"
-              ? "Something went wrong. Please try again."
-              : "You'll receive quiet updates when new content is added."}
-          </p>
-        </div>
-      </section>
-    );
-  }
-
+  // Always show the same section with "Unlock & Read" (or "Read & Track") button
   return (
     <section className="mt-12">
       <div className="rounded-md border border-gold/15 bg-surface/70 p-6 sm:p-8">
@@ -180,17 +147,21 @@ export function BookletReader({ booklet }: Props) {
             {booklet.title}
           </h2>
           <p className="mt-4 text-lg leading-7 text-parchment/82">
-            Open the booklet in an on-page reading window.
+            {hasAccess 
+              ? "Open the booklet in an on-page reading window (tracks your read for admin)."
+              : "Unlock to read this booklet (tracks your read for admin)."
+            }
           </p>
         </div>
         <div className="mt-6 flex flex-wrap gap-3">
           <button
-            className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
-            onClick={() => setReaderOpen(true)}
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={status === "saving"}
+            onClick={unlockAndRead}
             type="button"
           >
             <BookOpen size={17} />
-            {readButtonText}
+            {hasAccess ? "Read & Track" : "Unlock & Read"}
           </button>
           {booklet.downloadButtonText ? (
             <a
@@ -204,11 +175,39 @@ export function BookletReader({ booklet }: Props) {
             </a>
           ) : null}
         </div>
-        {!isFree && status === "success" ? (
-          <p className="text-base italic text-muted">
-            Thank you. You will hear from us quietly.
-          </p>
-        ) : null}
+
+        {/* Show name/email input only if not subscribed yet */}
+        {!hasAccess && !window.localStorage.getItem(subscriberInfoKey) && (
+          <div className="mt-6 space-y-3">
+            <label className="sr-only" htmlFor={`name-${booklet.slug}`}>
+              Name
+            </label>
+            <input
+              id={`name-${booklet.slug}`}
+              className="min-h-12 w-full rounded-md border border-gold/20 bg-ink px-4 py-3 text-lg text-parchment outline-none transition placeholder:text-muted/70 focus:border-gold/60"
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Your name"
+              value={name}
+            />
+            <label className="sr-only" htmlFor={`email-${booklet.slug}`}>
+              Email
+            </label>
+            <input
+              id={`email-${booklet.slug}`}
+              className="min-h-12 w-full rounded-md border border-gold/20 bg-ink px-4 py-3 text-lg text-parchment outline-none transition placeholder:text-muted/70 focus:border-gold/60"
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="Your email"
+              type="email"
+              value={email}
+            />
+          </div>
+        )}
+
+        <p className="mt-3 text-base italic text-muted">
+          {status === "error"
+            ? "Something went wrong. Please try again."
+            : "You'll receive quiet updates when new content is added."}
+        </p>
       </div>
 
       {readerOpen ? (
