@@ -3,7 +3,7 @@
 import type { HTMLAttributes } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
-import type { Booklet, Cta } from "@/lib/site-content";
+import type { Booklet, Cta, Movement } from "@/lib/site-content";
 import {
   bookletPublicSlug,
   getBookletCardBody,
@@ -88,9 +88,11 @@ export function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 export function ProseBlocks({ blocks }: { blocks: string[] }) {
+  const safeBlocks = Array.isArray(blocks) ? blocks : [];
+
   return (
     <div className="responsive-prose space-y-5 text-parchment/88">
-      {blocks.map((block) => (
+      {safeBlocks.map((block) => (
         <p key={block}>{block}</p>
       ))}
     </div>
@@ -190,7 +192,13 @@ export function BookletCard({ booklet }: { booklet: Booklet }) {
   );
 }
 
-export function MovementCard({ movement, index }: { movement: any; index: number }) {
+export function MovementCard({
+  movement,
+  index
+}: {
+  movement: Movement & { published?: boolean };
+  index: number;
+}) {
   const isPublishedMovement = isPublished(movement.status);
   const slug = movementSlug(movement, index);
   const badge = movement.status === "draft" ? "Coming Soon" : "AVAILABLE";

@@ -1907,7 +1907,7 @@ function DashboardPanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {adminData.bookletUnlocks.map((unlock, index) => (
+                  {(adminData.bookletUnlocks || []).map((unlock, index) => (
                     <tr className="border-t border-gold/10" key={`${unlock.email || index}-${unlock.bookletSlug}-${index}`}>
                       <td className="px-4 py-3 text-parchment">{unlock.name || "-"}</td>
                       <td className="px-4 py-3 text-parchment">{unlock.email || "-"}</td>

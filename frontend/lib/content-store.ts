@@ -81,6 +81,10 @@ function normalizeSearchSnippetText(value: string) {
     );
 }
 
+function asArray<T>(value: T[] | undefined, fallback: T[] = []) {
+  return Array.isArray(value) ? value : fallback;
+}
+
 const movementAssetFields = ["pdf", "coverImage"] as const;
 
 function findMovementOverride(
@@ -88,7 +92,9 @@ function findMovementOverride(
   defaultMovement: Movement,
   defaultIndex: number
 ) {
-  if (!movements?.length) {
+  const movementList = asArray(movements);
+
+  if (!movementList.length) {
     return undefined;
   }
 
@@ -96,7 +102,7 @@ function findMovementOverride(
   const normalizedDefaultMovement = normalizeMovementRange(defaultMovement);
 
   return (
-    movements.find(
+    movementList.find(
       (movement, index) =>
         movement.slug === defaultSlug ||
         movementSlug(movement, index) === defaultSlug ||
@@ -206,7 +212,7 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
   };
 
   // Ensure "Movements" is in nav links
-  const navLinks = [...(nav.links || [])].filter(
+  const navLinks = [...asArray(nav.links, defaultSiteContent.nav.links)].filter(
     (link) => link.href !== "/essays" && link.href !== "/cart" && link.href !== "/checkout"
   );
   const hasMovementsInNav = navLinks.some((link) => link.href === "/movements");
@@ -221,7 +227,7 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
   }
 
   // Ensure "Movements" is in footer links
-  const footerLinks = [...(footer.links || [])].filter((link) => link.href !== "/essays");
+  const footerLinks = [...asArray(footer.links, defaultSiteContent.footer.links)].filter((link) => link.href !== "/essays");
   const hasMovementsInFooter = footerLinks.some((link) => link.href === "/movements");
   if (!hasMovementsInFooter) {
     // Insert Movements after "The Books" (href: /series) if possible, otherwise just add it
@@ -236,13 +242,13 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
   const codeSeriesOverviewMovements = defaultSiteContent.home.seriesOverview.movements.map(
     (movement, index) =>
       codeDrivenMovement(movement, index, [
-        content?.home?.seriesOverview?.movements,
-        content?.movements?.items
+        asArray(content?.home?.seriesOverview?.movements),
+        asArray(content?.movements?.items)
       ])
   );
   const seriesOverviewMovements = appendSavedMovements(codeSeriesOverviewMovements, [
-    content?.home?.seriesOverview?.movements,
-    content?.movements?.items
+    asArray(content?.home?.seriesOverview?.movements),
+    asArray(content?.movements?.items)
   ]);
 
   const home = {
@@ -256,13 +262,20 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
       movements: seriesOverviewMovements
     }
   };
+  const hero = {
+    ...defaultSiteContent.home.hero,
+    ...(home.hero || {})
+  };
   home.hero = {
-    ...home.hero,
-    subtitle: normalizeSearchSnippetText(home.hero.subtitle),
-    body: home.hero.body.map(normalizeSearchSnippetText),
+    ...hero,
+    subtitle: normalizeSearchSnippetText(hero.subtitle || defaultSiteContent.home.hero.subtitle),
+    body: asArray(hero.body, defaultSiteContent.home.hero.body).map(normalizeSearchSnippetText),
     secondaryCta: {
-      ...home.hero.secondaryCta,
-      label: normalizeBookletCountText(home.hero.secondaryCta.label)
+      ...defaultSiteContent.home.hero.secondaryCta,
+      ...(hero.secondaryCta || {}),
+      label: normalizeBookletCountText(
+        hero.secondaryCta?.label || defaultSiteContent.home.hero.secondaryCta.label
+      )
     }
   };
   home.seriesOverview = {
@@ -306,7 +319,14 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
     },
     about: {
       ...defaultSiteContent.about,
-      ...(content?.about || {})
+      ...(content?.about || {}),
+      bio: asArray(content?.about?.bio, defaultSiteContent.about.bio),
+      pullQuotes: asArray(content?.about?.pullQuotes, defaultSiteContent.about.pullQuotes),
+      whatThisIsNot: asArray(content?.about?.whatThisIsNot, defaultSiteContent.about.whatThisIsNot),
+      contact: {
+        ...defaultSiteContent.about.contact,
+        ...(content?.about?.contact || {})
+      }
     },
     footer: {
       ...footer,

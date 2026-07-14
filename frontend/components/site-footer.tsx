@@ -6,6 +6,8 @@ type Props = {
 };
 
 export function SiteFooter({ footer }: Props) {
+  const links = Array.isArray(footer.links) ? footer.links : [];
+
   return (
     <footer className="quiet-divider bg-ink px-5 py-12">
       <div className="mx-auto grid max-w-6xl gap-10 md:grid-cols-[1.2fr_1fr_1fr]">
@@ -22,7 +24,7 @@ export function SiteFooter({ footer }: Props) {
           <p className="font-display text-2xl text-parchment">{footer.title}</p>
         </div>
         <nav className="grid gap-3">
-          {footer.links.map((link) => (
+          {links.map((link) => (
             <Link
               className="font-label text-sm uppercase tracking-[0.22em] text-muted transition hover:text-gold"
               href={link.href}
