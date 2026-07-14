@@ -4,7 +4,7 @@ import { Mail } from "lucide-react";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { apiUrl } from "@/lib/api";
 
-const storageKey = "valluru_ads_subscription_gate";
+const storageKey = "valluru_global_subscribed";
 const subscriberInfoKey = "valluru_subscriber_info";
 
 export function AdsSubscriptionGate({ children }: { children: ReactNode }) {
@@ -74,7 +74,7 @@ export function AdsSubscriptionGate({ children }: { children: ReactNode }) {
           aria-labelledby={titleId}
           aria-describedby={descriptionId}
           aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/90 px-4 py-8 backdrop-blur-sm sm:px-5"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 px-4 py-8 backdrop-blur-md sm:px-5"
           role="dialog"
         >
           <div className="w-full max-w-lg rounded-md border border-gold/30 bg-[#141210] p-6 shadow-[0_26px_90px_rgba(0,0,0,0.7)] sm:p-8 fade-up">
@@ -119,9 +119,9 @@ export function AdsSubscriptionGate({ children }: { children: ReactNode }) {
                 value={email}
               />
 
-              <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+              <div className="pt-2">
                 <button
-                  className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-md border border-gold/65 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md border border-gold/65 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={status === "saving"}
                   type="submit"
                 >
@@ -133,7 +133,7 @@ export function AdsSubscriptionGate({ children }: { children: ReactNode }) {
               <p className="min-h-6 text-sm italic text-muted">
                 {status === "error"
                   ? "The form could not be saved. Please try again."
-                  : "Subscription is required to view this ads landing page."}
+                  : "Subscription is required to access all content."}
               </p>
             </form>
           </div>

@@ -1,13 +1,15 @@
 "use client";
 
 import { Mail } from "lucide-react";
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useId, useState } from "react";
 import { apiUrl } from "@/lib/api";
 
 const storageKey = "valluru_global_subscribed";
 const subscriberInfoKey = "valluru_subscriber_info";
 
 export function GlobalSubscribePopup() {
+  const pathname = usePathname();
   const titleId = useId();
   const descriptionId = useId();
   const [hasSubscribed, setHasSubscribed] = useState(false);
@@ -21,17 +23,30 @@ export function GlobalSubscribePopup() {
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    const alreadySubscribed = window.localStorage.getItem(storageKey) === "subscribed";
-    setHasSubscribed(alreadySubscribed);
-    setIsClient(true);
-
-    if (!alreadySubscribed) {
-      const timer = setTimeout(() => {
-        setShowPopup(true);
-      }, 5000);
-      return () => clearTimeout(timer);
+    if (pathname === "/ads" || pathname.startsWith("/ads/")) {
+      return;
     }
-  }, []);
+
+    let timer: number | undefined;
+    const frame = window.requestAnimationFrame(() => {
+      const alreadySubscribed = window.localStorage.getItem(storageKey) === "subscribed";
+      setHasSubscribed(alreadySubscribed);
+      setIsClient(true);
+
+      if (!alreadySubscribed) {
+        timer = window.setTimeout(() => {
+          setShowPopup(true);
+        }, 5000);
+      }
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (timer) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [pathname]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,7 +86,7 @@ export function GlobalSubscribePopup() {
     }
   }
 
-  if (!isClient || hasSubscribed) {
+  if (pathname === "/ads" || pathname.startsWith("/ads/") || !isClient || hasSubscribed) {
     return null;
   }
 
