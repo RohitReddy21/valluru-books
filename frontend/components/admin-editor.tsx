@@ -398,7 +398,7 @@ export function AdminEditor({ initialContent, source }: Props) {
             } else {
               payload = null;
             }
-          } catch (parseError) {
+          } catch {
             const statusText = xhr.status === 404 ? "Endpoint not found. Backend may not be deployed." : "Upload failed.";
             payload = { error: statusText } as T & { error?: string };
           }
@@ -419,24 +419,21 @@ export function AdminEditor({ initialContent, source }: Props) {
     );
   }
 
-  function sanitizeContent(obj: any): any {
+  function sanitizeContent(obj: unknown): unknown {
     if (obj === null || obj === undefined) return obj;
     if (typeof obj !== "object") return obj;
     if (obj instanceof Date) return obj.toISOString();
-    if (obj instanceof Array) return obj.map(item => sanitizeContent(item));
+    if (Array.isArray(obj)) return obj.map((item) => sanitizeContent(item));
 
     // Check if this is a plain object
-    if (obj.constructor !== Object) return undefined;
+    if (Object.getPrototypeOf(obj) !== Object.prototype) return undefined;
 
-    const sanitized: any = {};
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        const value = obj[key];
-        // Skip functions, symbols, and React-related properties
-        if (typeof value === "function" || typeof value === "symbol") continue;
-        if (key.startsWith("__react") || key.startsWith("_")) continue;
-        sanitized[key] = sanitizeContent(value);
-      }
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      // Skip functions, symbols, and React-related properties
+      if (typeof value === "function" || typeof value === "symbol") continue;
+      if (key.startsWith("__react") || key.startsWith("_")) continue;
+      sanitized[key] = sanitizeContent(value);
     }
     return sanitized;
   }
@@ -490,12 +487,36 @@ export function AdminEditor({ initialContent, source }: Props) {
         setPdfItems((current) => [payload.media as MediaAsset, ...current.filter((item) => item.id !== payload.media?.id)]);
       }
       setUploadStatus(`Uploaded and attached to ${selectedBooklet.title}.`);
-    } catch (error) {
+    } catch {
       setUploadStatus("PDF upload failed. Check your connection and try again.");
     }
   }
 
   async function uploadMovementPdf(movementIndex: number, movementPdfFile: File, setMovementUploadStatus: (status: string) => void) {
+    setMovementUploadStatus("Saving movement before upload...");
+    let saveResponse: Response;
+
+    try {
+      saveResponse = await persistContent();
+    } catch {
+      setMovementUploadStatus("Save failed before PDF upload.");
+      return;
+    }
+
+    if (!saveResponse.ok) {
+      let errorMessage = "Save failed before PDF upload.";
+
+      try {
+        const payload = (await saveResponse.json()) as { error?: string };
+        errorMessage = payload.error || errorMessage;
+      } catch {
+        // Use the default message when the backend returns a non-JSON error.
+      }
+
+      setMovementUploadStatus(errorMessage);
+      return;
+    }
+
     setMovementUploadStatus("Uploading PDF...");
     const formData = new FormData();
     formData.append("movementIndex", String(movementIndex));
@@ -2570,7 +2591,6 @@ function MovementsPanel({
       formData.append("file", file);
 
       const headers = adminHeaders({});
-      delete (headers as any)["Content-Type"];
 
       const response = await fetch(apiUrl("/api/admin/upload-movement-cover"), {
         method: "POST",

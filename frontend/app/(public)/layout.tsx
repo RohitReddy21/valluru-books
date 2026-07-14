@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Crimson_Pro, Playfair_Display } from "next/font/google";
 import "../globals.css";
 import { getSiteContent } from "@/lib/content-store";
@@ -61,10 +61,14 @@ export const metadata: Metadata = {
     images: ["https://www.thevalluru.org/og/default.jpg"]
   },
   robots: "index, follow",
-  viewport: "width=device-width, initial-scale=1",
   alternates: {
     canonical: "https://www.thevalluru.org"
   }
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1
 };
 
 export default async function RootLayout({

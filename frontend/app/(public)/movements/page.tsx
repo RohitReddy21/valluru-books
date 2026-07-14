@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import { NewsletterForm } from "@/components/newsletter-form";
 import { PageHeader, PageShell, Section, MovementCard } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
 import { defaultSiteContent, movementSlug } from "@/lib/site-content";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Movements | The Valluru",
+  description:
+    "Explore the movements of The Inward Fire Series: doorways into dharma, maya, nada, language, surrender, memory, and the inward journey."
+};
 
 export default async function MovementsPage() {
   const content = await getSiteContent();
