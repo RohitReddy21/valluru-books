@@ -161,7 +161,7 @@ export function BookletReader({ booklet }: Props) {
             type="button"
           >
             <BookOpen size={17} />
-            {hasAccess ? "Read & Track" : "Unlock & Read"}
+            Unlock & Read
           </button>
           {booklet.downloadButtonText ? (
             <a

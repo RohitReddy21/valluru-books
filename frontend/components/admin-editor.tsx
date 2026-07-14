@@ -14,7 +14,7 @@ type Props = {
 
 type Tab = "dashboard" | "booklets" | "movements" | "pages" | "pdfs" | "media" | "images" | "orders" | "settings" | "navigation";
 type MediaTarget = "homeHeroImage" | "pageHeroImage" | "authorImage";
-type DataExportType = "all" | "subscribers" | "booklet_readers" | "orders" | "comments" | "media" | "pdfs";
+type DataExportType = "all" | "subscribers" | "booklet_readers" | "booklet_unlocks" | "orders" | "comments" | "media" | "pdfs";
 type DataExportFormat = "xls" | "csv";
 
 type SubscriberRecord = {
@@ -42,6 +42,7 @@ type AdminData = {
     archivedBooks: number;
     draftPosts: number;
     publishedPosts: number;
+    bookletUnlocks: number;
   };
   subscribers: SubscriberRecord[];
   comments: Array<{
@@ -60,6 +61,16 @@ type AdminData = {
     readCount?: number;
     updatedAt?: string;
     lastReadAt?: string;
+  }>;
+  bookletUnlocks: Array<{
+    name?: string;
+    email?: string;
+    bookletSlug?: string;
+    bookletTitle?: string | null;
+    source?: string;
+    unlockedAt?: string;
+    ip?: string;
+    userAgent?: string;
   }>;
   orders: Array<{
     id?: string;
@@ -1862,6 +1873,51 @@ function DashboardPanel({
                           ? new Date(reader.lastReadAt || reader.updatedAt || "").toLocaleString()
                           : "-"}
                       </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </FieldGroup>
+
+          <FieldGroup
+            title="Booklet Unlocks"
+            action={
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
+                  onClick={() => exportData("booklet_unlocks")}
+                  type="button"
+                >
+                  <Download size={14} />
+                  Export to Excel
+                </button>
+              </div>
+            }
+          >
+            <div className="overflow-x-auto rounded-md border border-gold/15">
+              <table className="w-full min-w-[900px] text-left text-base">
+                <thead className="bg-ink text-muted">
+                  <tr>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Email</th>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Unlocked At</th>
+                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">IP</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adminData.bookletUnlocks.map((unlock, index) => (
+                    <tr className="border-t border-gold/10" key={`${unlock.email || index}-${unlock.bookletSlug}-${index}`}>
+                      <td className="px-4 py-3 text-parchment">{unlock.name || "-"}</td>
+                      <td className="px-4 py-3 text-parchment">{unlock.email || "-"}</td>
+                      <td className="px-4 py-3 text-muted">
+                        {unlock.bookletTitle || unlock.bookletSlug || "-"}
+                      </td>
+                      <td className="px-4 py-3 text-muted">
+                        {unlock.unlockedAt ? new Date(unlock.unlockedAt).toLocaleString() : "-"}
+                      </td>
+                      <td className="px-4 py-3 text-muted">{unlock.ip || "-"}</td>
                     </tr>
                   ))}
                 </tbody>
