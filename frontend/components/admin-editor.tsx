@@ -2001,6 +2001,13 @@ function DashboardPanel({
                       <td className="px-4 py-3 text-muted">{unlock.ip || "-"}</td>
                     </tr>
                   ))}
+                  {(adminData.bookletUnlocks || []).length === 0 ? (
+                    <tr className="border-t border-gold/10">
+                      <td className="px-4 py-4 text-muted" colSpan={5}>
+                        No unlock records found yet.
+                      </td>
+                    </tr>
+                  ) : null}
                 </tbody>
               </table>
             </div>
