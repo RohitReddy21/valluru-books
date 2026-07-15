@@ -685,6 +685,8 @@ export function AdminEditor({ initialContent, source }: Props) {
       | (AdminData & { error?: string })
       | null;
 
+    console.log("[loadAdminData] /api/admin/data payload:", payload);
+
     if (!response.ok || !payload) {
       setDataStatus(payload?.error || "Could not load database data.");
       return;
@@ -701,12 +703,16 @@ export function AdminEditor({ initialContent, source }: Props) {
         | BookletActivityPayload
         | null;
 
+      console.log("[loadAdminData] /api/admin/booklet-activity payload:", activityPayload);
+
       if (activityResponse.ok && activityPayload) {
         nextData = mergeBookletActivityData(nextData, activityPayload);
       }
     } catch {
       // Keep the main dashboard payload if the direct activity refresh is unavailable.
     }
+
+    console.log("[loadAdminData] Next admin data (after merge):", nextData);
 
     setAdminData(nextData);
     setDataStatus(
