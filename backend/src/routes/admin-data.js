@@ -1146,7 +1146,7 @@ function registerAdminDataRoutes(
       const { name, email, bookletSlug, bookletTitle, source, readCount } = request.body;
       const db = await getDb();
 
-      const update: Record<string, unknown> = {
+      const update = {
         updatedAt: new Date()
       };
 
