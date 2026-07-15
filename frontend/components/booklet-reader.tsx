@@ -1,13 +1,11 @@
 "use client";
 
-import { Mail } from "lucide-react";
 import { BookOpen, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PdfBookModal } from "@/components/pdf-book-modal";
 import { apiUrl } from "@/lib/api";
 import {
   getBookletDownloadButtonText,
-  getBookletReadButtonText,
   type Booklet
 } from "@/lib/site-content";
 
@@ -33,15 +31,16 @@ export function BookletReader({ booklet }: Props) {
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">(
     "idle"
   );
-  const [isClient, setIsClient] = useState(false);
-  const readButtonText = getBookletReadButtonText(booklet);
   const downloadButtonText = getBookletDownloadButtonText(booklet);
 
   useEffect(() => {
-    const globalSubscribed = window.localStorage.getItem(globalStorageKey) === "subscribed";
-    const hasLocalAccess = isFree || Boolean(storedAccessToken);
-    setHasAccess(globalSubscribed || hasLocalAccess);
-    setIsClient(true);
+    const frame = window.requestAnimationFrame(() => {
+      const globalSubscribed = window.localStorage.getItem(globalStorageKey) === "subscribed";
+      const hasLocalAccess = isFree || Boolean(storedAccessToken);
+      setHasAccess(globalSubscribed || hasLocalAccess);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [isFree, storedAccessToken]);
 
   async function trackUnlock() {
@@ -67,7 +66,7 @@ export function BookletReader({ booklet }: Props) {
           email: subscriberInfo?.email || ""
         })
       });
-    } catch (e) {
+    } catch {
       // Ignore tracking errors
     }
   }
@@ -135,7 +134,7 @@ export function BookletReader({ booklet }: Props) {
     );
   }
 
-  // Always show the same section with "Unlock & Read" (or "Read & Track") button
+  // Always show the same reader section while preserving access tracking.
   return (
     <section className="mt-12">
       <div className="rounded-md border border-gold/15 bg-surface/70 p-6 sm:p-8">
@@ -161,7 +160,7 @@ export function BookletReader({ booklet }: Props) {
             type="button"
           >
             <BookOpen size={17} />
-            Unlock & Read
+            Read Booklet
           </button>
           {booklet.downloadButtonText ? (
             <a
