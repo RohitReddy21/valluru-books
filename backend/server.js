@@ -444,8 +444,8 @@ async function deleteSupabaseFile(media) {
   }
 }
 
-dotenv.config({ override: true });
-dotenv.config({ path: ".env.local", override: false });
+dotenv.config({ path: path.join(__dirname, ".env"), override: true });
+dotenv.config({ path: path.join(__dirname, ".env.local"), override: false });
 
 const app = express();
 const uploadTempDir = path.join(os.tmpdir(), "valluru-uploads");
@@ -2034,9 +2034,138 @@ app.post("/api/admin/test-owner-email", verifyAdmin, async (_request, response) 
   response.json({ ok: true, id: result.id });
 });
 
-app.get("/api/content", async (_request, response, next) => {
+app.get("/api/content", async (request, response, next) => {
   try {
-    response.json({ content: await getSiteContent() });
+    // Check if MongoDB is available
+    let hasMongo = true;
+    let content = null;
+    try {
+      content = await getSiteContent();
+    } catch {
+      hasMongo = false;
+    }
+
+    if (!hasMongo || !content) {
+      console.log("[api/content] Local dev mode - MongoDB not available, returning default content");
+      // Return default fallback content
+      return response.json({
+        content: {
+          nav: {
+            logo: "The Valluru",
+            links: [
+              { label: "Home", href: "/" },
+              { label: "The Series", href: "/series" },
+              { label: "Movements", href: "/movements" },
+              { label: "About", href: "/about" }
+            ],
+            button: { label: "Begin Reading", href: "/series/booklet-one-when-the-gods-fall-silent" }
+          },
+          home: {
+            hero: {
+              eyebrow: "The Inward Fire Series · Sasidhar Valluru",
+              title: "The Inward Fire Series",
+              subtitle: "Writings on dharma, grief, language, surrender, and the inner life.",
+              body: [
+                "For the competent but tired seeker. For the person who has optimized career, family, duty, migration, survival, and reputation — but still needs an inward anchor when grief, silence, responsibility, and mortality arrive.",
+                "No spiritual performance. No costume. No promise of instant peace.",
+                "Only a set of writings for those who are still willing to look inward."
+              ],
+              primaryCta: { label: "Begin with Booklet One", href: "/series/booklet-one-when-the-gods-fall-silent" },
+              secondaryCta: { label: "View All Eighteen Booklets", href: "/series" }
+            },
+            why: {
+              title: "Why This Exists",
+              body: [
+                "Modern life teaches us how to function.",
+                "It teaches us how to earn, deliver, lead, migrate, manage, respond, recover, explain, and keep moving. It teaches us how to optimize nearly everything.",
+                "But it does not always teach us how to stand when grief enters the room."
+              ]
+            },
+            seriesOverview: {
+              title: "The Series of Movements",
+              intro: "Booklets on dharma, maya, nada, language, surrender, memory, and the long inward journey. Each booklet takes one doorway. Each one returns, in its own way, to surrender.",
+              movements: []
+            },
+            forWhom: {
+              title: "For Whom",
+              body: ["These writings are for the urban exile with a thinking mind and a wounded heart."]
+            },
+            quote: {
+              text: "When the gods fall silent, the seeker finally hears himself.",
+              byline: "The Inward Fire Series, Booklet One"
+            },
+            newsletter: {
+              title: "The Inward Fire Letter",
+              body: "A monthly letter with one short reflection, one quote, and one booklet recommendation. Plain, literary, restrained. No clickbait. No exclamation marks.",
+              microcopy: "Quiet updates only. Unsubscribe any time."
+            },
+            closingLine: "Come in. Sit. Read. Carry what helps. Leave what does not."
+          },
+          series: {
+            title: "The Inward Fire Series",
+            subtitle: "Eighteen booklets on dharma, maya, nada, language, surrender, memory, the long inward journey, and the human field around the seeker.",
+            opening: [
+              "The Inward Fire Series began with a simple concern. A seeker can drown in vocabulary."
+            ],
+            readingOrderNote: "Read them in sequence first. Not because sequence is mandatory. Because the fire moves.",
+            booklets: [
+              {
+                slug: "booklet-one",
+                numberLabel: "Booklet One",
+                title: "When the Gods Fall Silent",
+                subtitle: "Dharma, Māyā, and the Inward Journey",
+                description: "This booklet begins with the core problem: the false center called 'I.'",
+                pdf: "https://thevalluru.org/wp-content/uploads/2026/05/when-the-gods-fall-silent-booklet_one.pdf",
+                badge: "Free · Begin Here",
+                tag: "AVAILABLE",
+                movementIndex: 0
+              }
+            ],
+            closing: ["Read slowly. Return when needed."]
+          },
+          movements: { items: [] },
+          about: {
+            title: "Sasidhar Valluru",
+            subtitle: "Author of The Inward Fire Series",
+            bio: ["Sasidhar Valluru writes from the intersection of Sanātana Dharma, Telugu literary memory, and lived experience."],
+            pullQuotes: [],
+            whatThisIsNot: [],
+            contact: {
+              intro: "For correspondence:",
+              email: "sasi@theValluru.org",
+              website: "thevalluru.org"
+            }
+          },
+          media: { homeHeroImage: "", pageHeroImage: "", authorImage: "" },
+          settings: {
+            whatsappNumber: "",
+            websiteName: "The Valluru",
+            contactEmail: "sasi@theValluru.org",
+            contactPhone: "",
+            address: "",
+            socialLinks: {},
+            seo: {
+              title: "The Valluru — The Inward Fire Series",
+              description: "Writings on dharma, grief, language, surrender, and the inner life."
+            }
+          },
+          footer: {
+            title: "The Valluru — The Inward Fire Series",
+            links: [
+              { label: "The Books", href: "/series" },
+              { label: "Movements", href: "/movements" },
+              { label: "About the Author", href: "/about" },
+              { label: "Newsletter", href: "/#newsletter" }
+            ],
+            website: "thevalluru.org",
+            email: "sasi@theValluru.org",
+            bottomLine: "A quiet archive of writings. © Sasidhar Valluru 2026"
+          }
+        }
+      });
+    }
+
+    response.json({ content });
   } catch (error) {
     next(error);
   }
@@ -2078,28 +2207,102 @@ registerSubscriptionRoutes(app, {
 
 app.post("/api/track-unlock", async (request, response, next) => {
   try {
-    if (!requireMongo(response)) {
-      return;
+    // Check if MongoDB is available
+    let hasMongo = true;
+    let db = null;
+    try {
+      db = await getDb();
+    } catch {
+      hasMongo = false;
     }
 
     const bookletSlug = String(request.body?.bookletSlug || "").trim();
     const bookletTitle = String(request.body?.bookletTitle || "").trim() || null;
+    const name = String(request.body?.name || "").trim();
+    const email = String(request.body?.email || "").trim().toLowerCase();
+    const source = "track-unlock";
 
     if (!bookletSlug) {
       response.status(400).json({ error: "bookletSlug is required." });
       return;
     }
 
-    const db = await getDb();
+    if (!hasMongo) {
+      console.log("[track-unlock] Local dev mode - MongoDB not available, returning success");
+      return response.json({ ok: true });
+    }
 
-    // Track the unlock
-    await db.collection("booklet_unlocks").insertOne({
-      bookletSlug,
-      bookletTitle,
-      unlockedAt: new Date(),
-      userAgent: request.headers["user-agent"] || null,
-      ip: request.ip || request.socket?.remoteAddress || null
-    });
+    // Track the unlock in booklet_unlocks
+    const now = new Date();
+    await db.collection("booklet_unlocks").updateOne(
+      { email: email || undefined, bookletSlug },
+      {
+        $set: {
+          bookletSlug,
+          bookletTitle,
+          name: name || null,
+          email: email || null,
+          unlockedAt: now,
+          updatedAt: now,
+          userAgent: request.headers["user-agent"] || null,
+          ip: request.ip || request.socket?.remoteAddress || null
+        },
+        $setOnInsert: {
+          createdAt: now
+        }
+      },
+      { upsert: true }
+    );
+
+    // If we have name and email, update subscribers and booklet_readers
+    if (name && email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      const subscribedAt = new Date();
+      const subscriberUpdate = {
+        $set: {
+          email,
+          name,
+          lastSource: source,
+          lastBookletSlug: bookletSlug || null,
+          lastBookletTitle: bookletTitle,
+          updatedAt: subscribedAt
+        },
+        $setOnInsert: { createdAt: subscribedAt }
+      };
+
+      if (bookletSlug) {
+        subscriberUpdate.$addToSet = {
+          subscribedBooklets: bookletSlug
+        };
+      }
+
+      await db.collection("subscribers").updateOne({ email }, subscriberUpdate, {
+        upsert: true
+      });
+
+      if (bookletSlug) {
+        await db.collection("booklet_readers").updateOne(
+          { email, bookletSlug },
+          {
+            $set: {
+              email,
+              name,
+              bookletSlug,
+              bookletTitle,
+              source,
+              updatedAt: new Date(),
+              lastReadAt: new Date()
+            },
+            $inc: {
+              readCount: 1
+            },
+            $setOnInsert: {
+              createdAt: new Date()
+            }
+          },
+          { upsert: true }
+        );
+      }
+    }
 
     response.json({ ok: true });
   } catch (error) {
@@ -2959,8 +3162,13 @@ app.post("/api/orders", async (request, response, next) => {
 
 app.get("/api/reflections", async (request, response, next) => {
   try {
-    if (!requireMongo(response)) {
-      return;
+    // Check if MongoDB is available
+    let hasMongo = true;
+    let db = null;
+    try {
+      db = await getDb();
+    } catch {
+      hasMongo = false;
     }
 
     const bookletSlug = String(request.query.bookletSlug || "");
@@ -2970,7 +3178,11 @@ app.get("/api/reflections", async (request, response, next) => {
       return;
     }
 
-    const db = await getDb();
+    if (!hasMongo) {
+      console.log("[reflections] Local dev mode - MongoDB not available, returning empty comments");
+      return response.json({ comments: [] });
+    }
+
     const comments = await db
       .collection("comments")
       .find({ bookletSlug })
@@ -2987,8 +3199,13 @@ app.get("/api/reflections", async (request, response, next) => {
 
 app.post("/api/reflections", async (request, response, next) => {
   try {
-    if (!requireMongo(response)) {
-      return;
+    // Check if MongoDB is available
+    let hasMongo = true;
+    let db = null;
+    try {
+      db = await getDb();
+    } catch {
+      hasMongo = false;
     }
 
     const rating = Number(request.body?.rating);
@@ -3007,6 +3224,11 @@ app.post("/api/reflections", async (request, response, next) => {
       return;
     }
 
+    if (!hasMongo) {
+      console.log("[reflections] Local dev mode - MongoDB not available, returning success");
+      return response.json({ ok: true });
+    }
+
     const comment = {
       bookletSlug,
       name,
@@ -3014,7 +3236,6 @@ app.post("/api/reflections", async (request, response, next) => {
       comment: String(request.body.comment || "").trim(),
       createdAt: new Date()
     };
-    const db = await getDb();
 
     await db.collection("comments").insertOne(comment);
     await db.collection("reflections").insertOne(comment);

@@ -20,6 +20,21 @@ const EXPORT_DEFINITIONS = {
       ["lastEmailAttemptAt", "Last Email Attempt"]
     ]
   },
+  subscribers_without_unlock: {
+    collection: "subscribers",
+    title: "Subscribers Without Unlock",
+    sort: { updatedAt: -1, createdAt: -1 },
+    query: {},
+    fields: [
+      ["name", "Name"],
+      ["email", "Email"],
+      ["lastSource", "Source"],
+      ["lastBookletTitle", "Last Booklet"],
+      ["subscribedBooklets", "Subscribed Booklets"],
+      ["createdAt", "Created At"],
+      ["updatedAt", "Updated At"]
+    ]
+  },
   booklet_readers: {
     collection: "booklet_readers",
     title: "Booklet Readers",
@@ -35,6 +50,22 @@ const EXPORT_DEFINITIONS = {
       ["lastReadAt", "Last Read At"],
       ["createdAt", "Created At"],
       ["updatedAt", "Updated At"]
+    ]
+  },
+  booklet_unlocks: {
+    collection: "booklet_unlocks",
+    title: "Booklet Unlocks",
+    sort: { unlockedAt: -1, createdAt: -1 },
+    query: {},
+    fields: [
+      ["name", "Name"],
+      ["email", "Email"],
+      ["bookletSlug", "Booklet Slug"],
+      ["bookletTitle", "Booklet Title"],
+      ["source", "Source"],
+      ["unlockedAt", "Unlocked At"],
+      ["ip", "IP Address"],
+      ["userAgent", "User Agent"]
     ]
   },
   orders: {
@@ -393,11 +424,258 @@ function objectIdFromParam(id) {
   return new ObjectId(id);
 }
 
+async function engagedSubscriberEmails(db) {
+  const [readerEmails, unlockEmails] = await Promise.all([
+    db.collection("booklet_readers").distinct("email"),
+    db.collection("booklet_unlocks").distinct("email")
+  ]);
+
+  return Array.from(
+    new Set([...readerEmails, ...unlockEmails].map(normalizeEmail).filter(Boolean))
+  );
+}
+
+function subscribersWithoutUnlockQuery(engagedEmails) {
+  return engagedEmails.length ? { email: { $nin: engagedEmails } } : {};
+}
+
+function recordTime(record) {
+  const value = record?.lastReadAt || record?.updatedAt || record?.unlockedAt || record?.createdAt;
+  const timestamp = value ? new Date(value).getTime() : 0;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function readerRecordKey(record) {
+  const email = normalizeEmail(record?.email);
+  const bookletSlug = String(record?.bookletSlug || "").trim();
+  const ip = String(record?.ip || "").trim();
+  const name = String(record?.name || "").trim().toLowerCase();
+
+  if (email && bookletSlug) {
+    return `email:${email}:${bookletSlug}`;
+  }
+
+  if (ip && bookletSlug) {
+    return `ip:${ip}:${bookletSlug}`;
+  }
+
+  if (name && bookletSlug) {
+    return `name:${name}:${bookletSlug}`;
+  }
+
+  return `record:${String(record?._id || record?.id || record?.unlockedAt || record?.createdAt || "")}`;
+}
+
+function readerFromUnlock(unlock) {
+  const unlockedAt = unlock.unlockedAt || unlock.createdAt;
+  return {
+    _id: unlock._id,
+    name: unlock.name || undefined,
+    email: unlock.email || undefined,
+    bookletSlug: unlock.bookletSlug,
+    bookletTitle: unlock.bookletTitle,
+    source: unlock.source || "track-unlock",
+    readCount: 1,
+    lastReadAt: unlockedAt,
+    updatedAt: unlockedAt,
+    createdAt: unlock.createdAt || unlockedAt,
+    ip: unlock.ip,
+    userAgent: unlock.userAgent
+  };
+}
+
+function normalizedUnlockRecord(unlock) {
+  const unlockedAt = unlock.unlockedAt || unlock.lastReadAt || unlock.updatedAt || unlock.createdAt;
+  return {
+    ...unlock,
+    unlockedAt,
+    createdAt: unlock.createdAt || unlockedAt
+  };
+}
+
+function unlockFromReader(reader) {
+  const unlockedAt = reader.lastReadAt || reader.updatedAt || reader.createdAt;
+  return {
+    _id: reader._id,
+    name: reader.name || undefined,
+    email: reader.email || undefined,
+    bookletSlug: reader.bookletSlug,
+    bookletTitle: reader.bookletTitle,
+    source: reader.source || "booklet-reader",
+    unlockedAt,
+    createdAt: reader.createdAt || unlockedAt,
+    ip: reader.ip,
+    userAgent: reader.userAgent
+  };
+}
+
+function mergeBookletReaderRecords(readers = [], unlocks = [], limit = 150) {
+  const recordsByKey = new Map();
+
+  readers.forEach((reader) => {
+    recordsByKey.set(readerRecordKey(reader), reader);
+  });
+
+  unlocks.forEach((unlock) => {
+    const key = readerRecordKey(unlock);
+    const existing = recordsByKey.get(key);
+    const unlockReader = readerFromUnlock(unlock);
+
+    if (!existing) {
+      recordsByKey.set(key, unlockReader);
+      return;
+    }
+
+    const unlockIsNewer = recordTime(unlockReader) > recordTime(existing);
+    recordsByKey.set(key, {
+      ...existing,
+      name: existing.name || unlockReader.name,
+      email: existing.email || unlockReader.email,
+      bookletTitle: existing.bookletTitle || unlockReader.bookletTitle,
+      source: existing.source || unlockReader.source,
+      readCount: existing.readCount || unlockReader.readCount || 1,
+      lastReadAt: unlockIsNewer ? unlockReader.lastReadAt : existing.lastReadAt,
+      updatedAt: unlockIsNewer ? unlockReader.updatedAt : existing.updatedAt
+    });
+  });
+
+  return Array.from(recordsByKey.values())
+    .sort((left, right) => recordTime(right) - recordTime(left))
+    .slice(0, limit);
+}
+
+function mergeBookletUnlockRecords(unlocks = [], readers = [], limit = 150) {
+  // For debugging, just return all unlocks mapped through normalizedUnlockRecord first
+  console.log("[mergeBookletUnlockRecords] Unlocks incoming:", unlocks.length, unlocks);
+  const normalizedUnlocks = unlocks.map(normalizedUnlockRecord);
+  console.log("[mergeBookletUnlockRecords] normalizedUnlocks:", normalizedUnlocks.length, normalizedUnlocks);
+  
+  // Now try the normal logic
+  const recordsByKey = new Map();
+
+  unlocks.forEach((unlock) => {
+    const key = readerRecordKey(unlock);
+    console.log("[mergeBookletUnlockRecords] Processing unlock, key:", key, unlock);
+    recordsByKey.set(key, normalizedUnlockRecord(unlock));
+  });
+
+  readers.forEach((reader) => {
+    const key = readerRecordKey(reader);
+    const existing = recordsByKey.get(key);
+    const readerUnlock = unlockFromReader(reader);
+
+    if (!existing) {
+      recordsByKey.set(key, readerUnlock);
+      return;
+    }
+
+    const readerIsNewer = recordTime(readerUnlock) > recordTime(existing);
+    recordsByKey.set(key, {
+      ...existing,
+      name: existing.name || readerUnlock.name,
+      email: existing.email || readerUnlock.email,
+      bookletTitle: existing.bookletTitle || readerUnlock.bookletTitle,
+      source: existing.source || readerUnlock.source,
+      unlockedAt: readerIsNewer ? readerUnlock.unlockedAt : existing.unlockedAt,
+      createdAt: existing.createdAt || readerUnlock.createdAt
+    });
+  });
+
+  const result = Array.from(recordsByKey.values())
+    .sort((left, right) => recordTime(right) - recordTime(left))
+    .slice(0, limit);
+  console.log("[mergeBookletUnlockRecords] Final result:", result.length, result);
+
+  return result;
+}
+
+async function getBookletActivityData(db, limit = 150) {
+  console.log("[getBookletActivityData] Starting to fetch data...");
+  const [bookletReaders, bookletUnlocks, rawBookletReaders, rawBookletUnlocks] = await Promise.all([
+    db.collection("booklet_readers").find({}).sort({ updatedAt: -1, createdAt: -1 }).limit(limit).toArray(),
+    db.collection("booklet_unlocks").find({}).sort({ unlockedAt: -1, createdAt: -1 }).limit(limit).toArray(),
+    db.collection("booklet_readers").countDocuments({}),
+    db.collection("booklet_unlocks").countDocuments({})
+  ]);
+
+  console.log("[getBookletActivityData] Raw data:", {
+    rawBookletReaders,
+    rawBookletUnlocks,
+    bookletUnlocksLength: bookletUnlocks.length,
+    bookletUnlocks,
+    bookletReaders
+  });
+
+  const mergedBookletReaders = mergeBookletReaderRecords(bookletReaders, bookletUnlocks, limit);
+  const mergedBookletUnlocks = mergeBookletUnlockRecords(bookletUnlocks, bookletReaders, limit);
+
+  console.log("[getBookletActivityData] Merged data:", {
+    mergedBookletReadersLength: mergedBookletReaders.length,
+    mergedBookletUnlocksLength: mergedBookletUnlocks.length,
+    mergedBookletUnlocks
+  });
+
+  return {
+    rawBookletReaders,
+    rawBookletUnlocks,
+    mergedBookletReaders,
+    mergedBookletUnlocks,
+    rawBookletUnlocksArray: bookletUnlocks // return raw array for debugging
+  };
+}
+
+async function subscribersWithoutUnlockData(db, limit = 100) {
+  const engagedEmails = await engagedSubscriberEmails(db);
+  const query = subscribersWithoutUnlockQuery(engagedEmails);
+  const [records, count] = await Promise.all([
+    db
+      .collection("subscribers")
+      .find(query)
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .limit(limit)
+      .toArray(),
+    db.collection("subscribers").countDocuments(query)
+  ]);
+
+  return { records, count };
+}
+
 async function exportSheet(db, type, limit = 10000) {
   const definition = EXPORT_DEFINITIONS[type];
+  if (type === "booklet_readers" || type === "booklet_unlocks") {
+    const [readers, unlocks] = await Promise.all([
+      db
+        .collection("booklet_readers")
+        .find(type === "booklet_readers" ? definition.query || {} : {})
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .limit(limit)
+        .toArray(),
+      db
+        .collection("booklet_unlocks")
+        .find(type === "booklet_unlocks" ? definition.query || {} : {})
+        .sort({ unlockedAt: -1, createdAt: -1 })
+        .limit(limit)
+        .toArray()
+    ]);
+
+    return {
+      type,
+      title: definition.title,
+      definition,
+      records:
+        type === "booklet_readers"
+          ? mergeBookletReaderRecords(readers, unlocks, limit)
+          : mergeBookletUnlockRecords(unlocks, readers, limit)
+    };
+  }
+
+  const query =
+    type === "subscribers_without_unlock"
+      ? subscribersWithoutUnlockQuery(await engagedSubscriberEmails(db))
+      : definition.query || {};
   const records = await db
     .collection(definition.collection)
-    .find(definition.query || {})
+    .find(query)
     .sort(definition.sort || { createdAt: -1 })
     .limit(limit)
     .toArray();
@@ -431,24 +709,28 @@ function registerAdminDataRoutes(
 
       const db = await getDb();
       const content = await getSiteContent();
-      await syncContentPdfAssets(db, content);
+      try {
+        await syncContentPdfAssets(db, content);
+      } catch (error) {
+        console.error("[admin-data] PDF/media sync failed while loading dashboard data:", error);
+      }
       const booklets = content?.series?.booklets || [];
-      const [subscribers, comments, bookletReaders, orders, recentMedia, counts] = await Promise.all([
+      const [subscribers, comments, orders, recentMedia, bookletActivity, counts] = await Promise.all([
         db.collection("subscribers").find({}).sort({ updatedAt: -1 }).limit(100).toArray(),
         db.collection("comments").find({}).sort({ createdAt: -1 }).limit(100).toArray(),
-        db.collection("booklet_readers").find({}).sort({ updatedAt: -1 }).limit(150).toArray(),
         db.collection("orders").find({}).sort({ createdAt: -1 }).limit(100).toArray(),
         db.collection("media_assets").find({}).sort({ createdAt: -1 }).limit(12).toArray(),
+        getBookletActivityData(db),
         Promise.all([
           db.collection("content").countDocuments({}),
           db.collection("subscribers").countDocuments({}),
           db.collection("comments").countDocuments({}),
-          db.collection("booklet_readers").countDocuments({}),
           db.collection("orders").countDocuments({}),
           db.collection("media_assets").countDocuments({}),
           db.collection("media_assets").countDocuments({ kind: "pdf" })
         ])
       ]);
+      const subscribersWithoutUnlock = await subscribersWithoutUnlockData(db);
       const statusCount = (items, status) =>
         items.filter((item) => (item.status || "published") === status).length;
 
@@ -457,10 +739,12 @@ function registerAdminDataRoutes(
           content: counts[0],
           subscribers: counts[1],
           comments: counts[2],
-          pdfs: counts[6],
-          media: counts[5],
-          bookReaders: counts[3],
-          orders: counts[4],
+          pdfs: counts[5],
+          media: counts[4],
+          bookReaders: Math.max(bookletActivity.rawBookletReaders, bookletActivity.mergedBookletReaders.length),
+          orders: counts[3],
+          bookletUnlocks: Math.max(bookletActivity.rawBookletUnlocks, bookletActivity.mergedBookletUnlocks.length),
+          subscribersWithoutUnlock: subscribersWithoutUnlock.count,
           draftBooks: statusCount(booklets, "draft"),
           publishedBooks: statusCount(booklets, "published"),
           archivedBooks: statusCount(booklets, "archived"),
@@ -468,10 +752,19 @@ function registerAdminDataRoutes(
           publishedPosts: 0
         },
         subscribers: subscribers.map(toAdminRecord),
-        bookletReaders: bookletReaders.map(toAdminRecord),
+        subscribersWithoutUnlock: subscribersWithoutUnlock.records.map(toAdminRecord),
+        bookletReaders: bookletActivity.mergedBookletReaders.map(toAdminRecord),
+        bookletUnlocks: bookletActivity.rawBookletUnlocksArray.map(toAdminRecord), // use raw array for testing!
         orders: orders.map(toAdminRecord),
         comments: comments.map(toAdminRecord),
         recentMedia: recentMedia.map(toAdminRecord),
+        adminDebug: {
+          database: db.databaseName,
+          rawBookletReaders: bookletActivity.rawBookletReaders,
+          rawBookletUnlocks: bookletActivity.rawBookletUnlocks,
+          returnedBookletReaders: bookletActivity.mergedBookletReaders.length,
+          returnedBookletUnlocks: bookletActivity.mergedBookletUnlocks.length
+        },
         recentActivity: [
           ...orders.slice(0, 5).map((order) => ({
             type: "order",
@@ -483,10 +776,22 @@ function registerAdminDataRoutes(
             label: `${comment.name || "Reader"} commented on ${comment.bookletSlug}`,
             createdAt: comment.createdAt
           })),
-          ...bookletReaders.slice(0, 5).map((reader) => ({
+          ...subscribersWithoutUnlock.records.slice(0, 5).map((subscriber) => ({
+            type: "subscriber",
+            label: `${subscriber.name || subscriber.email || "Subscriber"} subscribed via ${
+              subscriber.lastSource || "newsletter"
+            }`,
+            createdAt: subscriber.updatedAt || subscriber.createdAt
+          })),
+          ...bookletActivity.mergedBookletReaders.slice(0, 5).map((reader) => ({
             type: "reader",
             label: `${reader.name || "Reader"} opened ${reader.bookletTitle || reader.bookletSlug}`,
-            createdAt: reader.updatedAt
+            createdAt: reader.lastReadAt || reader.updatedAt || reader.createdAt
+          })),
+          ...bookletActivity.mergedBookletUnlocks.slice(0, 5).map((unlock) => ({
+            type: "unlock",
+            label: `${unlock.name || "Reader"} unlocked ${unlock.bookletTitle || unlock.bookletSlug}`,
+            createdAt: unlock.unlockedAt || unlock.createdAt
           }))
         ]
           .filter((item) => item.createdAt)
@@ -494,6 +799,36 @@ function registerAdminDataRoutes(
           .slice(0, 10)
       });
     } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/api/admin/booklet-activity", verifyAdmin, async (_request, response, next) => {
+    try {
+      if (!requireMongo(response)) {
+        return;
+      }
+
+      const db = await getDb();
+      const bookletActivity = await getBookletActivityData(db);
+
+      response.json({
+        counts: {
+          bookReaders: Math.max(bookletActivity.rawBookletReaders, bookletActivity.mergedBookletReaders.length),
+          bookletUnlocks: Math.max(bookletActivity.rawBookletUnlocks, bookletActivity.mergedBookletUnlocks.length)
+        },
+        bookletReaders: bookletActivity.mergedBookletReaders.map(toAdminRecord),
+        bookletUnlocks: bookletActivity.rawBookletUnlocksArray.map(toAdminRecord), // use raw array for testing!
+        adminDebug: {
+          database: db.databaseName,
+          rawBookletReaders: bookletActivity.rawBookletReaders,
+          rawBookletUnlocks: bookletActivity.rawBookletUnlocks,
+          returnedBookletReaders: bookletActivity.mergedBookletReaders.length,
+          returnedBookletUnlocks: bookletActivity.mergedBookletUnlocks.length
+        }
+      });
+    } catch (error) {
+      console.error("[admin-booklet-activity] Failed to load booklet activity:", error);
       next(error);
     }
   });

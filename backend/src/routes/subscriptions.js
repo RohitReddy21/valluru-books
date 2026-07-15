@@ -23,6 +23,41 @@ function registerSubscriptionRoutes(
 ) {
   app.post("/api/subscribe", async (request, response, next) => {
     try {
+      // Check if MongoDB is available
+      let hasMongo = true;
+      try {
+        if (getDb) {
+          await getDb();
+        } else {
+          hasMongo = false;
+        }
+      } catch {
+          hasMongo = false;
+      }
+      
+      // If no MongoDB, just return success for local dev
+      if (!hasMongo) {
+        const email = String(request.body?.email || "").trim().toLowerCase();
+        const name = String(request.body?.name || "").trim();
+        const bookletSlug = String(request.body.bookletSlug || "").trim();
+        
+        console.log("[subscribe] Local dev mode - MongoDB not available, returning success");
+        
+        if (bookletSlug) {
+          response.cookie(`valluru_booklet_${bookletSlug}`, "true", cookieOptions(request));
+        }
+        
+        return response.json({
+          ok: true,
+          emailDelivery: {
+            subscriber: "skipped_local",
+            owner: "skipped_local"
+          },
+          accessToken: bookletSlug ? createAccessToken(bookletSlug) : undefined
+        });
+      }
+
+      // Original MongoDB logic
       if (!requireMongo(response)) {
         return;
       }
@@ -83,6 +118,28 @@ function registerSubscriptionRoutes(
             },
             $inc: {
               readCount: 1
+            },
+            $setOnInsert: {
+              createdAt: new Date()
+            }
+          },
+          { upsert: true }
+        );
+
+        // Also add to booklet_unlocks
+        await db.collection("booklet_unlocks").updateOne(
+          { email, bookletSlug },
+          {
+            $set: {
+              email,
+              name,
+              bookletSlug,
+              bookletTitle,
+              source,
+              unlockedAt: new Date(),
+              updatedAt: new Date(),
+              userAgent: request.headers["user-agent"] || null,
+              ip: request.ip || request.socket?.remoteAddress || null
             },
             $setOnInsert: {
               createdAt: new Date()
