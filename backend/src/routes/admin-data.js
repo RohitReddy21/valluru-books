@@ -1059,6 +1059,147 @@ function registerAdminDataRoutes(
     }
   });
 
+  // Booklet Readers CRUD Routes
+  app.get("/api/admin/booklet-readers", verifyAdmin, async (request, response, next) => {
+    try {
+      if (!requireMongo(response)) {
+        return;
+      }
+
+      const search = String(request.query.search || "").trim();
+      const query = search
+        ? {
+            $or: [
+              { name: { $regex: search, $options: "i" } },
+              { email: { $regex: search, $options: "i" } },
+              { bookletSlug: { $regex: search, $options: "i" } },
+              { bookletTitle: { $regex: search, $options: "i" } }
+            ]
+          }
+        : {};
+
+      const db = await getDb();
+      let readers = await db
+        .collection("booklet_readers")
+        .find(query)
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .limit(250)
+        .toArray();
+
+      // Enrich with subscriber data
+      readers = await enrichWithSubscriberData(db, readers);
+
+      response.json({ bookletReaders: readers.map(toAdminRecord) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/api/admin/booklet-readers", verifyAdmin, async (request, response, next) => {
+    try {
+      if (!requireMongo(response)) {
+        return;
+      }
+
+      const { name, email, bookletSlug, bookletTitle, source, readCount } = request.body;
+
+      if (!bookletSlug) {
+        response.status(400).json({ error: "bookletSlug is required." });
+        return;
+      }
+
+      const db = await getDb();
+      const now = new Date();
+      const newReader = {
+        name: name || null,
+        email: email || null,
+        bookletSlug,
+        bookletTitle: bookletTitle || null,
+        source: source || "admin",
+        readCount: readCount || 1,
+        updatedAt: now,
+        lastReadAt: now,
+        createdAt: now
+      };
+
+      const result = await db.collection("booklet_readers").insertOne(newReader);
+      const reader = await db.collection("booklet_readers").findOne({ _id: result.insertedId });
+
+      response.status(201).json({ ok: true, bookletReader: toAdminRecord(reader) });
+    } catch (error) {
+      response.status(400).json({ error: error.message || "Booklet reader save failed." });
+    }
+  });
+
+  app.patch("/api/admin/booklet-readers/:id", verifyAdmin, async (request, response, next) => {
+    try {
+      if (!requireMongo(response)) {
+        return;
+      }
+
+      const id = objectIdFromParam(request.params.id);
+      if (!id) {
+        response.status(400).json({ error: "Invalid booklet reader id." });
+        return;
+      }
+
+      const { name, email, bookletSlug, bookletTitle, source, readCount } = request.body;
+      const db = await getDb();
+
+      const update: Record<string, unknown> = {
+        updatedAt: new Date()
+      };
+
+      if (name !== undefined) update.name = name;
+      if (email !== undefined) update.email = email;
+      if (bookletSlug !== undefined) update.bookletSlug = bookletSlug;
+      if (bookletTitle !== undefined) update.bookletTitle = bookletTitle;
+      if (source !== undefined) update.source = source;
+      if (readCount !== undefined) update.readCount = readCount;
+
+      const result = await db.collection("booklet_readers").updateOne(
+        { _id: id },
+        { $set: update }
+      );
+
+      if (result.matchedCount === 0) {
+        response.status(404).json({ error: "Booklet reader not found." });
+        return;
+      }
+
+      const reader = await db.collection("booklet_readers").findOne({ _id: id });
+      response.json({ ok: true, bookletReader: toAdminRecord(reader) });
+    } catch (error) {
+      response.status(400).json({ error: error.message || "Booklet reader update failed." });
+    }
+  });
+
+  app.delete("/api/admin/booklet-readers/:id", verifyAdmin, async (request, response, next) => {
+    try {
+      if (!requireMongo(response)) {
+        return;
+      }
+
+      const id = objectIdFromParam(request.params.id);
+      if (!id) {
+        response.status(400).json({ error: "Invalid booklet reader id." });
+        return;
+      }
+
+      const db = await getDb();
+      const result = await db.collection("booklet_readers").deleteOne({ _id: id });
+
+      if (result.deletedCount === 0) {
+        response.status(404).json({ error: "Booklet reader not found." });
+        return;
+      }
+
+      response.json({ ok: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   app.post(
     "/api/admin/subscribers/import",
     verifyAdmin,

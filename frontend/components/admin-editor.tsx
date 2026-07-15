@@ -37,6 +37,19 @@ type SubscriberRecord = {
   updatedAt?: string;
 };
 
+type BookletReaderRecord = {
+  id?: string;
+  name?: string;
+  email?: string;
+  bookletSlug?: string;
+  bookletTitle?: string | null;
+  source?: string;
+  readCount?: number;
+  updatedAt?: string;
+  lastReadAt?: string;
+  createdAt?: string;
+};
+
 type AdminData = {
   counts: {
     content: number;
@@ -878,6 +891,93 @@ export function AdminEditor({ initialContent, source }: Props) {
     setDataStatus("Subscriber deleted.");
   }
 
+  async function saveBookletReader(reader: BookletReaderRecord) {
+    const isUpdate = Boolean(reader.id);
+    setDataStatus(isUpdate ? "Updating book reader..." : "Adding book reader...");
+
+    const response = await fetch(
+      apiUrl(isUpdate ? `/api/admin/booklet-readers/${reader.id}` : "/api/admin/booklet-readers"),
+      {
+        method: isUpdate ? "PATCH" : "POST",
+        credentials: "include",
+        headers: adminHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify(reader)
+      }
+    );
+    const payload = (await response.json().catch(() => null)) as {
+      bookletReader?: BookletReaderRecord;
+      error?: string;
+    } | null;
+
+    if (!response.ok || !payload?.bookletReader) {
+      setDataStatus(payload?.error || "Book reader save failed.");
+      return false;
+    }
+
+    setAdminData((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const existingIndex = current.bookletReaders.findIndex((item) => item.id === payload.bookletReader?.id);
+      const bookletReaders =
+        existingIndex >= 0
+          ? current.bookletReaders.map((item) =>
+            item.id === payload.bookletReader?.id ? payload.bookletReader : item
+          )
+          : [payload.bookletReader, ...current.bookletReaders];
+
+      return {
+        ...current,
+        bookletReaders: bookletReaders.filter(Boolean) as BookletReaderRecord[],
+        counts: {
+          ...current.counts,
+          bookReaders: Math.max(current.counts.bookReaders, bookletReaders.length)
+        }
+      };
+    });
+    setDataStatus(isUpdate ? "Book reader updated." : "Book reader added.");
+    return true;
+  }
+
+  async function deleteBookletReader(id?: string) {
+    if (!id) {
+      return;
+    }
+
+    const confirmed = window.confirm("Delete this book reader permanently?");
+    if (!confirmed) {
+      return;
+    }
+
+    setDataStatus("Deleting book reader...");
+    const response = await fetch(apiUrl(`/api/admin/booklet-readers/${id}`), {
+      method: "DELETE",
+      credentials: "include",
+      headers: adminHeaders()
+    });
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+
+    if (!response.ok) {
+      setDataStatus(payload?.error || "Book reader delete failed.");
+      return;
+    }
+
+    setAdminData((current) =>
+      current
+        ? {
+            ...current,
+            counts: {
+              ...current.counts,
+              bookReaders: Math.max(0, current.counts.bookReaders - 1)
+            },
+            bookletReaders: current.bookletReaders.filter((reader) => reader.id !== id)
+          }
+        : current
+    );
+    setDataStatus("Book reader deleted.");
+  }
+
   async function importSubscribers(file: File | null) {
     if (!file) {
       setDataStatus("Choose a CSV file exported from Excel first.");
@@ -1460,11 +1560,13 @@ export function AdminEditor({ initialContent, source }: Props) {
               <DashboardPanel
                 adminData={adminData}
                 deleteSubscriber={deleteSubscriber}
+                deleteBookletReader={deleteBookletReader}
                 dataStatus={dataStatus}
                 exportData={exportData}
                 importSubscribers={importSubscribers}
                 loadAdminData={loadAdminData}
                 saveSubscriber={saveSubscriber}
+                saveBookletReader={saveBookletReader}
               />
             ) : null}
 
@@ -1644,19 +1746,23 @@ function TextAreaField({
 function DashboardPanel({
   adminData,
   deleteSubscriber,
+  deleteBookletReader,
   dataStatus,
   exportData,
   importSubscribers,
   loadAdminData,
-  saveSubscriber
+  saveSubscriber,
+  saveBookletReader
 }: {
   adminData: AdminData | null;
   deleteSubscriber: (id?: string) => void;
+  deleteBookletReader: (id?: string) => void;
   dataStatus: string;
   exportData: (type: DataExportType, format?: DataExportFormat) => void;
   importSubscribers: (file: File | null) => void;
   loadAdminData: () => void;
   saveSubscriber: (subscriber: SubscriberRecord) => Promise<boolean>;
+  saveBookletReader: (reader: BookletReaderRecord) => Promise<boolean>;
 }) {
   const [subscriberDraft, setSubscriberDraft] = useState<SubscriberRecord>({
     name: "",
@@ -1667,6 +1773,14 @@ function DashboardPanel({
   });
   const [bookletsText, setBookletsText] = useState("");
   const [subscriberImportFile, setSubscriberImportFile] = useState<File | null>(null);
+  const [bookletReaderDraft, setBookletReaderDraft] = useState<BookletReaderRecord>({
+    name: "",
+    email: "",
+    bookletSlug: "",
+    bookletTitle: "",
+    source: "admin",
+    readCount: 1
+  });
   const [activeTab, setActiveTab] = useState("overview");
 
   function resetSubscriberDraft() {
@@ -1700,6 +1814,32 @@ function DashboardPanel({
 
     if (ok) {
       resetSubscriberDraft();
+    }
+  }
+
+  function resetBookletReaderDraft() {
+    setBookletReaderDraft({
+      name: "",
+      email: "",
+      bookletSlug: "",
+      bookletTitle: "",
+      source: "admin",
+      readCount: 1
+    });
+  }
+
+  function editBookletReader(reader: BookletReaderRecord) {
+    setBookletReaderDraft({
+      ...reader,
+      bookletTitle: reader.bookletTitle || "",
+      source: reader.source || "admin"
+    });
+  }
+
+  async function submitBookletReader() {
+    const ok = await saveBookletReader(bookletReaderDraft);
+    if (ok) {
+      resetBookletReaderDraft();
     }
   }
 
@@ -1985,18 +2125,83 @@ function DashboardPanel({
             <FieldGroup
               title="Book Readers"
               action={
-                <button
-                  className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
-                  onClick={() => exportData("booklet_readers")}
-                  type="button"
-                >
-                  <Download size={14} />
-                  Export to Excel
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
+                    onClick={() => exportData("booklet_readers")}
+                    type="button"
+                  >
+                    <Download size={14} />
+                    Export Excel
+                  </button>
+                  <button
+                    className="inline-flex items-center gap-2 rounded border border-gold/20 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-muted transition hover:border-gold/40 hover:text-parchment"
+                    onClick={() => exportData("booklet_readers", "csv")}
+                    type="button"
+                  >
+                    <Download size={14} />
+                    Export CSV
+                  </button>
+                </div>
               }
             >
+              <div className="rounded-md border border-gold/15 bg-ink p-4">
+                <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
+                  {bookletReaderDraft.id ? "Edit Book Reader" : "Add Book Reader"}
+                </p>
+                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+                  <TextField
+                    label="Name"
+                    onChange={(value) => setBookletReaderDraft((current) => ({ ...current, name: value }))}
+                    value={bookletReaderDraft.name || ""}
+                  />
+                  <TextField
+                    label="Email"
+                    onChange={(value) => setBookletReaderDraft((current) => ({ ...current, email: value }))}
+                    value={bookletReaderDraft.email || ""}
+                  />
+                  <TextField
+                    label="Booklet Slug"
+                    onChange={(value) => setBookletReaderDraft((current) => ({ ...current, bookletSlug: value }))}
+                    value={bookletReaderDraft.bookletSlug || ""}
+                  />
+                  <TextField
+                    label="Booklet Title"
+                    onChange={(value) => setBookletReaderDraft((current) => ({ ...current, bookletTitle: value }))}
+                    value={bookletReaderDraft.bookletTitle || ""}
+                  />
+                  <TextField
+                    label="Source"
+                    onChange={(value) => setBookletReaderDraft((current) => ({ ...current, source: value }))}
+                    value={bookletReaderDraft.source || ""}
+                  />
+                  <TextField
+                    label="Read Count"
+                    onChange={(value) => setBookletReaderDraft((current) => ({ ...current, readCount: parseInt(value) || 1 }))}
+                    value={String(bookletReaderDraft.readCount || 1)}
+                  />
+                </div>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    className="inline-flex items-center gap-2 rounded border border-gold/50 bg-gold/10 px-4 py-2 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/20"
+                    onClick={submitBookletReader}
+                    type="button"
+                  >
+                    <Save size={14} />
+                    {bookletReaderDraft.id ? "Update Book Reader" : "Add Book Reader"}
+                  </button>
+                  <button
+                    className="inline-flex items-center gap-2 rounded border border-gold/20 px-4 py-2 font-label text-xs uppercase tracking-wider text-muted transition hover:border-gold/40 hover:text-parchment"
+                    onClick={resetBookletReaderDraft}
+                    type="button"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
               <div className="overflow-x-auto rounded-md border border-gold/15">
-                <table className="w-full min-w-[820px] text-left text-base">
+                <table className="w-full min-w-[920px] text-left text-base">
                   <thead className="bg-ink text-muted">
                     <tr>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
@@ -2004,11 +2209,12 @@ function DashboardPanel({
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Reads</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Last Read</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(adminData.bookletReaders || []).map((reader, index) => (
-                      <tr className="border-t border-gold/10" key={`${reader.email}-${reader.bookletSlug}-${index}`}>
+                      <tr className="border-t border-gold/10" key={`${reader.id || reader.email}-${reader.bookletSlug}-${index}`}>
                         <td className="px-4 py-3 text-parchment">{reader.name || "-"}</td>
                         <td className="px-4 py-3 text-parchment">{reader.email || "-"}</td>
                         <td className="px-4 py-3 text-muted">
@@ -2020,11 +2226,29 @@ function DashboardPanel({
                             ? new Date(reader.lastReadAt || reader.updatedAt || "").toLocaleString()
                             : "-"}
                         </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              className="rounded border border-gold/20 px-3 py-1 font-label text-xs uppercase tracking-wider text-muted transition hover:border-gold/50 hover:text-parchment"
+                              onClick={() => editBookletReader(reader)}
+                              type="button"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="rounded border border-red-300/30 px-3 py-1 font-label text-xs uppercase tracking-wider text-red-100 transition hover:border-red-300/70"
+                              onClick={() => deleteBookletReader(reader.id)}
+                              type="button"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
                     {(adminData.bookletReaders || []).length === 0 ? (
                       <tr className="border-t border-gold/10">
-                        <td className="px-4 py-4 text-muted" colSpan={5}>
+                        <td className="px-4 py-4 text-muted" colSpan={6}>
                           No reader records found yet.
                         </td>
                       </tr>
