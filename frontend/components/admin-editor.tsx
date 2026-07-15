@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Download, Eye, FileText, ImageIcon, Mail, Package, Plus, RefreshCw, RotateCcw, Save, Trash2, Upload } from "lucide-react";
 import { apiUrl } from "@/lib/api";
 import type { Booklet, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
@@ -104,6 +104,18 @@ type AdminData = {
     label?: string;
     createdAt?: string;
   }>;
+  adminDebug?: {
+    database?: string;
+    rawBookletReaders?: number;
+    rawBookletUnlocks?: number;
+    returnedBookletReaders?: number;
+    returnedBookletUnlocks?: number;
+  };
+};
+
+type BookletActivityPayload = Pick<AdminData, "bookletReaders" | "bookletUnlocks" | "adminDebug"> & {
+  counts?: Partial<Pick<AdminData["counts"], "bookReaders" | "bookletUnlocks">>;
+  error?: string;
 };
 
 type MediaAsset = {
@@ -230,6 +242,20 @@ function filenameFromDisposition(disposition: string | null, fallback: string) {
   return plainMatch?.[1] || fallback;
 }
 
+function mergeBookletActivityData(current: AdminData, activity: BookletActivityPayload): AdminData {
+  return {
+    ...current,
+    counts: {
+      ...current.counts,
+      bookReaders: activity.counts?.bookReaders ?? current.counts.bookReaders,
+      bookletUnlocks: activity.counts?.bookletUnlocks ?? current.counts.bookletUnlocks
+    },
+    bookletReaders: activity.bookletReaders || current.bookletReaders,
+    bookletUnlocks: activity.bookletUnlocks || current.bookletUnlocks,
+    adminDebug: activity.adminDebug || current.adminDebug
+  };
+}
+
 export function AdminEditor({ initialContent, source }: Props) {
   const [content, setContent] = useState<SiteContent>(() => ({
     ...initialContent,
@@ -271,6 +297,7 @@ export function AdminEditor({ initialContent, source }: Props) {
   const [pdfStatus, setPdfStatus] = useState("Load PDFs from the database.");
   const [orders, setOrders] = useState<AdminData["orders"]>([]);
   const [ordersStatus, setOrdersStatus] = useState("Load orders from the database.");
+  const hasAdminData = Boolean(adminData);
   const [emailTestStatus, setEmailTestStatus] = useState(
     "Send a test to verify the owner notification inbox."
   );
@@ -663,9 +690,74 @@ export function AdminEditor({ initialContent, source }: Props) {
       return;
     }
 
-    setAdminData(payload);
-    setDataStatus("Database data loaded.");
+    let nextData = payload;
+
+    try {
+      const activityResponse = await fetch(apiUrl("/api/admin/booklet-activity"), {
+        credentials: "include",
+        headers: adminHeaders()
+      });
+      const activityPayload = (await activityResponse.json().catch(() => null)) as
+        | BookletActivityPayload
+        | null;
+
+      if (activityResponse.ok && activityPayload) {
+        nextData = mergeBookletActivityData(nextData, activityPayload);
+      }
+    } catch {
+      // Keep the main dashboard payload if the direct activity refresh is unavailable.
+    }
+
+    setAdminData(nextData);
+    setDataStatus(
+      typeof nextData.adminDebug?.rawBookletUnlocks === "number"
+        ? `Database data loaded. Raw unlock records: ${nextData.adminDebug.rawBookletUnlocks}.`
+        : "Database data loaded."
+    );
   }
+
+  useEffect(() => {
+    if (tab !== "dashboard" || !hasAdminData || (!password && !adminToken)) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function refreshBookletActivity() {
+      try {
+        const response = await fetch(apiUrl("/api/admin/booklet-activity"), {
+          credentials: "include",
+          headers: {
+            ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {}),
+            "X-Admin-Password": password
+          }
+        });
+        const payload = (await response.json().catch(() => null)) as BookletActivityPayload | null;
+
+        if (cancelled || !response.ok || !payload) {
+          return;
+        }
+
+        setAdminData((current) => (current ? mergeBookletActivityData(current, payload) : current));
+        if (typeof payload.adminDebug?.rawBookletUnlocks === "number") {
+          setDataStatus(`Live booklet activity refreshed. Raw unlock records: ${payload.adminDebug.rawBookletUnlocks}.`);
+        }
+      } catch {
+        // Keep the current dashboard data if a live refresh fails.
+      }
+    }
+
+    const firstRefresh = window.setTimeout(refreshBookletActivity, 2000);
+    const interval = window.setInterval(refreshBookletActivity, 8000);
+    window.addEventListener("focus", refreshBookletActivity);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(firstRefresh);
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshBookletActivity);
+    };
+  }, [adminToken, hasAdminData, password, tab]);
 
   async function exportData(type: DataExportType, format: DataExportFormat = "xls") {
     setDataStatus(`Exporting ${type} to ${format.toUpperCase()}...`);
@@ -1569,6 +1661,7 @@ function DashboardPanel({
   });
   const [bookletsText, setBookletsText] = useState("");
   const [subscriberImportFile, setSubscriberImportFile] = useState<File | null>(null);
+  const [activeTab, setActiveTab] = useState("overview");
 
   function resetSubscriberDraft() {
     setSubscriberDraft({
@@ -1604,6 +1697,14 @@ function DashboardPanel({
     }
   }
 
+  const tabs = [
+    { id: "overview", label: "Overview" },
+    { id: "subscribers", label: "Subscribers" },
+    { id: "readers", label: "Book Readers" },
+    { id: "unlocks", label: "Booklet Unlocks" },
+    { id: "comments", label: "Comments" },
+  ];
+
   return (
     <div className="grid gap-7">
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
@@ -1638,412 +1739,392 @@ function DashboardPanel({
 
       {adminData ? (
         <>
-          <div className="grid gap-4 xl:grid-cols-3">
-            <div className="rounded-md border border-gold/15 bg-ink p-5">
-              <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
-                Books Overview
-              </p>
-              <p className="mt-3 text-lg text-parchment">
-                {adminData.counts.publishedBooks} published, {adminData.counts.draftBooks} drafts,
-                {" "}{adminData.counts.archivedBooks} archived.
-              </p>
-            </div>
-            <div className="rounded-md border border-gold/15 bg-ink p-5">
-              <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
-                Orders Overview
-              </p>
-              <p className="mt-3 text-lg text-parchment">
-                {adminData.counts.orders} total orders in the database.
-              </p>
-            </div>
-            <div className="rounded-md border border-gold/15 bg-ink p-5">
-              <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
-                Media Overview
-              </p>
-              <p className="mt-3 text-lg text-parchment">
-                {adminData.counts.media} reusable media files and {adminData.counts.pdfs} PDFs.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-            {Object.entries(adminData.counts).map(([label, count]) => (
-              <div className="rounded-md border border-gold/15 bg-ink p-4" key={label}>
-                <p className="font-label text-xs uppercase tracking-[0.22em] text-muted">
-                  {label}
-                </p>
-                <p className="mt-2 font-display text-3xl text-parchment">{count}</p>
-              </div>
+          {/* Tabs Navigation */}
+          <div className="flex flex-wrap gap-2 border-b border-gold/15 pb-2">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`
+                  px-4 py-2 font-label text-sm uppercase tracking-[0.18em] rounded-t-md transition-all
+                  ${activeTab === tab.id 
+                    ? 'text-gold border-b-2 border-gold bg-surface/70' 
+                    : 'text-muted hover:text-gold hover:bg-gold/5'
+                  }
+                `}
+              >
+                {tab.label}
+              </button>
             ))}
           </div>
 
-          <FieldGroup
-            title="Subscribers"
-            action={
-              <div className="flex flex-wrap gap-2">
-                <button
-                  className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
-                  onClick={() => exportData("subscribers")}
-                  type="button"
-                >
-                  <Download size={14} />
-                  Export Excel
-                </button>
-                <button
-                  className="inline-flex items-center gap-2 rounded border border-gold/20 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-muted transition hover:border-gold/40 hover:text-parchment"
-                  onClick={() => exportData("subscribers", "csv")}
-                  type="button"
-                >
-                  <Download size={14} />
-                  Export CSV
-                </button>
-              </div>
-            }
-          >
-            <div className="rounded-md border border-gold/15 bg-ink p-4">
-              <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
-                {subscriberDraft.id ? "Edit Subscriber" : "Add Subscriber"}
-              </p>
-              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                <TextField
-                  label="Name"
-                  onChange={(value) => setSubscriberDraft((current) => ({ ...current, name: value }))}
-                  value={subscriberDraft.name || ""}
-                />
-                <TextField
-                  label="Email"
-                  onChange={(value) => setSubscriberDraft((current) => ({ ...current, email: value }))}
-                  value={subscriberDraft.email || ""}
-                />
-                <TextField
-                  label="Source"
-                  onChange={(value) => setSubscriberDraft((current) => ({ ...current, lastSource: value }))}
-                  value={subscriberDraft.lastSource || ""}
-                />
-                <TextField
-                  label="Last Booklet"
-                  onChange={(value) =>
-                    setSubscriberDraft((current) => ({ ...current, lastBookletTitle: value }))
-                  }
-                  value={subscriberDraft.lastBookletTitle || ""}
-                />
-                <TextField
-                  label="Booklet Slugs"
-                  onChange={setBookletsText}
-                  value={bookletsText}
-                />
-              </div>
-              <div className="mt-4 flex flex-wrap gap-3">
-                <button
-                  className="inline-flex items-center gap-2 rounded border border-gold/50 bg-gold/10 px-4 py-2 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/20"
-                  onClick={submitSubscriber}
-                  type="button"
-                >
-                  <Save size={14} />
-                  {subscriberDraft.id ? "Update Subscriber" : "Add Subscriber"}
-                </button>
-                <button
-                  className="inline-flex items-center gap-2 rounded border border-gold/20 px-4 py-2 font-label text-xs uppercase tracking-wider text-muted transition hover:border-gold/40 hover:text-parchment"
-                  onClick={resetSubscriberDraft}
-                  type="button"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-md border border-gold/15 bg-ink p-4">
-              <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
-                Import Subscribers from Excel
-              </p>
-              <p className="mt-2 text-sm leading-6 text-muted">
-                Save the sheet as CSV from Excel, then upload it here. Required column: email. Optional columns: name,
-                source, lastBooklet, subscribedBooklets.
-              </p>
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <input
-                  accept=".csv,text/csv"
-                  className="max-w-full text-sm text-muted"
-                  onChange={(event) => setSubscriberImportFile(event.target.files?.[0] || null)}
-                  type="file"
-                />
-                <button
-                  className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-4 py-2 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
-                  onClick={() => importSubscribers(subscriberImportFile)}
-                  type="button"
-                >
-                  <Upload size={14} />
-                  Import CSV
-                </button>
-              </div>
-            </div>
-
-            <div className="overflow-x-auto rounded-md border border-gold/15">
-              <table className="w-full min-w-[860px] text-left text-base">
-                <thead className="bg-ink text-muted">
-                  <tr>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Email</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Source</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Updated</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {adminData.subscribers.map((subscriber, index) => (
-                    <tr className="border-t border-gold/10" key={`${subscriber.id || subscriber.email}-${index}`}>
-                      <td className="px-4 py-3 text-parchment">{subscriber.name || "-"}</td>
-                      <td className="px-4 py-3 text-parchment">{subscriber.email}</td>
-                      <td className="px-4 py-3 text-muted">{subscriber.lastSource}</td>
-                      <td className="px-4 py-3 text-muted">{subscriber.lastBookletTitle || "-"}</td>
-                      <td className="px-4 py-3 text-muted">
-                        {subscriber.updatedAt
-                          ? new Date(subscriber.updatedAt).toLocaleString()
-                          : "-"}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            className="rounded border border-gold/20 px-3 py-1 font-label text-xs uppercase tracking-wider text-muted transition hover:border-gold/50 hover:text-parchment"
-                            onClick={() => editSubscriber(subscriber)}
-                            type="button"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            className="rounded border border-red-300/30 px-3 py-1 font-label text-xs uppercase tracking-wider text-red-100 transition hover:border-red-300/70"
-                            onClick={() => deleteSubscriber(subscriber.id)}
-                            type="button"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </FieldGroup>
-
-          <FieldGroup
-            title="Subscribers Without Unlock"
-            action={
-              <div className="flex flex-wrap gap-2">
-                <button
-                  className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
-                  onClick={() => exportData("subscribers_without_unlock")}
-                  type="button"
-                >
-                  <Download size={14} />
-                  Export Excel
-                </button>
-                <button
-                  className="inline-flex items-center gap-2 rounded border border-gold/20 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-muted transition hover:border-gold/40 hover:text-parchment"
-                  onClick={() => exportData("subscribers_without_unlock", "csv")}
-                  type="button"
-                >
-                  <Download size={14} />
-                  Export CSV
-                </button>
-              </div>
-            }
-          >
-            <p className="text-sm leading-6 text-muted">
-              People who subscribed from the popup or newsletter but have not unlocked or opened a booklet yet.
-            </p>
-            <div className="overflow-x-auto rounded-md border border-gold/15">
-              <table className="w-full min-w-[820px] text-left text-base">
-                <thead className="bg-ink text-muted">
-                  <tr>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Email</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Source</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Subscribed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(adminData.subscribersWithoutUnlock || []).map((subscriber, index) => (
-                    <tr className="border-t border-gold/10" key={`${subscriber.id || subscriber.email}-${index}`}>
-                      <td className="px-4 py-3 text-parchment">{subscriber.name || "-"}</td>
-                      <td className="px-4 py-3 text-parchment">{subscriber.email || "-"}</td>
-                      <td className="px-4 py-3 text-muted">{subscriber.lastSource || "-"}</td>
-                      <td className="px-4 py-3 text-muted">{subscriber.lastBookletTitle || "-"}</td>
-                      <td className="px-4 py-3 text-muted">
-                        {subscriber.updatedAt || subscriber.createdAt
-                          ? new Date(subscriber.updatedAt || subscriber.createdAt || "").toLocaleString()
-                          : "-"}
-                      </td>
-                    </tr>
-                  ))}
-                  {(adminData.subscribersWithoutUnlock || []).length === 0 ? (
-                    <tr className="border-t border-gold/10">
-                      <td className="px-4 py-4 text-muted" colSpan={5}>
-                        No subscribers are waiting to unlock a booklet.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          </FieldGroup>
-
-          <FieldGroup title="Recent Activity">
-            <div className="grid gap-3 md:grid-cols-2">
-              {(adminData.recentActivity || []).map((activity, index) => (
-                <article className="rounded-md border border-gold/15 bg-ink p-4" key={`${activity.type}-${index}`}>
-                  <p className="font-label text-xs uppercase tracking-[0.18em] text-gold">
-                    {activity.type || "Activity"}
+          {/* Overview Tab */}
+          {activeTab === "overview" && (
+            <div className="grid gap-7">
+              <div className="grid gap-4 xl:grid-cols-3">
+                <div className="rounded-md border border-gold/15 bg-ink p-5">
+                  <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
+                    Books Overview
                   </p>
-                  <p className="mt-2 text-lg text-parchment">{activity.label || "Updated record"}</p>
-                  <p className="mt-1 text-sm text-muted">
-                    {activity.createdAt ? new Date(activity.createdAt).toLocaleString() : "-"}
+                  <p className="mt-3 text-lg text-parchment">
+                    {adminData.counts.publishedBooks} published, {adminData.counts.draftBooks} drafts,
+                    {" "}{adminData.counts.archivedBooks} archived.
                   </p>
-                </article>
-              ))}
-              {(adminData.recentActivity || []).length === 0 ? (
-                <p className="text-muted">No recent activity found.</p>
-              ) : null}
-            </div>
-          </FieldGroup>
+                </div>
+                <div className="rounded-md border border-gold/15 bg-ink p-5">
+                  <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
+                    Orders Overview
+                  </p>
+                  <p className="mt-3 text-lg text-parchment">
+                    {adminData.counts.orders} total orders in the database.
+                  </p>
+                </div>
+                <div className="rounded-md border border-gold/15 bg-ink p-5">
+                  <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
+                    Media Overview
+                  </p>
+                  <p className="mt-3 text-lg text-parchment">
+                    {adminData.counts.media} reusable media files and {adminData.counts.pdfs} PDFs.
+                  </p>
+                </div>
+              </div>
 
-          <FieldGroup
-            title="Book Readers"
-            action={
-              <button
-                className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
-                onClick={() => exportData("booklet_readers")}
-                type="button"
-              >
-                <Download size={14} />
-                Export to Excel
-              </button>
-            }
-          >
-            <div className="overflow-x-auto rounded-md border border-gold/15">
-              <table className="w-full min-w-[820px] text-left text-base">
-                <thead className="bg-ink text-muted">
-                  <tr>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Email</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Reads</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Last Read</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(adminData.bookletReaders || []).map((reader, index) => (
-                    <tr className="border-t border-gold/10" key={`${reader.email}-${reader.bookletSlug}-${index}`}>
-                      <td className="px-4 py-3 text-parchment">{reader.name || "-"}</td>
-                      <td className="px-4 py-3 text-parchment">{reader.email || "-"}</td>
-                      <td className="px-4 py-3 text-muted">
-                        {reader.bookletTitle || reader.bookletSlug || "-"}
-                      </td>
-                      <td className="px-4 py-3 text-muted">{reader.readCount || 1}</td>
-                      <td className="px-4 py-3 text-muted">
-                        {reader.lastReadAt || reader.updatedAt
-                          ? new Date(reader.lastReadAt || reader.updatedAt || "").toLocaleString()
-                          : "-"}
-                      </td>
-                    </tr>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+                {Object.entries(adminData.counts).map(([label, count]) => (
+                  <div className="rounded-md border border-gold/15 bg-ink p-4" key={label}>
+                    <p className="font-label text-xs uppercase tracking-[0.22em] text-muted">
+                      {label}
+                    </p>
+                    <p className="mt-2 font-display text-3xl text-parchment">{count}</p>
+                  </div>
+                ))}
+              </div>
+
+              <FieldGroup title="Recent Activity">
+                <div className="grid gap-3 md:grid-cols-2">
+                  {(adminData.recentActivity || []).map((activity, index) => (
+                    <article className="rounded-md border border-gold/15 bg-ink p-4" key={`${activity.type}-${index}`}>
+                      <p className="font-label text-xs uppercase tracking-[0.18em] text-gold">
+                        {activity.type || "Activity"}
+                      </p>
+                      <p className="mt-2 text-lg text-parchment">{activity.label || "Updated record"}</p>
+                      <p className="mt-1 text-sm text-muted">
+                        {activity.createdAt ? new Date(activity.createdAt).toLocaleString() : "-"}
+                      </p>
+                    </article>
                   ))}
-                  {(adminData.bookletReaders || []).length === 0 ? (
-                    <tr className="border-t border-gold/10">
-                      <td className="px-4 py-4 text-muted" colSpan={5}>
-                        No reader records found yet.
-                      </td>
-                    </tr>
+                  {(adminData.recentActivity || []).length === 0 ? (
+                    <p className="text-muted">No recent activity found.</p>
                   ) : null}
-                </tbody>
-              </table>
+                </div>
+              </FieldGroup>
             </div>
-          </FieldGroup>
+          )}
 
-          <FieldGroup
-            title="Booklet Unlocks"
-            action={
-              <div className="flex flex-wrap gap-2">
+          {/* Subscribers Tab */}
+          {activeTab === "subscribers" && (
+            <FieldGroup
+              title="Subscribers"
+              action={
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
+                    onClick={() => exportData("subscribers")}
+                    type="button"
+                  >
+                    <Download size={14} />
+                    Export Excel
+                  </button>
+                  <button
+                    className="inline-flex items-center gap-2 rounded border border-gold/20 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-muted transition hover:border-gold/40 hover:text-parchment"
+                    onClick={() => exportData("subscribers", "csv")}
+                    type="button"
+                  >
+                    <Download size={14} />
+                    Export CSV
+                  </button>
+                </div>
+              }
+            >
+              <div className="rounded-md border border-gold/15 bg-ink p-4">
+                <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
+                  {subscriberDraft.id ? "Edit Subscriber" : "Add Subscriber"}
+                </p>
+                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                  <TextField
+                    label="Name"
+                    onChange={(value) => setSubscriberDraft((current) => ({ ...current, name: value }))}
+                    value={subscriberDraft.name || ""}
+                  />
+                  <TextField
+                    label="Email"
+                    onChange={(value) => setSubscriberDraft((current) => ({ ...current, email: value }))}
+                    value={subscriberDraft.email || ""}
+                  />
+                  <TextField
+                    label="Source"
+                    onChange={(value) => setSubscriberDraft((current) => ({ ...current, lastSource: value }))}
+                    value={subscriberDraft.lastSource || ""}
+                  />
+                  <TextField
+                    label="Last Booklet"
+                    onChange={(value) =>
+                      setSubscriberDraft((current) => ({ ...current, lastBookletTitle: value }))
+                    }
+                    value={subscriberDraft.lastBookletTitle || ""}
+                  />
+                  <TextField
+                    label="Booklet Slugs"
+                    onChange={setBookletsText}
+                    value={bookletsText}
+                  />
+                </div>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  <button
+                    className="inline-flex items-center gap-2 rounded border border-gold/50 bg-gold/10 px-4 py-2 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/20"
+                    onClick={submitSubscriber}
+                    type="button"
+                  >
+                    <Save size={14} />
+                    {subscriberDraft.id ? "Update Subscriber" : "Add Subscriber"}
+                  </button>
+                  <button
+                    className="inline-flex items-center gap-2 rounded border border-gold/20 px-4 py-2 font-label text-xs uppercase tracking-wider text-muted transition hover:border-gold/40 hover:text-parchment"
+                    onClick={resetSubscriberDraft}
+                    type="button"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-md border border-gold/15 bg-ink p-4">
+                <p className="font-label text-xs uppercase tracking-[0.22em] text-gold">
+                  Import Subscribers from Excel
+                </p>
+                <p className="mt-2 text-sm leading-6 text-muted">
+                  Save the sheet as CSV from Excel, then upload it here. Required column: email. Optional columns: name,
+                  source, lastBooklet, subscribedBooklets.
+                </p>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <input
+                    accept=".csv,text/csv"
+                    className="max-w-full text-sm text-muted"
+                    onChange={(event) => setSubscriberImportFile(event.target.files?.[0] || null)}
+                    type="file"
+                  />
+                  <button
+                    className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-4 py-2 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
+                    onClick={() => importSubscribers(subscriberImportFile)}
+                    type="button"
+                  >
+                    <Upload size={14} />
+                    Import CSV
+                  </button>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-md border border-gold/15">
+                <table className="w-full min-w-[860px] text-left text-base">
+                  <thead className="bg-ink text-muted">
+                    <tr>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Email</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Source</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Updated</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {adminData.subscribers.map((subscriber, index) => (
+                      <tr className="border-t border-gold/10" key={`${subscriber.id || subscriber.email}-${index}`}>
+                        <td className="px-4 py-3 text-parchment">{subscriber.name || "-"}</td>
+                        <td className="px-4 py-3 text-parchment">{subscriber.email}</td>
+                        <td className="px-4 py-3 text-muted">{subscriber.lastSource}</td>
+                        <td className="px-4 py-3 text-muted">{subscriber.lastBookletTitle || "-"}</td>
+                        <td className="px-4 py-3 text-muted">
+                          {subscriber.updatedAt
+                            ? new Date(subscriber.updatedAt).toLocaleString()
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              className="rounded border border-gold/20 px-3 py-1 font-label text-xs uppercase tracking-wider text-muted transition hover:border-gold/50 hover:text-parchment"
+                              onClick={() => editSubscriber(subscriber)}
+                              type="button"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className="rounded border border-red-300/30 px-3 py-1 font-label text-xs uppercase tracking-wider text-red-100 transition hover:border-red-300/70"
+                              onClick={() => deleteSubscriber(subscriber.id)}
+                              type="button"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </FieldGroup>
+          )}
+
+          {/* Book Readers Tab */}
+          {activeTab === "readers" && (
+            <FieldGroup
+              title="Book Readers"
+              action={
                 <button
                   className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
-                  onClick={() => exportData("booklet_unlocks")}
+                  onClick={() => exportData("booklet_readers")}
                   type="button"
                 >
                   <Download size={14} />
                   Export to Excel
                 </button>
+              }
+            >
+              <div className="overflow-x-auto rounded-md border border-gold/15">
+                <table className="w-full min-w-[820px] text-left text-base">
+                  <thead className="bg-ink text-muted">
+                    <tr>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Email</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Reads</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Last Read</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(adminData.bookletReaders || []).map((reader, index) => (
+                      <tr className="border-t border-gold/10" key={`${reader.email}-${reader.bookletSlug}-${index}`}>
+                        <td className="px-4 py-3 text-parchment">{reader.name || "-"}</td>
+                        <td className="px-4 py-3 text-parchment">{reader.email || "-"}</td>
+                        <td className="px-4 py-3 text-muted">
+                          {reader.bookletTitle || reader.bookletSlug || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-muted">{reader.readCount || 1}</td>
+                        <td className="px-4 py-3 text-muted">
+                          {reader.lastReadAt || reader.updatedAt
+                            ? new Date(reader.lastReadAt || reader.updatedAt || "").toLocaleString()
+                            : "-"}
+                        </td>
+                      </tr>
+                    ))}
+                    {(adminData.bookletReaders || []).length === 0 ? (
+                      <tr className="border-t border-gold/10">
+                        <td className="px-4 py-4 text-muted" colSpan={5}>
+                          No reader records found yet.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
               </div>
-            }
-          >
-            <div className="overflow-x-auto rounded-md border border-gold/15">
-              <table className="w-full min-w-[900px] text-left text-base">
-                <thead className="bg-ink text-muted">
-                  <tr>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Email</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Unlocked At</th>
-                    <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">IP</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(adminData.bookletUnlocks || []).map((unlock, index) => (
-                    <tr className="border-t border-gold/10" key={`${unlock.email || index}-${unlock.bookletSlug}-${index}`}>
-                      <td className="px-4 py-3 text-parchment">{unlock.name || "-"}</td>
-                      <td className="px-4 py-3 text-parchment">{unlock.email || "-"}</td>
-                      <td className="px-4 py-3 text-muted">
-                        {unlock.bookletTitle || unlock.bookletSlug || "-"}
-                      </td>
-                      <td className="px-4 py-3 text-muted">
-                        {unlock.unlockedAt ? new Date(unlock.unlockedAt).toLocaleString() : "-"}
-                      </td>
-                      <td className="px-4 py-3 text-muted">{unlock.ip || "-"}</td>
-                    </tr>
-                  ))}
-                  {(adminData.bookletUnlocks || []).length === 0 ? (
-                    <tr className="border-t border-gold/10">
-                      <td className="px-4 py-4 text-muted" colSpan={5}>
-                        No unlock records found yet.
-                      </td>
-                    </tr>
-                  ) : null}
-                </tbody>
-              </table>
-            </div>
-          </FieldGroup>
+            </FieldGroup>
+          )}
 
-          <FieldGroup
-            title="Comments"
-            action={
-              <button
-                className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
-                onClick={() => exportData("comments")}
-                type="button"
-              >
-                <Download size={14} />
-                Export to Excel
-              </button>
-            }
-          >
-            <div className="grid gap-3">
-              {adminData.comments.map((comment, index) => (
-                <article className="rounded-md border border-gold/15 bg-ink p-4" key={index}>
-                  <div className="flex flex-wrap gap-3 font-label text-xs uppercase tracking-[0.2em] text-gold">
-                    <span>{comment.name || "Reader"}</span>
-                    <span>{comment.bookletSlug}</span>
-                    <span>{comment.rating || 0} stars</span>
-                    <span>
-                      {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : "-"}
-                    </span>
-                  </div>
-                  <p className="mt-3 text-lg leading-7 text-parchment/86">
-                    {comment.comment || "No comment text."}
-                  </p>
-                </article>
-              ))}
-            </div>
-          </FieldGroup>
+          {/* Booklet Unlocks Tab */}
+          {activeTab === "unlocks" && (
+            <FieldGroup
+              title="Booklet Unlocks"
+              action={
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
+                    onClick={() => exportData("booklet_unlocks")}
+                    type="button"
+                  >
+                    <Download size={14} />
+                    Export to Excel
+                  </button>
+                </div>
+              }
+            >
+              {adminData.adminDebug ? (
+                <p className="text-sm leading-6 text-muted">
+                  Database {adminData.adminDebug.database || "-"}: raw unlocks{" "}
+                  {adminData.adminDebug.rawBookletUnlocks ?? 0}, shown unlocks{" "}
+                  {adminData.adminDebug.returnedBookletUnlocks ?? (adminData.bookletUnlocks || []).length}.
+                </p>
+              ) : null}
+              <div className="overflow-x-auto rounded-md border border-gold/15">
+                <table className="w-full min-w-[900px] text-left text-base">
+                  <thead className="bg-ink text-muted">
+                    <tr>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Email</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Unlocked At</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">IP</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(adminData.bookletUnlocks || []).map((unlock, index) => (
+                      <tr className="border-t border-gold/10" key={`${unlock.email || index}-${unlock.bookletSlug}-${index}`}>
+                        <td className="px-4 py-3 text-parchment">{unlock.name || "-"}</td>
+                        <td className="px-4 py-3 text-parchment">{unlock.email || "-"}</td>
+                        <td className="px-4 py-3 text-muted">
+                          {unlock.bookletTitle || unlock.bookletSlug || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-muted">
+                          {unlock.unlockedAt ? new Date(unlock.unlockedAt).toLocaleString() : "-"}
+                        </td>
+                        <td className="px-4 py-3 text-muted">{unlock.ip || "-"}</td>
+                      </tr>
+                    ))}
+                    {(adminData.bookletUnlocks || []).length === 0 ? (
+                      <tr className="border-t border-gold/10">
+                        <td className="px-4 py-4 text-muted" colSpan={5}>
+                          No unlock records found yet.
+                        </td>
+                      </tr>
+                    ) : null}
+                  </tbody>
+                </table>
+              </div>
+            </FieldGroup>
+          )}
+
+          {/* Comments Tab */}
+          {activeTab === "comments" && (
+            <FieldGroup
+              title="Comments"
+              action={
+                <button
+                  className="inline-flex items-center gap-2 rounded border border-gold/40 bg-gold/5 px-3 py-1.5 font-label text-xs uppercase tracking-wider text-parchment transition hover:border-gold hover:bg-gold/15"
+                  onClick={() => exportData("comments")}
+                  type="button"
+                >
+                  <Download size={14} />
+                  Export to Excel
+                </button>
+              }
+            >
+              <div className="grid gap-3">
+                {adminData.comments.map((comment, index) => (
+                  <article className="rounded-md border border-gold/15 bg-ink p-4" key={index}>
+                    <div className="flex flex-wrap gap-3 font-label text-xs uppercase tracking-[0.2em] text-gold">
+                      <span>{comment.name || "Reader"}</span>
+                      <span>{comment.bookletSlug}</span>
+                      <span>{comment.rating || 0} stars</span>
+                      <span>
+                        {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : "-"}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-lg leading-7 text-parchment/86">
+                      {comment.comment || "No comment text."}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            </FieldGroup>
+          )}
         </>
       ) : null}
     </div>
