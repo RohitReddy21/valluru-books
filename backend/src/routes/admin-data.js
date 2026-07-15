@@ -168,6 +168,41 @@ function getNestedValue(record, path) {
     .reduce((value, key) => (value && typeof value === "object" ? value[key] : undefined), record);
 }
 
+async function enrichWithSubscriberData(db, records) {
+  // Get all unique emails from records
+  const emails = records
+    .map(record => record.email)
+    .filter(email => email)
+    .map(email => normalizeEmail(email));
+  
+  // Fetch subscribers for those emails
+  const subscribers = emails.length > 0 
+    ? await db.collection("subscribers").find({ email: { $in: emails } }).toArray()
+    : [];
+  
+  // Create a map by normalized email
+  const subscriberMap = new Map();
+  subscribers.forEach(sub => {
+    subscriberMap.set(normalizeEmail(sub.email), sub);
+  });
+  
+  // Enrich each record
+  return records.map(record => {
+    const normalizedEmail = normalizeEmail(record.email);
+    const subscriber = subscriberMap.get(normalizedEmail);
+    
+    if (subscriber) {
+      return {
+        ...record,
+        name: record.name || subscriber.name,
+        email: record.email || subscriber.email
+      };
+    }
+    
+    return record;
+  });
+}
+
 function formatExportValue(value) {
   if (value === null || value === undefined) {
     return "";
@@ -591,36 +626,29 @@ function mergeBookletUnlockRecords(unlocks = [], readers = [], limit = 150) {
 
 async function getBookletActivityData(db, limit = 150) {
   console.log("[getBookletActivityData] Starting to fetch data...");
-  const [bookletReaders, bookletUnlocks, rawBookletReaders, rawBookletUnlocks] = await Promise.all([
+  const [bookletReaders, rawBookletReaders] = await Promise.all([
     db.collection("booklet_readers").find({}).sort({ updatedAt: -1, createdAt: -1 }).limit(limit).toArray(),
-    db.collection("booklet_unlocks").find({}).sort({ unlockedAt: -1, createdAt: -1 }).limit(limit).toArray(),
-    db.collection("booklet_readers").countDocuments({}),
-    db.collection("booklet_unlocks").countDocuments({})
+    db.collection("booklet_readers").countDocuments({})
   ]);
 
   console.log("[getBookletActivityData] Raw data:", {
     rawBookletReaders,
-    rawBookletUnlocks,
-    bookletUnlocksLength: bookletUnlocks.length,
-    bookletUnlocks,
+    bookletReadersLength: bookletReaders.length,
     bookletReaders
   });
 
-  const mergedBookletReaders = mergeBookletReaderRecords(bookletReaders, bookletUnlocks, limit);
-  const mergedBookletUnlocks = mergeBookletUnlockRecords(bookletUnlocks, bookletReaders, limit);
-
-  console.log("[getBookletActivityData] Merged data:", {
-    mergedBookletReadersLength: mergedBookletReaders.length,
-    mergedBookletUnlocksLength: mergedBookletUnlocks.length,
-    mergedBookletUnlocks
-  });
+  // Enrich with subscriber data to fill in missing name/email
+  const enrichedReaders = await enrichWithSubscriberData(db, bookletReaders);
 
   return {
     rawBookletReaders,
-    rawBookletUnlocks,
-    mergedBookletReaders,
-    mergedBookletUnlocks,
-    rawBookletUnlocksArray: bookletUnlocks // return raw array for debugging
+    rawBookletUnlocks: 0, // Not used anymore
+    mergedBookletReaders: enrichedReaders,
+    mergedBookletUnlocks: enrichedReaders.map(reader => ({
+      ...reader,
+      unlockedAt: reader.lastReadAt || reader.updatedAt || reader.createdAt
+    })),
+    rawBookletUnlocksArray: enrichedReaders // Keep for compatibility
   };
 }
 
@@ -658,14 +686,18 @@ async function exportSheet(db, type, limit = 10000) {
         .toArray()
     ]);
 
+    // Enrich both readers and unlocks with subscriber data first
+    const enrichedReaders = await enrichWithSubscriberData(db, readers);
+    const enrichedUnlocks = await enrichWithSubscriberData(db, unlocks);
+
     return {
       type,
       title: definition.title,
       definition,
       records:
         type === "booklet_readers"
-          ? mergeBookletReaderRecords(readers, unlocks, limit)
-          : mergeBookletUnlockRecords(unlocks, readers, limit)
+          ? mergeBookletReaderRecords(enrichedReaders, enrichedUnlocks, limit)
+          : mergeBookletUnlockRecords(enrichedUnlocks, enrichedReaders, limit)
     };
   }
 

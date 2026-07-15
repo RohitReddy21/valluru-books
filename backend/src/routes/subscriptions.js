@@ -126,27 +126,7 @@ function registerSubscriptionRoutes(
           { upsert: true }
         );
 
-        // Also add to booklet_unlocks
-        await db.collection("booklet_unlocks").updateOne(
-          { email, bookletSlug },
-          {
-            $set: {
-              email,
-              name,
-              bookletSlug,
-              bookletTitle,
-              source,
-              unlockedAt: new Date(),
-              updatedAt: new Date(),
-              userAgent: request.headers["user-agent"] || null,
-              ip: request.ip || request.socket?.remoteAddress || null
-            },
-            $setOnInsert: {
-              createdAt: new Date()
-            }
-          },
-          { upsert: true }
-        );
+        // We only use booklet_readers now, so no need to write to booklet_unlocks
       }
 
       const resend = getResend();

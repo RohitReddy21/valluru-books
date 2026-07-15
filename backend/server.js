@@ -2232,20 +2232,37 @@ app.post("/api/track-unlock", async (request, response, next) => {
       return response.json({ ok: true });
     }
 
-    // Track the unlock in booklet_unlocks
+    // Track the unlock in booklet_readers (only collection we use now)
     const now = new Date();
-    await db.collection("booklet_unlocks").updateOne(
-      { email: email || undefined, bookletSlug },
+    
+    // Check if we have a subscriber with this email to get name/email
+    let subscriberName = name || null;
+    let subscriberEmail = email || null;
+    
+    if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      const existingSubscriber = await db.collection("subscribers").findOne({ email });
+      if (existingSubscriber) {
+        subscriberName = subscriberName || existingSubscriber.name;
+        subscriberEmail = existingSubscriber.email;
+      }
+    }
+    
+    await db.collection("booklet_readers").updateOne(
+      { email: subscriberEmail || undefined, bookletSlug },
       {
         $set: {
           bookletSlug,
           bookletTitle,
-          name: name || null,
-          email: email || null,
-          unlockedAt: now,
+          name: subscriberName,
+          email: subscriberEmail,
+          source,
           updatedAt: now,
+          lastReadAt: now,
           userAgent: request.headers["user-agent"] || null,
           ip: request.ip || request.socket?.remoteAddress || null
+        },
+        $inc: {
+          readCount: 1
         },
         $setOnInsert: {
           createdAt: now
@@ -2254,7 +2271,7 @@ app.post("/api/track-unlock", async (request, response, next) => {
       { upsert: true }
     );
 
-    // If we have name and email, update subscribers and booklet_readers
+    // If we have name and email, update subscribers
     if (name && email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       const subscribedAt = new Date();
       const subscriberUpdate = {
@@ -2278,30 +2295,6 @@ app.post("/api/track-unlock", async (request, response, next) => {
       await db.collection("subscribers").updateOne({ email }, subscriberUpdate, {
         upsert: true
       });
-
-      if (bookletSlug) {
-        await db.collection("booklet_readers").updateOne(
-          { email, bookletSlug },
-          {
-            $set: {
-              email,
-              name,
-              bookletSlug,
-              bookletTitle,
-              source,
-              updatedAt: new Date(),
-              lastReadAt: new Date()
-            },
-            $inc: {
-              readCount: 1
-            },
-            $setOnInsert: {
-              createdAt: new Date()
-            }
-          },
-          { upsert: true }
-        );
-      }
     }
 
     response.json({ ok: true });
