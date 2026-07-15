@@ -1934,7 +1934,7 @@ function DashboardPanel({
                   </tr>
                 </thead>
                 <tbody>
-                  {adminData.bookletReaders.map((reader, index) => (
+                  {(adminData.bookletReaders || []).map((reader, index) => (
                     <tr className="border-t border-gold/10" key={`${reader.email}-${reader.bookletSlug}-${index}`}>
                       <td className="px-4 py-3 text-parchment">{reader.name || "-"}</td>
                       <td className="px-4 py-3 text-parchment">{reader.email || "-"}</td>
@@ -1949,6 +1949,13 @@ function DashboardPanel({
                       </td>
                     </tr>
                   ))}
+                  {(adminData.bookletReaders || []).length === 0 ? (
+                    <tr className="border-t border-gold/10">
+                      <td className="px-4 py-4 text-muted" colSpan={5}>
+                        No reader records found yet.
+                      </td>
+                    </tr>
+                  ) : null}
                 </tbody>
               </table>
             </div>
