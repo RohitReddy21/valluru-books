@@ -2284,14 +2284,13 @@ function DashboardPanel({
                 </p>
               ) : null}
               <div className="overflow-x-auto rounded-md border border-gold/15">
-                <table className="w-full min-w-[900px] text-left text-base">
+                <table className="w-full min-w-[700px] text-left text-base">
                   <thead className="bg-ink text-muted">
                     <tr>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Email</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Unlocked At</th>
-                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">IP</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -2305,12 +2304,11 @@ function DashboardPanel({
                         <td className="px-4 py-3 text-muted">
                           {unlock.unlockedAt ? new Date(unlock.unlockedAt).toLocaleString() : "-"}
                         </td>
-                        <td className="px-4 py-3 text-muted">{unlock.ip || "-"}</td>
                       </tr>
                     ))}
                     {(adminData.bookletUnlocks || []).length === 0 ? (
                       <tr className="border-t border-gold/10">
-                        <td className="px-4 py-4 text-muted" colSpan={5}>
+                        <td className="px-4 py-4 text-muted" colSpan={4}>
                           No unlock records found yet.
                         </td>
                       </tr>
