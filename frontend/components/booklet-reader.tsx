@@ -43,7 +43,7 @@ export function BookletReader({ booklet }: Props) {
     return () => window.cancelAnimationFrame(frame);
   }, [isFree, storedAccessToken]);
 
-  async function trackUnlock() {
+  async function trackUnlock(reader?: { name?: string; email?: string }) {
     try {
       let subscriberInfo = null;
       try {
@@ -62,8 +62,8 @@ export function BookletReader({ booklet }: Props) {
         body: JSON.stringify({
           bookletSlug: booklet.slug,
           bookletTitle: booklet.title,
-          name: subscriberInfo?.name || "",
-          email: subscriberInfo?.email || ""
+          name: reader?.name || subscriberInfo?.name || "",
+          email: reader?.email || subscriberInfo?.email || ""
         })
       });
     } catch {
@@ -73,7 +73,7 @@ export function BookletReader({ booklet }: Props) {
 
   async function unlockAndRead() {
     setStatus("saving");
-    await trackUnlock();
+    let readerInfo: { name?: string; email?: string } | undefined;
     
     // Check if we need to subscribe first
     if (window.localStorage.getItem(globalStorageKey) !== "subscribed" && !isFree) {
@@ -103,6 +103,7 @@ export function BookletReader({ booklet }: Props) {
           }
           window.localStorage.setItem(globalStorageKey, "subscribed");
           window.localStorage.setItem(subscriberInfoKey, JSON.stringify({ name, email }));
+          readerInfo = { name, email };
           setHasAccess(true);
           setStatus("success");
         } else {
@@ -119,6 +120,8 @@ export function BookletReader({ booklet }: Props) {
       // Already have access, just mark as success
       setStatus("success");
     }
+
+    await trackUnlock(readerInfo);
 
     // Open the reader
     setReaderOpen(true);

@@ -48,6 +48,22 @@ type BookletReaderRecord = {
   updatedAt?: string;
   lastReadAt?: string;
   createdAt?: string;
+  ip?: string;
+  userAgent?: string;
+};
+
+type BookletUnlockRecord = {
+  id?: string;
+  name?: string;
+  email?: string;
+  bookletSlug?: string;
+  bookletTitle?: string | null;
+  source?: string;
+  unlockedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  ip?: string;
+  userAgent?: string;
 };
 
 type AdminData = {
@@ -76,26 +92,8 @@ type AdminData = {
     comment?: string;
     createdAt?: string;
   }>;
-  bookletReaders: Array<{
-    name?: string;
-    email?: string;
-    bookletSlug?: string;
-    bookletTitle?: string | null;
-    source?: string;
-    readCount?: number;
-    updatedAt?: string;
-    lastReadAt?: string;
-  }>;
-  bookletUnlocks: Array<{
-    name?: string;
-    email?: string;
-    bookletSlug?: string;
-    bookletTitle?: string | null;
-    source?: string;
-    unlockedAt?: string;
-    ip?: string;
-    userAgent?: string;
-  }>;
+  bookletReaders: BookletReaderRecord[];
+  bookletUnlocks: BookletUnlockRecord[];
   orders: Array<{
     id?: string;
     orderNumber?: string;
@@ -123,6 +121,7 @@ type AdminData = {
     rawBookletUnlocks?: number;
     returnedBookletReaders?: number;
     returnedBookletUnlocks?: number;
+    latestRawUnlock?: BookletUnlockRecord | null;
   };
 };
 
@@ -253,6 +252,23 @@ function filenameFromDisposition(disposition: string | null, fallback: string) {
 
   const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
   return plainMatch?.[1] || fallback;
+}
+
+function formatAdminDateTime(value?: string) {
+  if (!value) {
+    return "-";
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return `${date.toLocaleString()} | ${date.toISOString()}`;
+}
+
+function displayValue(value?: string | null) {
+  return value || "-";
 }
 
 function mergeBookletActivityData(current: AdminData, activity: BookletActivityPayload): AdminData {
@@ -698,8 +714,6 @@ export function AdminEditor({ initialContent, source }: Props) {
       | (AdminData & { error?: string })
       | null;
 
-    console.log("[loadAdminData] /api/admin/data payload:", payload);
-
     if (!response.ok || !payload) {
       setDataStatus(payload?.error || "Could not load database data.");
       return;
@@ -716,16 +730,12 @@ export function AdminEditor({ initialContent, source }: Props) {
         | BookletActivityPayload
         | null;
 
-      console.log("[loadAdminData] /api/admin/booklet-activity payload:", activityPayload);
-
       if (activityResponse.ok && activityPayload) {
         nextData = mergeBookletActivityData(nextData, activityPayload);
       }
     } catch {
       // Keep the main dashboard payload if the direct activity refresh is unavailable.
     }
-
-    console.log("[loadAdminData] Next admin data (after merge):", nextData);
 
     setAdminData(nextData);
     setDataStatus(
@@ -2277,38 +2287,58 @@ function DashboardPanel({
               }
             >
               {adminData.adminDebug ? (
-                <p className="text-sm leading-6 text-muted">
-                  Database {adminData.adminDebug.database || "-"}: raw unlocks{" "}
-                  {adminData.adminDebug.rawBookletUnlocks ?? 0}, shown unlocks{" "}
-                  {adminData.adminDebug.returnedBookletUnlocks ?? (adminData.bookletUnlocks || []).length}.
-                </p>
+                <div className="rounded-md border border-gold/15 bg-ink p-4 text-sm leading-6 text-muted">
+                  <p>
+                    Database {adminData.adminDebug.database || "-"}: raw unlocks{" "}
+                    {adminData.adminDebug.rawBookletUnlocks ?? 0}, shown unlocks{" "}
+                    {adminData.adminDebug.returnedBookletUnlocks ?? (adminData.bookletUnlocks || []).length}.
+                  </p>
+                  {adminData.adminDebug.latestRawUnlock ? (
+                    <p className="mt-2 break-words">
+                      Latest raw unlock: {displayValue(adminData.adminDebug.latestRawUnlock.bookletSlug)} at{" "}
+                      {formatAdminDateTime(adminData.adminDebug.latestRawUnlock.unlockedAt)}
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
               <div className="overflow-x-auto rounded-md border border-gold/15">
-                <table className="w-full min-w-[700px] text-left text-base">
+                <table className="w-full min-w-[1600px] text-left text-base">
                   <thead className="bg-ink text-muted">
                     <tr>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">ID</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Email</th>
-                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book Slug</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book Title</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Source</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Unlocked At</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Created</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Updated</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">IP</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">User Agent</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(adminData.bookletUnlocks || []).map((unlock, index) => (
                       <tr className="border-t border-gold/10" key={`${unlock.email || index}-${unlock.bookletSlug}-${index}`}>
-                        <td className="px-4 py-3 text-parchment">{unlock.name || "-"}</td>
-                        <td className="px-4 py-3 text-parchment">{unlock.email || "-"}</td>
-                        <td className="px-4 py-3 text-muted">
-                          {unlock.bookletTitle || unlock.bookletSlug || "-"}
+                        <td className="max-w-[12rem] break-all px-4 py-3 text-muted">{displayValue(unlock.id)}</td>
+                        <td className="px-4 py-3 text-parchment">{displayValue(unlock.name)}</td>
+                        <td className="max-w-[15rem] break-all px-4 py-3 text-parchment">{displayValue(unlock.email)}</td>
+                        <td className="max-w-[12rem] break-all px-4 py-3 text-muted">{displayValue(unlock.bookletSlug)}</td>
+                        <td className="max-w-[18rem] break-words px-4 py-3 text-muted">
+                          {displayValue(unlock.bookletTitle)}
                         </td>
-                        <td className="px-4 py-3 text-muted">
-                          {unlock.unlockedAt ? new Date(unlock.unlockedAt).toLocaleString() : "-"}
-                        </td>
+                        <td className="px-4 py-3 text-muted">{displayValue(unlock.source)}</td>
+                        <td className="max-w-[18rem] break-words px-4 py-3 text-muted">{formatAdminDateTime(unlock.unlockedAt)}</td>
+                        <td className="max-w-[18rem] break-words px-4 py-3 text-muted">{formatAdminDateTime(unlock.createdAt)}</td>
+                        <td className="max-w-[18rem] break-words px-4 py-3 text-muted">{formatAdminDateTime(unlock.updatedAt)}</td>
+                        <td className="max-w-[11rem] break-all px-4 py-3 text-muted">{displayValue(unlock.ip)}</td>
+                        <td className="max-w-[28rem] break-words px-4 py-3 text-muted">{displayValue(unlock.userAgent)}</td>
                       </tr>
                     ))}
                     {(adminData.bookletUnlocks || []).length === 0 ? (
                       <tr className="border-t border-gold/10">
-                        <td className="px-4 py-4 text-muted" colSpan={4}>
+                        <td className="px-4 py-4 text-muted" colSpan={11}>
                           No unlock records found yet.
                         </td>
                       </tr>
