@@ -108,6 +108,8 @@ type AdminData = {
     };
     items?: Array<{ title?: string; quantity?: number }>;
     createdAt?: string;
+    updatedAt?: string;
+    notes?: string;
   }>;
   recentMedia?: Array<MediaAsset>;
   recentActivity?: Array<{
@@ -1965,7 +1967,7 @@ function DashboardPanel({
                       </p>
                       <p className="mt-2 text-lg text-parchment">{activity.label || "Updated record"}</p>
                       <p className="mt-1 text-sm text-muted">
-                        {activity.createdAt ? new Date(activity.createdAt).toLocaleString() : "-"}
+                        {formatAdminDateTime(activity.createdAt)}
                       </p>
                     </article>
                   ))}
@@ -2081,13 +2083,14 @@ function DashboardPanel({
               </div>
 
               <div className="overflow-x-auto rounded-md border border-gold/15">
-                <table className="w-full min-w-[860px] text-left text-base">
+                <table className="w-full min-w-[1000px] text-left text-base">
                   <thead className="bg-ink text-muted">
                     <tr>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Email</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Source</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Created</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Updated</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Actions</th>
                     </tr>
@@ -2100,9 +2103,10 @@ function DashboardPanel({
                         <td className="px-4 py-3 text-muted">{subscriber.lastSource}</td>
                         <td className="px-4 py-3 text-muted">{subscriber.lastBookletTitle || "-"}</td>
                         <td className="px-4 py-3 text-muted">
-                          {subscriber.updatedAt
-                            ? new Date(subscriber.updatedAt).toLocaleString()
-                            : "-"}
+                          {formatAdminDateTime(subscriber.createdAt)}
+                        </td>
+                        <td className="px-4 py-3 text-muted">
+                          {formatAdminDateTime(subscriber.updatedAt)}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
@@ -2211,7 +2215,7 @@ function DashboardPanel({
               </div>
 
               <div className="overflow-x-auto rounded-md border border-gold/15">
-                <table className="w-full min-w-[920px] text-left text-base">
+                <table className="w-full min-w-[1200px] text-left text-base">
                   <thead className="bg-ink text-muted">
                     <tr>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
@@ -2219,6 +2223,8 @@ function DashboardPanel({
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Reads</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Last Read</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Created</th>
+                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Updated</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Actions</th>
                     </tr>
                   </thead>
@@ -2232,9 +2238,13 @@ function DashboardPanel({
                         </td>
                         <td className="px-4 py-3 text-muted">{reader.readCount || 1}</td>
                         <td className="px-4 py-3 text-muted">
-                          {reader.lastReadAt || reader.updatedAt
-                            ? new Date(reader.lastReadAt || reader.updatedAt || "").toLocaleString()
-                            : "-"}
+                          {formatAdminDateTime(reader.lastReadAt || reader.updatedAt)}
+                        </td>
+                        <td className="px-4 py-3 text-muted">
+                          {formatAdminDateTime(reader.createdAt)}
+                        </td>
+                        <td className="px-4 py-3 text-muted">
+                          {formatAdminDateTime(reader.updatedAt)}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex flex-wrap gap-2">
@@ -2258,7 +2268,7 @@ function DashboardPanel({
                     ))}
                     {(adminData.bookletReaders || []).length === 0 ? (
                       <tr className="border-t border-gold/10">
-                        <td className="px-4 py-4 text-muted" colSpan={6}>
+                        <td className="px-4 py-4 text-muted" colSpan={8}>
                           No reader records found yet.
                         </td>
                       </tr>
@@ -2295,33 +2305,27 @@ function DashboardPanel({
                   </p>
                   {adminData.adminDebug.latestRawUnlock ? (
                     <p className="mt-2 break-words">
-                      Latest raw unlock: {displayValue(adminData.adminDebug.latestRawUnlock.bookletSlug)} at{" "}
-                      {formatAdminDateTime(adminData.adminDebug.latestRawUnlock.unlockedAt)}
+                      Latest raw unlock: {displayValue(adminData.adminDebug.latestRawUnlock.bookletSlug)}
                     </p>
                   ) : null}
                 </div>
               ) : null}
               <div className="overflow-x-auto rounded-md border border-gold/15">
-                <table className="w-full min-w-[1600px] text-left text-base">
+                <table className="w-full min-w-[1050px] text-left text-base">
                   <thead className="bg-ink text-muted">
                     <tr>
-                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">ID</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Name</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Email</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book Slug</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Book Title</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Source</th>
-                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Unlocked At</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Created</th>
                       <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">Updated</th>
-                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">IP</th>
-                      <th className="px-4 py-3 font-label uppercase tracking-[0.18em]">User Agent</th>
                     </tr>
                   </thead>
                   <tbody>
                     {(adminData.bookletUnlocks || []).map((unlock, index) => (
                       <tr className="border-t border-gold/10" key={`${unlock.email || index}-${unlock.bookletSlug}-${index}`}>
-                        <td className="max-w-[12rem] break-all px-4 py-3 text-muted">{displayValue(unlock.id)}</td>
                         <td className="px-4 py-3 text-parchment">{displayValue(unlock.name)}</td>
                         <td className="max-w-[15rem] break-all px-4 py-3 text-parchment">{displayValue(unlock.email)}</td>
                         <td className="max-w-[12rem] break-all px-4 py-3 text-muted">{displayValue(unlock.bookletSlug)}</td>
@@ -2329,16 +2333,13 @@ function DashboardPanel({
                           {displayValue(unlock.bookletTitle)}
                         </td>
                         <td className="px-4 py-3 text-muted">{displayValue(unlock.source)}</td>
-                        <td className="max-w-[18rem] break-words px-4 py-3 text-muted">{formatAdminDateTime(unlock.unlockedAt)}</td>
                         <td className="max-w-[18rem] break-words px-4 py-3 text-muted">{formatAdminDateTime(unlock.createdAt)}</td>
                         <td className="max-w-[18rem] break-words px-4 py-3 text-muted">{formatAdminDateTime(unlock.updatedAt)}</td>
-                        <td className="max-w-[11rem] break-all px-4 py-3 text-muted">{displayValue(unlock.ip)}</td>
-                        <td className="max-w-[28rem] break-words px-4 py-3 text-muted">{displayValue(unlock.userAgent)}</td>
                       </tr>
                     ))}
                     {(adminData.bookletUnlocks || []).length === 0 ? (
                       <tr className="border-t border-gold/10">
-                        <td className="px-4 py-4 text-muted" colSpan={11}>
+                        <td className="px-4 py-4 text-muted" colSpan={7}>
                           No unlock records found yet.
                         </td>
                       </tr>
@@ -2371,9 +2372,7 @@ function DashboardPanel({
                       <span>{comment.name || "Reader"}</span>
                       <span>{comment.bookletSlug}</span>
                       <span>{comment.rating || 0} stars</span>
-                      <span>
-                        {comment.createdAt ? new Date(comment.createdAt).toLocaleString() : "-"}
-                      </span>
+                      <span>{formatAdminDateTime(comment.createdAt)}</span>
                     </div>
                     <p className="mt-3 text-lg leading-7 text-parchment/86">
                       {comment.comment || "No comment text."}
@@ -3401,6 +3400,11 @@ function OrdersPanel({
             <p className="mt-2 text-sm text-muted">
               {order.customer?.address || "No address"}
             </p>
+            <div className="mt-3 grid gap-2 text-sm text-muted">
+              <p>Created: {formatAdminDateTime(order.createdAt)}</p>
+              {order.updatedAt && <p>Updated: {formatAdminDateTime(order.updatedAt)}</p>}
+              {order.notes && <p>Notes: {order.notes}</p>}
+            </div>
           </article>
         ))}
         {filteredOrders.length === 0 ? (
