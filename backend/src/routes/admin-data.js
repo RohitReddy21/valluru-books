@@ -168,37 +168,234 @@ function getNestedValue(record, path) {
     .reduce((value, key) => (value && typeof value === "object" ? value[key] : undefined), record);
 }
 
-async function enrichWithSubscriberData(db, records) {
-  // Get all unique emails from records
-  const emails = records
-    .map(record => record.email)
-    .filter(email => email)
-    .map(email => normalizeEmail(email));
-  
-  // Fetch subscribers for those emails
-  const subscribers = emails.length > 0 
-    ? await db.collection("subscribers").find({ email: { $in: emails } }).toArray()
-    : [];
-  
-  // Create a map by normalized email
-  const subscriberMap = new Map();
-  subscribers.forEach(sub => {
-    subscriberMap.set(normalizeEmail(sub.email), sub);
-  });
-  
-  // Enrich each record
-  return records.map(record => {
-    const normalizedEmail = normalizeEmail(record.email);
-    const subscriber = subscriberMap.get(normalizedEmail);
-    
-    if (subscriber) {
-      return {
-        ...record,
-        name: record.name || subscriber.name,
-        email: record.email || subscriber.email
-      };
+const activityIdentityWindowMs = 1000 * 60 * 60 * 24;
+const recentSubscriberIdentityWindowMs = 1000 * 60 * 10;
+const recentSubscriberSeparationMs = 1000 * 60 * 2;
+
+function uniqueValues(values) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+function normalizeComparable(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function activityBookletSlug(record) {
+  return String(record?.bookletSlug || record?.lastBookletSlug || "").trim();
+}
+
+function activityBookletTitle(record) {
+  return String(record?.bookletTitle || record?.lastBookletTitle || "").trim();
+}
+
+function sameActivityBooklet(left, right) {
+  const leftSlug = activityBookletSlug(left);
+  const rightSlug = activityBookletSlug(right);
+
+  if (leftSlug && rightSlug && leftSlug === rightSlug) {
+    return true;
+  }
+
+  const leftTitle = normalizeComparable(activityBookletTitle(left));
+  const rightTitle = normalizeComparable(activityBookletTitle(right));
+
+  return Boolean(leftTitle && rightTitle && leftTitle === rightTitle);
+}
+
+function mergeRecordIdentity(record, identity) {
+  if (!identity) {
+    return record;
+  }
+
+  const email = normalizeEmail(identity.email);
+  const name = String(identity.name || "").trim();
+
+  if (!email && !name) {
+    return record;
+  }
+
+  return {
+    ...record,
+    name: record.name || name || undefined,
+    email: record.email || email || undefined
+  };
+}
+
+function findNearestActivityIdentity(record, candidates, windowMs = activityIdentityWindowMs) {
+  const recordTimestamp = recordTime(record);
+
+  if (!recordTimestamp) {
+    return null;
+  }
+
+  let nearest = null;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+
+  for (const candidate of candidates) {
+    if (candidate === record || !normalizeEmail(candidate.email) || !sameActivityBooklet(record, candidate)) {
+      continue;
     }
-    
+
+    const candidateTimestamp = recordTime(candidate);
+    const distance = Math.abs(recordTimestamp - candidateTimestamp);
+
+    if (candidateTimestamp && distance <= windowMs && distance < nearestDistance) {
+      nearest = candidate;
+      nearestDistance = distance;
+    }
+  }
+
+  return nearest;
+}
+
+function subscriberMatchesActivity(record, subscriber) {
+  const recordSlug = activityBookletSlug(record);
+  const subscriberSlugs = Array.isArray(subscriber.subscribedBooklets)
+    ? subscriber.subscribedBooklets.map((slug) => String(slug || "").trim())
+    : [];
+
+  if (
+    recordSlug &&
+    (String(subscriber.lastBookletSlug || "").trim() === recordSlug || subscriberSlugs.includes(recordSlug))
+  ) {
+    return true;
+  }
+
+  const recordTitle = normalizeComparable(activityBookletTitle(record));
+  const subscriberTitle = normalizeComparable(subscriber.lastBookletTitle);
+
+  return Boolean(recordTitle && subscriberTitle && recordTitle === subscriberTitle);
+}
+
+function findNearestSubscriberIdentity(record, subscribers, windowMs = activityIdentityWindowMs) {
+  const recordTimestamp = recordTime(record);
+
+  if (!recordTimestamp) {
+    return null;
+  }
+
+  let nearest = null;
+  let nearestDistance = Number.POSITIVE_INFINITY;
+
+  for (const subscriber of subscribers) {
+    if (!normalizeEmail(subscriber.email) || !subscriberMatchesActivity(record, subscriber)) {
+      continue;
+    }
+
+    const subscriberTimestamp = recordTime(subscriber);
+    const distance = Math.abs(recordTimestamp - subscriberTimestamp);
+
+    if (subscriberTimestamp && distance <= windowMs && distance < nearestDistance) {
+      nearest = subscriber;
+      nearestDistance = distance;
+    }
+  }
+
+  return nearest;
+}
+
+function findNearestRecentSubscriberIdentity(record, subscribers, windowMs = recentSubscriberIdentityWindowMs) {
+  const recordTimestamp = recordTime(record);
+
+  if (!recordTimestamp) {
+    return null;
+  }
+
+  const matches = subscribers
+    .map((subscriber) => ({
+      subscriber,
+      distance: Math.abs(recordTimestamp - recordTime(subscriber))
+    }))
+    .filter(({ subscriber, distance }) => normalizeEmail(subscriber.email) && distance <= windowMs)
+    .sort((left, right) => left.distance - right.distance);
+
+  if (matches.length === 1) {
+    return matches[0].subscriber;
+  }
+
+  if (
+    matches[0] &&
+    (!matches[1] || matches[1].distance - matches[0].distance >= recentSubscriberSeparationMs)
+  ) {
+    return matches[0].subscriber;
+  }
+
+  return null;
+}
+
+async function enrichWithSubscriberData(db, records, relatedRecords = []) {
+  const allRecords = [...records, ...relatedRecords];
+  const emails = uniqueValues(allRecords.map((record) => normalizeEmail(record.email)));
+  const bookletSlugs = uniqueValues(allRecords.map(activityBookletSlug));
+  const bookletTitles = uniqueValues(allRecords.map(activityBookletTitle));
+  const anonymousRecordTimes = allRecords
+    .filter((record) => !normalizeEmail(record.email))
+    .map(recordTime)
+    .filter(Boolean);
+  const subscriberQuery = [];
+
+  if (emails.length) {
+    subscriberQuery.push({ email: { $in: emails } });
+  }
+
+  if (bookletSlugs.length) {
+    subscriberQuery.push({ lastBookletSlug: { $in: bookletSlugs } });
+    subscriberQuery.push({ subscribedBooklets: { $in: bookletSlugs } });
+  }
+
+  if (bookletTitles.length) {
+    subscriberQuery.push({ lastBookletTitle: { $in: bookletTitles } });
+  }
+
+  if (anonymousRecordTimes.length) {
+    const from = new Date(Math.min(...anonymousRecordTimes) - recentSubscriberIdentityWindowMs);
+    const to = new Date(Math.max(...anonymousRecordTimes) + recentSubscriberIdentityWindowMs);
+    subscriberQuery.push({ createdAt: { $gte: from, $lte: to } });
+    subscriberQuery.push({ updatedAt: { $gte: from, $lte: to } });
+  }
+
+  const subscribers = subscriberQuery.length
+    ? await db
+        .collection("subscribers")
+        .find({ $or: subscriberQuery })
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .limit(1000)
+        .toArray()
+    : [];
+
+  const subscriberMap = new Map();
+  subscribers.forEach((subscriber) => {
+    subscriberMap.set(normalizeEmail(subscriber.email), subscriber);
+  });
+
+  const activityIdentityCandidates = allRecords.filter((record) => normalizeEmail(record.email));
+
+  return records.map((record) => {
+    const normalizedEmail = normalizeEmail(record.email);
+    const exactSubscriber = subscriberMap.get(normalizedEmail);
+
+    if (exactSubscriber) {
+      return mergeRecordIdentity(record, exactSubscriber);
+    }
+
+    const activityIdentity = findNearestActivityIdentity(record, activityIdentityCandidates);
+
+    if (activityIdentity) {
+      return mergeRecordIdentity(record, activityIdentity);
+    }
+
+    const subscriberIdentity = findNearestSubscriberIdentity(record, subscribers);
+
+    if (subscriberIdentity) {
+      return mergeRecordIdentity(record, subscriberIdentity);
+    }
+
+    const recentSubscriberIdentity = findNearestRecentSubscriberIdentity(record, subscribers);
+
+    if (recentSubscriberIdentity) {
+      return mergeRecordIdentity(record, recentSubscriberIdentity);
+    }
+
     return record;
   });
 }
@@ -626,8 +823,10 @@ async function getBookletActivityData(db, limit = 150) {
     db.collection("booklet_unlocks").countDocuments({})
   ]);
 
-  const enrichedReaders = await enrichWithSubscriberData(db, bookletReaders);
-  const enrichedUnlocks = await enrichWithSubscriberData(db, bookletUnlocks);
+  const [enrichedReaders, enrichedUnlocks] = await Promise.all([
+    enrichWithSubscriberData(db, bookletReaders, bookletUnlocks),
+    enrichWithSubscriberData(db, bookletUnlocks, bookletReaders)
+  ]);
   const mergedBookletReaders = mergeBookletReaderRecords(enrichedReaders, enrichedUnlocks, limit);
   const mergedBookletUnlocks = mergeBookletUnlockRecords(enrichedUnlocks, enrichedReaders, limit);
 
@@ -675,8 +874,10 @@ async function exportSheet(db, type, limit = 10000) {
     ]);
 
     // Enrich both readers and unlocks with subscriber data first
-    const enrichedReaders = await enrichWithSubscriberData(db, readers);
-    const enrichedUnlocks = await enrichWithSubscriberData(db, unlocks);
+    const [enrichedReaders, enrichedUnlocks] = await Promise.all([
+      enrichWithSubscriberData(db, readers, unlocks),
+      enrichWithSubscriberData(db, unlocks, readers)
+    ]);
 
     return {
       type,
@@ -1075,9 +1276,14 @@ function registerAdminDataRoutes(
         .sort({ updatedAt: -1, createdAt: -1 })
         .limit(250)
         .toArray();
+      const unlocks = await db
+        .collection("booklet_unlocks")
+        .find({})
+        .sort({ unlockedAt: -1, createdAt: -1 })
+        .limit(250)
+        .toArray();
 
-      // Enrich with subscriber data
-      readers = await enrichWithSubscriberData(db, readers);
+      readers = await enrichWithSubscriberData(db, readers, unlocks);
 
       response.json({ bookletReaders: readers.map(toAdminRecord) });
     } catch (error) {

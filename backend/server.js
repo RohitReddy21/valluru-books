@@ -622,7 +622,7 @@ function cookieOptions(request) {
     sameSite: isSecure ? "none" : "lax",
     secure: isSecure,
     path: "/",
-    maxAge: 60 * 60 * 24 * 365
+    maxAge: 1000 * 60 * 60 * 24 * 365
   };
 }
 
@@ -1414,6 +1414,47 @@ function verifyAccessToken(token, slug) {
   return verifySignedToken(token, (payload) => payload.slug === slug);
 }
 
+function createSubscriberToken({ email, name }) {
+  return createSignedToken(
+    {
+      scope: "subscriber",
+      email: String(email || "").trim().toLowerCase(),
+      name: String(name || "").trim()
+    },
+    1000 * 60 * 60 * 24 * 365
+  );
+}
+
+function verifySubscriberToken(token) {
+  const subscriber = verifySignedToken(token, (payload) => {
+    const email = String(payload.email || "").trim().toLowerCase();
+    const name = String(payload.name || "").trim();
+
+    if (payload.scope !== "subscriber" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return false;
+    }
+
+    return { email, name };
+  });
+
+  return subscriber && typeof subscriber === "object" ? subscriber : null;
+}
+
+function getSubscriberFromRequest(request) {
+  return verifySubscriberToken(getCookies(request).valluru_subscriber);
+}
+
+function setSubscriberCookie(response, request, subscriber) {
+  const email = String(subscriber?.email || "").trim().toLowerCase();
+  const name = String(subscriber?.name || "").trim();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return;
+  }
+
+  response.cookie("valluru_subscriber", createSubscriberToken({ email, name }), cookieOptions(request));
+}
+
 function pdfFilename(slug) {
   return `${slug}.pdf`;
 }
@@ -2202,7 +2243,8 @@ registerSubscriptionRoutes(app, {
   buildOwnerEmail,
   sendResendEmail,
   cookieOptions,
-  createAccessToken
+  createAccessToken,
+  setSubscriberCookie
 });
 
 app.post("/api/track-unlock", async (request, response, next) => {
@@ -2218,8 +2260,9 @@ app.post("/api/track-unlock", async (request, response, next) => {
 
     const bookletSlug = String(request.body?.bookletSlug || "").trim();
     const bookletTitle = String(request.body?.bookletTitle || "").trim() || null;
-    const name = String(request.body?.name || "").trim();
-    const email = String(request.body?.email || "").trim().toLowerCase();
+    const cookieSubscriber = getSubscriberFromRequest(request);
+    const name = String(request.body?.name || cookieSubscriber?.name || "").trim();
+    const email = String(request.body?.email || cookieSubscriber?.email || "").trim().toLowerCase();
     const source = "track-unlock";
 
     if (!bookletSlug) {
@@ -2245,6 +2288,10 @@ app.post("/api/track-unlock", async (request, response, next) => {
       if (existingSubscriber) {
         subscriberName = subscriberName || existingSubscriber.name;
         subscriberEmail = existingSubscriber.email;
+        setSubscriberCookie(response, request, {
+          email: subscriberEmail,
+          name: subscriberName || existingSubscriber.name || ""
+        });
       }
     }
 
@@ -2309,6 +2356,8 @@ app.post("/api/track-unlock", async (request, response, next) => {
       await db.collection("subscribers").updateOne({ email }, subscriberUpdate, {
         upsert: true
       });
+
+      setSubscriberCookie(response, request, { email, name });
     }
 
     response.json({ ok: true });

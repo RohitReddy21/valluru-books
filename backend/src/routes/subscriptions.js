@@ -18,7 +18,8 @@ function registerSubscriptionRoutes(
     buildOwnerEmail,
     sendResendEmail,
     cookieOptions,
-    createAccessToken
+    createAccessToken,
+    setSubscriberCookie
   }
 ) {
   app.post("/api/subscribe", async (request, response, next) => {
@@ -45,6 +46,10 @@ function registerSubscriptionRoutes(
         
         if (bookletSlug) {
           response.cookie(`valluru_booklet_${bookletSlug}`, "true", cookieOptions(request));
+        }
+
+        if (setSubscriberCookie && email && name) {
+          setSubscriberCookie(response, request, { email, name });
         }
         
         return response.json({
@@ -231,6 +236,10 @@ function registerSubscriptionRoutes(
 
       if (bookletSlug) {
         response.cookie(`valluru_booklet_${bookletSlug}`, "true", cookieOptions(request));
+      }
+
+      if (setSubscriberCookie) {
+        setSubscriberCookie(response, request, { email, name });
       }
 
       response.json({

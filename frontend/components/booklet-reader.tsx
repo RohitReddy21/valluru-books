@@ -16,6 +16,24 @@ type Props = {
   booklet: Booklet;
 };
 
+type SubscriberInfo = {
+  name?: string;
+  email?: string;
+};
+
+function readStoredSubscriberInfo(): SubscriberInfo | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const stored = window.localStorage.getItem(subscriberInfoKey);
+    return stored ? (JSON.parse(stored) as SubscriberInfo) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function BookletReader({ booklet }: Props) {
   const isFree = booklet.slug === "booklet-one";
   const accessStorageKey = `valluru_access_token_${booklet.slug}`;
@@ -28,6 +46,7 @@ export function BookletReader({ booklet }: Props) {
   const [hasAccess, setHasAccess] = useState(false);
   const [accessToken, setAccessToken] = useState(storedAccessToken);
   const [readerOpen, setReaderOpen] = useState(false);
+  const [hasSubscriberInfo, setHasSubscriberInfo] = useState(false);
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">(
     "idle"
   );
@@ -37,7 +56,9 @@ export function BookletReader({ booklet }: Props) {
     const frame = window.requestAnimationFrame(() => {
       const globalSubscribed = window.localStorage.getItem(globalStorageKey) === "subscribed";
       const hasLocalAccess = isFree || Boolean(storedAccessToken);
+      const subscriberInfo = readStoredSubscriberInfo();
       setHasAccess(globalSubscribed || hasLocalAccess);
+      setHasSubscriberInfo(Boolean(subscriberInfo?.email));
     });
 
     return () => window.cancelAnimationFrame(frame);
@@ -45,15 +66,7 @@ export function BookletReader({ booklet }: Props) {
 
   async function trackUnlock(reader?: { name?: string; email?: string }) {
     try {
-      let subscriberInfo = null;
-      try {
-        const stored = window.localStorage.getItem(subscriberInfoKey);
-        if (stored) {
-          subscriberInfo = JSON.parse(stored);
-        }
-      } catch {
-        // ignore parsing errors
-      }
+      const subscriberInfo = readStoredSubscriberInfo();
 
       await fetch(apiUrl("/api/track-unlock"), {
         method: "POST",
@@ -74,18 +87,28 @@ export function BookletReader({ booklet }: Props) {
   async function unlockAndRead() {
     setStatus("saving");
     let readerInfo: { name?: string; email?: string } | undefined;
+    const storedSubscriberInfo = readStoredSubscriberInfo();
+    const needsSubscriberInfo = !isFree && !storedSubscriberInfo?.email;
+    const subscriberName = (needsSubscriberInfo ? name : storedSubscriberInfo?.name || name).trim();
+    const subscriberEmail = (needsSubscriberInfo ? email : storedSubscriberInfo?.email || email).trim();
+    const shouldSubscribe =
+      !isFree &&
+      (window.localStorage.getItem(globalStorageKey) !== "subscribed" || needsSubscriberInfo);
+
+    if (needsSubscriberInfo && (!subscriberName || !subscriberEmail)) {
+      setStatus("error");
+      return;
+    }
     
-    // Check if we need to subscribe first
-    if (window.localStorage.getItem(globalStorageKey) !== "subscribed" && !isFree) {
-      // If we have name and email in state, subscribe
-      if (name && email) {
+    if (shouldSubscribe) {
+      if (subscriberName && subscriberEmail) {
         const response = await fetch(apiUrl("/api/subscribe"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-            name,
-            email,
+            name: subscriberName,
+            email: subscriberEmail,
             source: "booklet-reader",
             bookletSlug: booklet.slug,
             bookletTitle: booklet.title
@@ -102,8 +125,12 @@ export function BookletReader({ booklet }: Props) {
             window.localStorage.setItem(accessStorageKey, payload.accessToken);
           }
           window.localStorage.setItem(globalStorageKey, "subscribed");
-          window.localStorage.setItem(subscriberInfoKey, JSON.stringify({ name, email }));
-          readerInfo = { name, email };
+          window.localStorage.setItem(
+            subscriberInfoKey,
+            JSON.stringify({ name: subscriberName, email: subscriberEmail })
+          );
+          setHasSubscriberInfo(true);
+          readerInfo = { name: subscriberName, email: subscriberEmail };
           setHasAccess(true);
           setStatus("success");
         } else {
@@ -111,10 +138,8 @@ export function BookletReader({ booklet }: Props) {
           return;
         }
       } else {
-        // If no name/email, just grant local access for now
-        window.localStorage.setItem(accessStorageKey, "granted");
-        setHasAccess(true);
-        setStatus("success");
+        setStatus("error");
+        return;
       }
     } else {
       // Already have access, just mark as success
@@ -136,6 +161,8 @@ export function BookletReader({ booklet }: Props) {
       </div>
     );
   }
+
+  const shouldShowSubscriberFields = !isFree && (!hasAccess || !hasSubscriberInfo);
 
   // Always show the same reader section while preserving access tracking.
   return (
@@ -178,8 +205,8 @@ export function BookletReader({ booklet }: Props) {
           ) : null}
         </div>
 
-        {/* Show name/email input only if not subscribed yet */}
-        {!hasAccess && !window.localStorage.getItem(subscriberInfoKey) && (
+        {/* Show name/email input when we cannot attach a subscriber to the read yet. */}
+        {shouldShowSubscriberFields && (
           <div className="mt-6 space-y-3">
             <label className="sr-only" htmlFor={`name-${booklet.slug}`}>
               Name
@@ -207,7 +234,7 @@ export function BookletReader({ booklet }: Props) {
 
         <p className="mt-3 text-base italic text-muted">
           {status === "error"
-            ? "Something went wrong. Please try again."
+            ? "Please enter your name and email before reading."
             : "You'll receive quiet updates when new content is added."}
         </p>
       </div>

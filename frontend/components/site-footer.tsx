@@ -45,7 +45,7 @@ export function SiteFooter({ footer }: Props) {
         {footer.bottomLine}
       </p>
       <p className="mx-auto mt-4 max-w-3xl text-center font-label text-xs uppercase tracking-[0.22em] text-muted">
-        Website powered by{" "}
+        Powered by{" "}
         <a
           className="text-parchment transition hover:text-gold"
           href="https://primeverse.in"
