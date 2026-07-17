@@ -2232,8 +2232,9 @@ app.post("/api/track-unlock", async (request, response, next) => {
       return response.json({ ok: true });
     }
 
-    // Track the unlock in booklet_readers (only collection we use now)
     const now = new Date();
+    const userAgent = request.headers["user-agent"] || null;
+    const ip = request.ip || request.socket?.remoteAddress || null;
     
     // Check if we have a subscriber with this email to get name/email
     let subscriberName = name || null;
@@ -2246,9 +2247,22 @@ app.post("/api/track-unlock", async (request, response, next) => {
         subscriberEmail = existingSubscriber.email;
       }
     }
+
+    await db.collection("booklet_unlocks").insertOne({
+      bookletSlug,
+      bookletTitle,
+      name: subscriberName,
+      email: subscriberEmail,
+      source,
+      unlockedAt: now,
+      createdAt: now,
+      updatedAt: now,
+      userAgent,
+      ip
+    });
     
     await db.collection("booklet_readers").updateOne(
-      { email: subscriberEmail || undefined, bookletSlug },
+      subscriberEmail ? { email: subscriberEmail, bookletSlug } : { bookletSlug, ip },
       {
         $set: {
           bookletSlug,
@@ -2258,8 +2272,8 @@ app.post("/api/track-unlock", async (request, response, next) => {
           source,
           updatedAt: now,
           lastReadAt: now,
-          userAgent: request.headers["user-agent"] || null,
-          ip: request.ip || request.socket?.remoteAddress || null
+          userAgent,
+          ip
         },
         $inc: {
           readCount: 1

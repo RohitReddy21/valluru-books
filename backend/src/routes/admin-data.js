@@ -524,7 +524,8 @@ function normalizedUnlockRecord(unlock) {
   return {
     ...unlock,
     unlockedAt,
-    createdAt: unlock.createdAt || unlockedAt
+    createdAt: unlock.createdAt || unlockedAt,
+    updatedAt: unlock.updatedAt || unlockedAt
   };
 }
 
@@ -539,6 +540,7 @@ function unlockFromReader(reader) {
     source: reader.source || "booklet-reader",
     unlockedAt,
     createdAt: reader.createdAt || unlockedAt,
+    updatedAt: reader.updatedAt || unlockedAt,
     ip: reader.ip,
     userAgent: reader.userAgent
   };
@@ -580,17 +582,10 @@ function mergeBookletReaderRecords(readers = [], unlocks = [], limit = 150) {
 }
 
 function mergeBookletUnlockRecords(unlocks = [], readers = [], limit = 150) {
-  // For debugging, just return all unlocks mapped through normalizedUnlockRecord first
-  console.log("[mergeBookletUnlockRecords] Unlocks incoming:", unlocks.length, unlocks);
-  const normalizedUnlocks = unlocks.map(normalizedUnlockRecord);
-  console.log("[mergeBookletUnlockRecords] normalizedUnlocks:", normalizedUnlocks.length, normalizedUnlocks);
-  
-  // Now try the normal logic
   const recordsByKey = new Map();
 
   unlocks.forEach((unlock) => {
     const key = readerRecordKey(unlock);
-    console.log("[mergeBookletUnlockRecords] Processing unlock, key:", key, unlock);
     recordsByKey.set(key, normalizedUnlockRecord(unlock));
   });
 
@@ -619,36 +614,29 @@ function mergeBookletUnlockRecords(unlocks = [], readers = [], limit = 150) {
   const result = Array.from(recordsByKey.values())
     .sort((left, right) => recordTime(right) - recordTime(left))
     .slice(0, limit);
-  console.log("[mergeBookletUnlockRecords] Final result:", result.length, result);
 
   return result;
 }
 
 async function getBookletActivityData(db, limit = 150) {
-  console.log("[getBookletActivityData] Starting to fetch data...");
-  const [bookletReaders, rawBookletReaders] = await Promise.all([
+  const [bookletReaders, bookletUnlocks, rawBookletReaders, rawBookletUnlocks] = await Promise.all([
     db.collection("booklet_readers").find({}).sort({ updatedAt: -1, createdAt: -1 }).limit(limit).toArray(),
-    db.collection("booklet_readers").countDocuments({})
+    db.collection("booklet_unlocks").find({}).sort({ unlockedAt: -1, createdAt: -1 }).limit(limit).toArray(),
+    db.collection("booklet_readers").countDocuments({}),
+    db.collection("booklet_unlocks").countDocuments({})
   ]);
 
-  console.log("[getBookletActivityData] Raw data:", {
-    rawBookletReaders,
-    bookletReadersLength: bookletReaders.length,
-    bookletReaders
-  });
-
-  // Enrich with subscriber data to fill in missing name/email
   const enrichedReaders = await enrichWithSubscriberData(db, bookletReaders);
+  const enrichedUnlocks = await enrichWithSubscriberData(db, bookletUnlocks);
+  const mergedBookletReaders = mergeBookletReaderRecords(enrichedReaders, enrichedUnlocks, limit);
+  const mergedBookletUnlocks = mergeBookletUnlockRecords(enrichedUnlocks, enrichedReaders, limit);
 
   return {
     rawBookletReaders,
-    rawBookletUnlocks: 0, // Not used anymore
-    mergedBookletReaders: enrichedReaders,
-    mergedBookletUnlocks: enrichedReaders.map(reader => ({
-      ...reader,
-      unlockedAt: reader.lastReadAt || reader.updatedAt || reader.createdAt
-    })),
-    rawBookletUnlocksArray: enrichedReaders // Keep for compatibility
+    rawBookletUnlocks,
+    mergedBookletReaders,
+    mergedBookletUnlocks,
+    latestRawUnlock: bookletUnlocks[0] || null
   };
 }
 
@@ -786,7 +774,7 @@ function registerAdminDataRoutes(
         subscribers: subscribers.map(toAdminRecord),
         subscribersWithoutUnlock: subscribersWithoutUnlock.records.map(toAdminRecord),
         bookletReaders: bookletActivity.mergedBookletReaders.map(toAdminRecord),
-        bookletUnlocks: bookletActivity.rawBookletUnlocksArray.map(toAdminRecord), // use raw array for testing!
+        bookletUnlocks: bookletActivity.mergedBookletUnlocks.map(toAdminRecord),
         orders: orders.map(toAdminRecord),
         comments: comments.map(toAdminRecord),
         recentMedia: recentMedia.map(toAdminRecord),
@@ -795,7 +783,8 @@ function registerAdminDataRoutes(
           rawBookletReaders: bookletActivity.rawBookletReaders,
           rawBookletUnlocks: bookletActivity.rawBookletUnlocks,
           returnedBookletReaders: bookletActivity.mergedBookletReaders.length,
-          returnedBookletUnlocks: bookletActivity.mergedBookletUnlocks.length
+          returnedBookletUnlocks: bookletActivity.mergedBookletUnlocks.length,
+          latestRawUnlock: toAdminRecord(bookletActivity.latestRawUnlock)
         },
         recentActivity: [
           ...orders.slice(0, 5).map((order) => ({
@@ -850,13 +839,14 @@ function registerAdminDataRoutes(
           bookletUnlocks: Math.max(bookletActivity.rawBookletUnlocks, bookletActivity.mergedBookletUnlocks.length)
         },
         bookletReaders: bookletActivity.mergedBookletReaders.map(toAdminRecord),
-        bookletUnlocks: bookletActivity.rawBookletUnlocksArray.map(toAdminRecord), // use raw array for testing!
+        bookletUnlocks: bookletActivity.mergedBookletUnlocks.map(toAdminRecord),
         adminDebug: {
           database: db.databaseName,
           rawBookletReaders: bookletActivity.rawBookletReaders,
           rawBookletUnlocks: bookletActivity.rawBookletUnlocks,
           returnedBookletReaders: bookletActivity.mergedBookletReaders.length,
-          returnedBookletUnlocks: bookletActivity.mergedBookletUnlocks.length
+          returnedBookletUnlocks: bookletActivity.mergedBookletUnlocks.length,
+          latestRawUnlock: toAdminRecord(bookletActivity.latestRawUnlock)
         }
       });
     } catch (error) {
