@@ -1,6 +1,7 @@
 import { Cormorant_Garamond, Crimson_Pro, Playfair_Display } from "next/font/google";
 import "../globals.css";
 import { getSiteContent } from "@/lib/content-store";
+import { MetaPixel } from "@/components/meta-pixel";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
 
@@ -36,6 +37,7 @@ export default async function AdminLayout({
       lang="en"
     >
       <body>
+        <MetaPixel />
         <SiteNav nav={content.nav} />
         {children}
         <SiteFooter footer={content.footer} />

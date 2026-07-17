@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Crimson_Pro, Playfair_Display } from "next/font/google";
 import "../globals.css";
 import { getSiteContent } from "@/lib/content-store";
+import { MetaPixel } from "@/components/meta-pixel";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
 import { GlobalSubscribePopup } from "@/components/global-subscribe-popup";
@@ -162,6 +163,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             style={{ display: "none", visibility: "hidden" }}
           />
         </noscript>
+        <MetaPixel />
 
         <SiteNav nav={content.nav} />
         {children}
