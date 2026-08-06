@@ -2,6 +2,7 @@
 
 import { Mail } from "lucide-react";
 import { useState } from "react";
+import { trackEmailSubscription } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api";
 
 export function NewsletterForm({ microcopy }: { microcopy: string }) {
@@ -23,6 +24,7 @@ export function NewsletterForm({ microcopy }: { microcopy: string }) {
     });
 
     if (response.ok) {
+      trackEmailSubscription();
       setName("");
       setEmail("");
       setStatus("success");

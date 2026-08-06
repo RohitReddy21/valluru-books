@@ -2,6 +2,7 @@
 
 import { Mail } from "lucide-react";
 import { useEffect, useId, useState, type ReactNode } from "react";
+import { trackEmailSubscription } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api";
 
 const storageKey = "valluru_global_subscribed";
@@ -49,6 +50,7 @@ export function AdsSubscriptionGate({ children }: { children: ReactNode }) {
         return;
       }
 
+      trackEmailSubscription();
       setStatus("success");
       // Save subscriber info before clearing name/email
       const subscriberName = name;

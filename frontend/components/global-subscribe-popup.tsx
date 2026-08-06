@@ -3,6 +3,7 @@
 import { Mail } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useState } from "react";
+import { trackEmailSubscription } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api";
 
 const storageKey = "valluru_global_subscribed";
@@ -69,6 +70,7 @@ export function GlobalSubscribePopup() {
         return;
       }
 
+      trackEmailSubscription();
       setStatus("success");
       // Save subscriber info before clearing name/email
       const subscriberName = name;

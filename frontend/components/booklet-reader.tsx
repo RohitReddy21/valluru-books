@@ -3,6 +3,7 @@
 import { BookOpen, Download } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PdfBookModal } from "@/components/pdf-book-modal";
+import { trackEmailSubscription } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api";
 import {
   getBookletDownloadButtonText,
@@ -120,6 +121,7 @@ export function BookletReader({ booklet }: Props) {
         } | null;
 
         if (response.ok) {
+          trackEmailSubscription();
           if (payload?.accessToken) {
             setAccessToken(payload.accessToken);
             window.localStorage.setItem(accessStorageKey, payload.accessToken);
