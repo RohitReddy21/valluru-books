@@ -341,6 +341,10 @@ export function AdminEditor({ initialContent, source }: Props) {
   const [mirrorBackgroundStatus, setMirrorBackgroundStatus] = useState(
     "Upload a background image for this booklet page."
   );
+  const [mirrorHeroFile, setMirrorHeroFile] = useState<File | null>(null);
+  const [mirrorHeroStatus, setMirrorHeroStatus] = useState(
+    "Upload the hero image for this series."
+  );
   const [status, setStatus] = useState("Edit content and save.");
   const [uploadStatus, setUploadStatus] = useState(
     "Upload a PDF and attach it to a booklet."
@@ -921,6 +925,49 @@ export function AdminEditor({ initialContent, source }: Props) {
       setMirrorBackgroundStatus,
       () => setMirrorBackgroundFile(null)
     );
+  }
+
+  /** Series hero image. The upload endpoint only stores the file and hands back a URL. */
+  async function uploadMirrorHeroImage() {
+    if (!mirrorHeroFile) {
+      setMirrorHeroStatus("Choose a hero image first.");
+      return;
+    }
+
+    setMirrorHeroStatus("Uploading hero image to storage...");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", mirrorHeroFile);
+      formData.append("slug", inwardMirror.routeSegment);
+      formData.append("imageRole", "background");
+
+      const response = await fetch(apiUrl("/api/admin/upload-booklet-cover"), {
+        method: "POST",
+        headers: adminHeaders(),
+        credentials: "include",
+        body: formData
+      });
+
+      if (!response.ok) {
+        try {
+          const error = await response.json();
+          setMirrorHeroStatus(`Upload failed: ${error.error || "Unknown error"}`);
+        } catch {
+          setMirrorHeroStatus(`Upload failed: ${response.statusText || "Unknown error"}`);
+        }
+        return;
+      }
+
+      const data = await response.json();
+      updateInwardMirror({ heroImage: data.url });
+      setMirrorHeroStatus("✓ Hero image uploaded. Click the Save button to persist changes.");
+      setMirrorHeroFile(null);
+    } catch (error) {
+      setMirrorHeroStatus(
+        error instanceof Error ? error.message : "Error uploading hero image"
+      );
+    }
   }
 
   async function loadAdminData() {
@@ -1856,6 +1903,10 @@ export function AdminEditor({ initialContent, source }: Props) {
                 setBookletBackgroundFile={setMirrorBackgroundFile}
                 uploadBookletBackground={uploadMirrorBackground}
                 bookletBackgroundStatus={mirrorBackgroundStatus}
+                heroFile={mirrorHeroFile}
+                setHeroFile={setMirrorHeroFile}
+                uploadHeroImage={uploadMirrorHeroImage}
+                heroStatus={mirrorHeroStatus}
               />
             ) : null}
 
@@ -3782,7 +3833,11 @@ function InwardMirrorPanel({
   setBookletBackgroundFile,
   uploadBookletBackground,
   bookletBackgroundStatus,
-  fallbackBackgroundImage
+  fallbackBackgroundImage,
+  heroFile,
+  setHeroFile,
+  uploadHeroImage,
+  heroStatus
 }: {
   series: BookSeries;
   updateSeries: (patch: Partial<BookSeries>) => void;
@@ -3809,6 +3864,10 @@ function InwardMirrorPanel({
   uploadBookletBackground: () => void;
   bookletBackgroundStatus: string;
   fallbackBackgroundImage: string;
+  heroFile: File | null;
+  setHeroFile: (file: File | null) => void;
+  uploadHeroImage: () => void;
+  heroStatus: string;
 }) {
   const basePath = seriesBasePath(series);
   const isLive = !series.status || series.status === "published";
@@ -3858,12 +3917,90 @@ function InwardMirrorPanel({
         ) : null}
       </div>
 
-      <FieldGroup title="Series Page">
+      <FieldGroup title="Navigation">
         <TextField
           label="Nav Label"
           onChange={(value) => updateSeries({ navLabel: value })}
           value={series.navLabel}
         />
+        <TextField
+          label="Nav Subtitle (small caption under the label)"
+          onChange={(value) => updateSeries({ navSubtitle: value })}
+          value={series.navSubtitle}
+        />
+      </FieldGroup>
+
+      <FieldGroup title="Hero Image">
+        <TextField
+          label="Hero Image URL"
+          onChange={(value) => updateSeries({ heroImage: value })}
+          value={series.heroImage || ""}
+        />
+        {series.heroImage ? (
+          <div className="overflow-hidden rounded-md border border-gold/15 bg-ink">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt="Series hero"
+              className="h-44 w-full object-cover"
+              src={series.heroImage}
+            />
+          </div>
+        ) : null}
+        <div className="rounded-md border border-gold/10 bg-ink p-4">
+          <input
+            accept="image/*"
+            className="w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-sm text-parchment file:mr-3 file:rounded-md file:border-0 file:bg-gold/15 file:px-3 file:py-2 file:text-parchment"
+            onChange={(event) => setHeroFile(event.target.files?.[0] || null)}
+            type="file"
+          />
+          <button
+            className="mt-4 inline-flex items-center justify-center gap-2 rounded-md border border-gold/30 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold disabled:opacity-50"
+            disabled={!heroFile}
+            onClick={uploadHeroImage}
+            type="button"
+          >
+            <Upload size={16} />
+            Upload Hero Image
+          </button>
+          <p className="mt-3 text-sm italic text-muted">{heroStatus}</p>
+        </div>
+      </FieldGroup>
+
+      <FieldGroup title="Home Page Section">
+        <TextField
+          label="Home Section Eyebrow"
+          onChange={(value) =>
+            updateSeries({ homeSection: { ...series.homeSection, eyebrow: value } })
+          }
+          value={series.homeSection.eyebrow}
+        />
+        <TextField
+          label="Home Section Title"
+          onChange={(value) =>
+            updateSeries({ homeSection: { ...series.homeSection, title: value } })
+          }
+          value={series.homeSection.title}
+        />
+        <TextAreaField
+          label="Home Section Body"
+          onChange={(value) =>
+            updateSeries({
+              homeSection: { ...series.homeSection, body: toParagraphs(value) }
+            })
+          }
+          rows={5}
+          value={fromParagraphs(series.homeSection.body)}
+        />
+        <TextField
+          label="Home Section Button Label"
+          onChange={(value) =>
+            updateSeries({ homeSection: { ...series.homeSection, ctaLabel: value } })
+          }
+          value={series.homeSection.ctaLabel}
+        />
+      </FieldGroup>
+
+      <FieldGroup title="Series Page">
         <TextField
           label="Eyebrow"
           onChange={(value) => updateSeries({ eyebrow: value })}
@@ -4948,6 +5085,26 @@ function PagesPanel({
 
       <FieldGroup title="Series Page">
         <TextField
+          label="Nav Label (The Inward Fire entry)"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              series: { ...current.series, navLabel: value }
+            }))
+          }
+          value={content.series.navLabel || "The Inward Fire"}
+        />
+        <TextField
+          label="Nav Subtitle (small caption under the label)"
+          onChange={(value) =>
+            setContent((current) => ({
+              ...current,
+              series: { ...current.series, navSubtitle: value }
+            }))
+          }
+          value={content.series.navSubtitle || "Eighteen booklets"}
+        />
+        <TextField
           label="Series Title"
           onChange={(value) =>
             setContent((current) => ({
@@ -5179,6 +5336,21 @@ function NavigationPanel({
                 }))
               }
               value={link.href}
+            />
+            <TextField
+              label={`Link ${index + 1} Subtitle (optional caption)`}
+              onChange={(value) =>
+                setContent((current) => ({
+                  ...current,
+                  nav: {
+                    ...current.nav,
+                    links: current.nav.links.map((l, i) =>
+                      i === index ? { ...l, subtitle: value } : l
+                    )
+                  }
+                }))
+              }
+              value={link.subtitle || ""}
             />
           </div>
         ))}

@@ -73,7 +73,7 @@ export default async function InwardMirrorPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(seriesSchema) }}
       />
       <PageHeader
-        backgroundImage={media.pageHeroImage}
+        backgroundImage={series.heroImage || media.pageHeroImage}
         title={series.title}
         subtitle={series.subtitle}
       />

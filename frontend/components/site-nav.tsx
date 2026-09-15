@@ -30,14 +30,22 @@ export function SiteNav({ nav }: Props) {
           />
         </Link>
 
-        <nav className="hidden items-center gap-5 lg:gap-8 md:flex">
+        {/* Links carrying a subtitle render two lines, so the row aligns on the label. */}
+        <nav className="hidden items-start gap-5 lg:gap-8 md:flex">
           {links.map((link) => (
             <Link
-              className="font-label text-sm uppercase tracking-[0.22em] text-muted transition hover:text-gold"
+              className="group flex flex-col leading-none"
               href={link.href}
               key={link.href}
             >
-              {link.label}
+              <span className="font-label text-sm uppercase tracking-[0.22em] text-muted transition group-hover:text-gold">
+                {link.label}
+              </span>
+              {link.subtitle ? (
+                <span className="mt-1.5 font-body text-[11px] italic leading-tight tracking-normal text-muted/60 transition group-hover:text-gold/70">
+                  {link.subtitle}
+                </span>
+              ) : null}
             </Link>
           ))}
           <Link
@@ -63,12 +71,19 @@ export function SiteNav({ nav }: Props) {
           <nav className="mx-auto flex max-w-6xl flex-col gap-2">
             {links.map((link) => (
               <Link
-                className="border-b border-gold/10 py-3 font-label text-sm uppercase tracking-[0.22em] text-muted"
+                className="border-b border-gold/10 py-3"
                 href={link.href}
                 key={link.href}
                 onClick={() => setOpen(false)}
               >
-                {link.label}
+                <span className="block font-label text-sm uppercase tracking-[0.22em] text-muted">
+                  {link.label}
+                </span>
+                {link.subtitle ? (
+                  <span className="mt-1 block font-body text-xs italic leading-tight text-muted/60">
+                    {link.subtitle}
+                  </span>
+                ) : null}
               </Link>
             ))}
             <Link

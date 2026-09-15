@@ -10,14 +10,21 @@ import {
   MovementCard
 } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
-import { defaultSiteContent, movementSlug } from "@/lib/site-content";
+import {
+  defaultSiteContent,
+  isPublished,
+  movementSlug,
+  seriesBasePath
+} from "@/lib/site-content";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const content = await getSiteContent();
-  const { home } = content;
+  const { home, inwardMirror } = content;
   const media = { ...defaultSiteContent.media, ...(content.media || {}) };
+  const showInwardMirror = isPublished(inwardMirror.status);
+  const inwardMirrorPath = seriesBasePath(inwardMirror);
 
   return (
     <PageShell>
@@ -54,6 +61,52 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* The second series introduces itself directly under the hero, but only once it
+          is published — a draft series stays entirely off the public site. */}
+      {showInwardMirror ? (
+        <WideSection>
+          <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+            <div className="fade-up">
+              <p className="font-label text-sm uppercase tracking-[0.26em] text-gold">
+                {inwardMirror.homeSection.eyebrow}
+              </p>
+              <h2 className="responsive-section-title mt-4 font-display font-semibold text-parchment">
+                {inwardMirror.homeSection.title}
+              </h2>
+              <p className="mt-4 text-lg italic leading-8 text-muted">
+                {inwardMirror.subtitle}
+              </p>
+              <div className="responsive-prose mt-6 space-y-4 text-parchment/84">
+                {inwardMirror.homeSection.body.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+              </div>
+              <div className="mt-9">
+                <PrimaryLink
+                  cta={{
+                    label: inwardMirror.homeSection.ctaLabel,
+                    href: inwardMirrorPath
+                  }}
+                />
+              </div>
+            </div>
+            {inwardMirror.heroImage ? (
+              <div className="relative overflow-hidden rounded-md border border-gold/15 bg-ink shadow-[0_18px_55px_rgba(0,0,0,0.3)]">
+                <div className="aspect-[4/3] w-full">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    alt={inwardMirror.title}
+                    className="h-full w-full object-cover opacity-90"
+                    src={inwardMirror.heroImage}
+                  />
+                </div>
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/70 via-transparent to-transparent" />
+              </div>
+            ) : null}
+          </div>
+        </WideSection>
+      ) : null}
 
       <Section>
         <SectionTitle>{home.why.title}</SectionTitle>

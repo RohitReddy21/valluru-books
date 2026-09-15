@@ -1,6 +1,8 @@
 export type Cta = {
   label: string;
   href: string;
+  /** Optional caption rendered under the label in the main navigation. */
+  subtitle?: string;
 };
 
 export type Movement = {
@@ -114,15 +116,24 @@ export type BookSeries = {
   routeSegment: string;
   status?: PublishStatus;
   navLabel: string;
+  navSubtitle: string;
   eyebrow: string;
   title: string;
   subtitle: string;
+  heroImage?: string;
   opening: string[];
   readingOrderNote: string;
   bookletsHeading: string;
   bookletsIntro: string;
   booklets: Booklet[];
   closing: string[];
+  /** The series' own section on the home page. Hidden while the series is not published. */
+  homeSection: {
+    eyebrow: string;
+    title: string;
+    body: string[];
+    ctaLabel: string;
+  };
   seo?: SeoMetadata;
 };
 
@@ -172,6 +183,8 @@ export type SiteContent = {
     closingLine: string;
   };
   series: {
+    navLabel?: string;
+    navSubtitle?: string;
     title: string;
     subtitle: string;
     opening: string[];
@@ -226,8 +239,8 @@ export const defaultSiteContent: SiteContent = {
     logo: "The Valluru",
     links: [
       { label: "Home", href: "/" },
-      { label: "The Series", href: "/series" },
       { label: "Movements", href: "/movements" },
+      { label: "Inward Series", href: "/inward-series" },
       { label: "About", href: "/about" }
       // { label: "Cart", href: "/cart" }
     ],
@@ -355,6 +368,8 @@ export const defaultSiteContent: SiteContent = {
       "Come in. Sit. Read. Carry what helps. Leave what does not."
   },
   series: {
+    navLabel: "The Inward Fire",
+    navSubtitle: "Eighteen booklets",
     title: "The Inward Fire Series",
     subtitle:
       "Eighteen booklets on dharma, maya, nada, language, surrender, memory, the long inward journey, and the human field around the seeker.",
@@ -630,10 +645,12 @@ export const defaultSiteContent: SiteContent = {
     routeSegment: "inward-mirror",
     status: "draft",
     navLabel: "The Inward Mirror",
+    navSubtitle: "A new series",
     eyebrow: "The Inward Mirror · Sasidhar Valluru",
     title: "The Inward Mirror",
     subtitle:
       "A second series of booklets. Replace this subtitle from the admin editor before publishing.",
+    heroImage: "/inward-mirror-hero.svg",
     opening: [
       "The Inward Mirror is the second series. Replace this opening paragraph from the admin editor.",
       "Each booklet in this series asks one inward question and stays with it. Replace this paragraph from the admin editor."
@@ -658,6 +675,15 @@ export const defaultSiteContent: SiteContent = {
       "Replace this closing paragraph from the admin editor.",
       "Read slowly. Return when needed."
     ],
+    homeSection: {
+      eyebrow: "A Second Series",
+      title: "The Inward Mirror",
+      body: [
+        "Replace this home page paragraph from the admin editor. It introduces The Inward Mirror to readers arriving on the home page.",
+        "Replace this second paragraph from the admin editor."
+      ],
+      ctaLabel: "Enter The Inward Mirror"
+    },
     seo: {
       title: "The Inward Mirror — The Valluru",
       description:

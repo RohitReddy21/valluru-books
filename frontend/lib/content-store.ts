@@ -6,6 +6,7 @@ import {
   seriesBasePath,
   type BookSeries,
   type Booklet,
+  type Cta,
   type Movement,
   type SiteContent
 } from "@/lib/site-content";
@@ -105,6 +106,11 @@ function normalizeBookSeries(
     opening: asArray(saved?.opening, defaults.opening),
     closing: asArray(saved?.closing, defaults.closing),
     booklets: Array.isArray(saved?.booklets) ? saved.booklets : defaults.booklets,
+    homeSection: {
+      ...defaults.homeSection,
+      ...(saved?.homeSection || {}),
+      body: asArray(saved?.homeSection?.body, defaults.homeSection.body)
+    },
     seo: {
       ...defaults.seo,
       ...(saved?.seo || {})
@@ -112,11 +118,7 @@ function normalizeBookSeries(
   };
 }
 
-function withSeriesLink(
-  links: Array<{ label: string; href: string }>,
-  series: BookSeries,
-  afterHref: string
-) {
+function withSeriesLink(links: Cta[], series: BookSeries, afterHref: string) {
   const href = seriesBasePath(series);
   const existingIndex = links.findIndex((link) => link.href === href);
 
@@ -124,13 +126,14 @@ function withSeriesLink(
     return existingIndex === -1 ? links : links.filter((_, index) => index !== existingIndex);
   }
 
+  const link = { label: series.navLabel, href, subtitle: series.navSubtitle };
+
   if (existingIndex !== -1) {
-    return links;
+    return links.map((existing, index) => (index === existingIndex ? link : existing));
   }
 
   const nextLinks = [...links];
-  const anchorIndex = nextLinks.findIndex((link) => link.href === afterHref);
-  const link = { label: series.navLabel, href };
+  const anchorIndex = nextLinks.findIndex((existing) => existing.href === afterHref);
 
   if (anchorIndex === -1) {
     nextLinks.push(link);
@@ -139,6 +142,42 @@ function withSeriesLink(
   }
 
   return nextLinks;
+}
+
+/** Labels for the Inward Fire nav entry that predate the two-series naming. */
+const staleSeriesNavLabels = new Set(["The Series", "The Books", "Series", "Books"]);
+
+/**
+ * Keeps the Inward Fire entry present, named, and captioned. Its label was "The Series"
+ * before a second series existed, so saved content still carrying that wording is renamed.
+ */
+function withInwardFireLink(
+  links: Cta[],
+  series: Pick<SiteContent["series"], "navLabel" | "navSubtitle">,
+  atIndex: number
+) {
+  const label = series.navLabel || "The Inward Fire";
+  const subtitle = series.navSubtitle || "Eighteen booklets";
+  const existingIndex = links.findIndex((link) => link.href === "/series");
+
+  if (existingIndex === -1) {
+    const nextLinks = [...links];
+    nextLinks.splice(Math.min(atIndex, nextLinks.length), 0, { label, href: "/series", subtitle });
+
+    return nextLinks;
+  }
+
+  return links.map((link, index) => {
+    if (index !== existingIndex) {
+      return link;
+    }
+
+    return {
+      ...link,
+      label: staleSeriesNavLabels.has(link.label.trim()) ? label : link.label,
+      subtitle: link.subtitle || subtitle
+    };
+  });
 }
 
 const movementAssetFields = ["pdf", "coverImage"] as const;
@@ -272,9 +311,17 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
     defaultSiteContent.inwardMirror
   );
 
+  const inwardFireNav = {
+    navLabel: content?.series?.navLabel || defaultSiteContent.series.navLabel,
+    navSubtitle: content?.series?.navSubtitle || defaultSiteContent.series.navSubtitle
+  };
+
+  // "/inward-series" was never a route; drop it so saved content cannot link to a 404.
+  const deadNavHrefs = new Set(["/essays", "/cart", "/checkout", "/inward-series"]);
+
   // Ensure "Movements" is in nav links
   const navLinks = [...asArray(nav.links, defaultSiteContent.nav.links)].filter(
-    (link) => link.href !== "/essays" && link.href !== "/cart" && link.href !== "/checkout"
+    (link) => !deadNavHrefs.has(link.href)
   );
   const hasMovementsInNav = navLinks.some((link) => link.href === "/movements");
   if (!hasMovementsInNav) {
@@ -300,9 +347,18 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
     }
   }
 
-  // Additional series only reach the nav and footer once they are published.
-  const navLinksWithSeries = withSeriesLink(navLinks, inwardMirror, "/movements");
-  const footerLinksWithSeries = withSeriesLink(footerLinks, inwardMirror, "/movements");
+  // The Inward Fire entry is renamed and captioned; the Inward Mirror entry only reaches
+  // the nav and footer once the series is published.
+  const navLinksWithSeries = withSeriesLink(
+    withInwardFireLink(navLinks, inwardFireNav, 1),
+    inwardMirror,
+    "/movements"
+  );
+  const footerLinksWithSeries = withSeriesLink(
+    withInwardFireLink(footerLinks, inwardFireNav, 0),
+    inwardMirror,
+    "/movements"
+  );
 
   const codeSeriesOverviewMovements = defaultSiteContent.home.seriesOverview.movements.map(
     (movement, index) =>
