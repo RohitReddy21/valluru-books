@@ -31,6 +31,12 @@ const booklets = [
   { slug: 'booklet-eighteen-when-the-bond-becomes-a-claim', changefreq: 'monthly' },
 ];
 
+// The Inward Mirror is still a draft series: /inward-mirror returns 404, so nothing from
+// it belongs in the sitemap yet. When it is published from /admin, flip this to true and
+// list its booklet slugs (the `numberLabel-title` form used by the public URLs) below.
+const inwardMirrorPublished = false;
+const inwardMirrorBooklets = [];
+
 const movements = [
   { slug: 'the-inward-map', changefreq: 'monthly' },
   { slug: 'the-seeker-and-the-long-work', changefreq: 'monthly' },
@@ -63,6 +69,25 @@ function generateSitemapXml() {
     xml += '    <priority>0.8</priority>\n';
     xml += '  </url>\n';
   });
+
+  // The Inward Mirror series pages
+  if (inwardMirrorPublished) {
+    xml += '  <url>\n';
+    xml += `    <loc>${BASE_URL}/inward-mirror</loc>\n`;
+    xml += `    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>\n`;
+    xml += '    <changefreq>weekly</changefreq>\n';
+    xml += '    <priority>0.9</priority>\n';
+    xml += '  </url>\n';
+
+    inwardMirrorBooklets.forEach((booklet) => {
+      xml += '  <url>\n';
+      xml += `    <loc>${BASE_URL}/inward-mirror/${booklet.slug}</loc>\n`;
+      xml += `    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>\n`;
+      xml += `    <changefreq>${booklet.changefreq}</changefreq>\n`;
+      xml += '    <priority>0.8</priority>\n';
+      xml += '  </url>\n';
+    });
+  }
 
   // Movement pages
   movements.forEach((movement) => {

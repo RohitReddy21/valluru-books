@@ -1036,6 +1036,50 @@ function bookletPublicSlug(booklet = {}) {
   return `${numberPart}-${titlePart}`;
 }
 
+// Every book series on the site, in reader-facing order. The Inward Fire series predates
+// multi-series support and lives on `content.series` at /series; series added afterwards
+// use their own top-level key and carry the route segment their pages are served from.
+function getContentSeriesList(content = {}) {
+  const list = [];
+
+  if (content?.series) {
+    list.push({ key: "series", routeSegment: "series", series: content.series });
+  }
+
+  if (content?.inwardMirror) {
+    list.push({
+      key: "inwardMirror",
+      routeSegment: "inward-mirror",
+      series: content.inwardMirror
+    });
+  }
+
+  return list;
+}
+
+// Booklets from every series, each tagged with the series it came from.
+function getAllContentBooklets(content = {}) {
+  const entries = [];
+
+  for (const seriesEntry of getContentSeriesList(content)) {
+    for (const booklet of seriesEntry.series?.booklets || []) {
+      entries.push({ ...seriesEntry, booklet });
+    }
+  }
+
+  return entries;
+}
+
+function findContentBookletEntry(content, slug) {
+  const target = String(slug || "").trim();
+
+  if (!target) {
+    return null;
+  }
+
+  return getAllContentBooklets(content).find((entry) => entry.booklet?.slug === target) || null;
+}
+
 function movementAnnouncementSlug(movement = {}, index = 0) {
   return (
     slugSegment(movement.slug) ||
@@ -1062,10 +1106,12 @@ function getAnnouncementCandidates(content = {}) {
   const siteUrl = getPublicSiteUrl();
   const candidates = new Map();
 
-  for (const booklet of content?.series?.booklets || []) {
+  for (const { booklet, routeSegment, series } of getAllContentBooklets(content)) {
     const slug = String(booklet?.slug || "").trim();
 
-    if (!slug || !isPublishedStatus(booklet?.status)) {
+    // A booklet inside an unpublished series is not announced, even if the booklet itself
+    // is marked published — its public page does not exist yet.
+    if (!slug || !isPublishedStatus(booklet?.status) || !isPublishedStatus(series?.status)) {
       continue;
     }
 
@@ -1079,7 +1125,7 @@ function getAnnouncementCandidates(content = {}) {
       title,
       description: booklet.subtitle || booklet.description || "",
       hasPdf: Boolean(booklet.pdf),
-      ctaUrl: `${siteUrl}/series/${bookletPublicSlug(booklet)}`
+      ctaUrl: `${siteUrl}/${routeSegment}/${bookletPublicSlug(booklet)}`
     });
   }
 
@@ -1685,7 +1731,7 @@ async function syncContentPdfAssets(db, content = null) {
   const siteContent = content || (await getSiteContent());
   const assets = [];
 
-  for (const booklet of siteContent?.series?.booklets || []) {
+  for (const { booklet } of getAllContentBooklets(siteContent)) {
     if (booklet.pdf) {
       assets.push({
         url: booklet.pdf,
@@ -1804,7 +1850,7 @@ async function applyPdfAssignment(media, assignment) {
   const previousContent = cloneContent(content);
 
   if (assignment.type === "booklet") {
-    const booklet = content?.series?.booklets?.find((item) => item.slug === assignment.slug);
+    const booklet = findContentBookletEntry(content, assignment.slug)?.booklet;
 
     if (!booklet) {
       throw new Error("Booklet not found.");
@@ -1855,7 +1901,7 @@ async function clearPdfReferences(url) {
   const content = await getSiteContent();
   let changed = false;
 
-  for (const booklet of content?.series?.booklets || []) {
+  for (const { booklet } of getAllContentBooklets(content)) {
     if (booklet.pdf === url) {
       booklet.pdf = "";
       changed = true;
@@ -2982,7 +3028,7 @@ app.post("/api/admin/migrate-storage-to-supabase", verifyAdmin, async (request, 
     for (const file of bookletFiles) {
       await migrateFile("booklet_pdfs", file, async (tempFile) => {
         const slug = path.basename(file.filename || "", ".pdf");
-        const booklet = content?.series?.booklets?.find((item) => item.slug === slug);
+        const booklet = findContentBookletEntry(content, slug)?.booklet;
         const uploaded = await uploadToSupabase(
           { ...tempFile, mimetype: "application/pdf" },
           getStorageTarget({ ...tempFile, mimetype: "application/pdf" }, "books/pdfs", "book-pdf")
@@ -3354,7 +3400,7 @@ app.post(
       }
 
       const content = await getSiteContent();
-      const booklet = content?.series?.booklets?.find((item) => item.slug === bookletSlug);
+      const booklet = findContentBookletEntry(content, bookletSlug)?.booklet;
 
       if (!booklet) {
         console.log("[upload-pdf] Booklet not found:", bookletSlug);
@@ -3638,11 +3684,13 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
     console.log("[booklets/:slug/pdf] Request for:", slug);
 
     const content = await getSiteContent();
-    const booklet = content?.series?.booklets?.find((item) => item.slug === slug);
+    const entry = findContentBookletEntry(content, slug);
+    const booklet = entry?.booklet;
 
     console.log("[booklets/:slug/pdf] Booklet metadata:", {
       slug,
       bookletFound: !!booklet,
+      seriesKey: entry?.key,
       status: booklet?.status,
       published: booklet?.status === "published" || !booklet?.status
     });
@@ -3655,6 +3703,14 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
 
     if (booklet.status && booklet.status !== "published") {
       console.log("[booklets/:slug/pdf] Booklet not published:", booklet.status);
+      response.status(404).json({ error: "Booklet not found." });
+      return;
+    }
+
+    // Booklets in an unpublished series stay unreachable, so a draft series cannot leak
+    // its PDFs through a guessed URL.
+    if (!isPublishedStatus(entry.series?.status)) {
+      console.log("[booklets/:slug/pdf] Series not published:", entry.series?.status);
       response.status(404).json({ error: "Booklet not found." });
       return;
     }

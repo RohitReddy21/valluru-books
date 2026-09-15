@@ -125,7 +125,13 @@ export function SecondaryLink({ cta }: { cta: Cta }) {
   );
 }
 
-export function BookletCard({ booklet }: { booklet: Booklet }) {
+export function BookletCard({
+  booklet,
+  basePath = "/series"
+}: {
+  booklet: Booklet;
+  basePath?: string;
+}) {
   const badge = booklet.badge || booklet.tag || "AVAILABLE";
   const cardBody = getBookletCardBody(booklet);
 
@@ -168,7 +174,7 @@ export function BookletCard({ booklet }: { booklet: Booklet }) {
             </p>
           )}
           <div className="mt-auto flex flex-wrap gap-3 pt-6">
-            <PrimaryLink cta={{ label: getBookletReadButtonText(booklet), href: `/series/${bookletPublicSlug(booklet)}` }} />
+            <PrimaryLink cta={{ label: getBookletReadButtonText(booklet), href: `${basePath}/${bookletPublicSlug(booklet)}` }} />
 
             {/* Add to cart is temporarily disabled.
               <button

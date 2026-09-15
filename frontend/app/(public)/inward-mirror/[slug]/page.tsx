@@ -1,0 +1,330 @@
+import type { Metadata } from "next";
+import { notFound, permanentRedirect } from "next/navigation";
+import { BookletReader } from "@/components/booklet-reader";
+import { ReflectionForm } from "@/components/reflection-form";
+import { BackLink, BookletCard, PageShell, PrimaryLink } from "@/components/ui";
+import { Breadcrumb } from "@/components/breadcrumb";
+import { FaqAccordion } from "@/components/faq-accordion";
+import {
+  bookletMatchesSlug,
+  bookletPublicSlug,
+  defaultSiteContent,
+  getBookletDetailIntro,
+  getBookletDetailSubtitle,
+  getBookletFaqs,
+  getBookletNeighbors,
+  isPublished,
+  seriesBasePath
+} from "@/lib/site-content";
+import { getSiteContent } from "@/lib/content-store";
+
+export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const content = await getSiteContent();
+  const series = content.inwardMirror;
+
+  if (!isPublished(series.status)) {
+    return { title: "Not Found — The Valluru", robots: "noindex, nofollow" };
+  }
+
+  const booklet = series.booklets.find(
+    (item) => bookletMatchesSlug(item, slug) && isPublished(item.status)
+  );
+
+  if (!booklet) {
+    return {
+      title: "Booklet Not Found — The Valluru"
+    };
+  }
+
+  const title = `${booklet.title} — The Valluru`;
+  const description =
+    booklet.seo?.description || getBookletDetailIntro(booklet) || `A booklet from ${series.title}`;
+  const ogImage = booklet.coverImage || "https://www.thevalluru.org/og/default.jpg";
+  const canonical = `https://www.thevalluru.org${seriesBasePath(series)}/${bookletPublicSlug(booklet)}`;
+
+  return {
+    title,
+    description,
+    keywords: booklet.seo?.keywords
+      ? booklet.seo.keywords.split(",").map((keyword) => keyword.trim())
+      : ["dharma", "booklet"],
+    openGraph: {
+      type: "website",
+      title,
+      description,
+      url: canonical,
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: booklet.title
+        }
+      ]
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage]
+    },
+    alternates: {
+      canonical
+    }
+  };
+}
+
+export default async function InwardMirrorBookletPage({
+  params
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const content = await getSiteContent();
+  const series = content.inwardMirror;
+
+  if (!isPublished(series.status)) {
+    notFound();
+  }
+
+  const basePath = seriesBasePath(series);
+  const media = { ...defaultSiteContent.media, ...(content.media || {}) };
+  const publishedBooklets = series.booklets.filter((item) => isPublished(item.status));
+  const booklet = publishedBooklets.find((item) => bookletMatchesSlug(item, slug));
+
+  if (!booklet) {
+    notFound();
+  }
+
+  const publicSlug = bookletPublicSlug(booklet);
+
+  if (slug !== publicSlug) {
+    permanentRedirect(`${basePath}/${publicSlug}`);
+  }
+
+  const neighbors = getBookletNeighbors(publishedBooklets, booklet.slug);
+  const relatedBooklets = (booklet.relatedBookletSlugs || [])
+    .map((relatedSlug) =>
+      publishedBooklets.find(
+        (item) => item.slug === relatedSlug || bookletPublicSlug(item) === relatedSlug
+      )
+    )
+    .filter((item): item is (typeof publishedBooklets)[number] => Boolean(item))
+    .filter((item) => item.slug !== booklet.slug);
+  const navigationBooklets = [
+    neighbors.previous ? { label: "Previous Booklet", booklet: neighbors.previous } : null,
+    neighbors.next ? { label: "Next Booklet", booklet: neighbors.next } : null
+  ].filter((item): item is { label: string; booklet: (typeof publishedBooklets)[number] } =>
+    Boolean(item)
+  );
+
+  const canonicalUrl = `https://www.thevalluru.org${basePath}/${publicSlug}`;
+  const coverImage = booklet.coverImage || "https://www.thevalluru.org/og/default.jpg";
+  const backgroundImage = booklet.backgroundImage || media.pageHeroImage;
+  const faqItems = getBookletFaqs(booklet);
+
+  const bookSchema = {
+    "@context": "https://schema.org",
+    "@type": "Book",
+    name: booklet.title,
+    headline: booklet.title,
+    description: getBookletDetailIntro(booklet),
+    url: canonicalUrl,
+    image: coverImage,
+    inLanguage: "en",
+    bookFormat: "EBook",
+    genre: booklet.categories?.length ? booklet.categories : ["Spiritual Literature"],
+    keywords: booklet.tags?.length ? booklet.tags.join(", ") : booklet.seo?.keywords,
+    isAccessibleForFree: !booklet.price || booklet.price === 0,
+    author: {
+      "@type": "Person",
+      name: "Sasidhar Valluru"
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "The Valluru",
+      url: "https://www.thevalluru.org"
+    },
+    offers: {
+      "@type": "Offer",
+      price: String(booklet.price ?? 0),
+      priceCurrency: booklet.currency || "INR",
+      availability: "https://schema.org/InStock",
+      url: canonicalUrl
+    },
+    mainEntityOfPage: canonicalUrl,
+    inSeries: {
+      "@type": "BookSeries",
+      name: series.title,
+      url: `https://www.thevalluru.org${basePath}`
+    }
+  };
+
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqItems.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer
+      }
+    }))
+  };
+
+  return (
+    <PageShell>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(bookSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+      />
+
+      <section
+        className="valluru-hero-image px-4 pb-12 pt-24 sm:px-5 sm:pt-32"
+        style={
+          backgroundImage
+            ? {
+                backgroundImage: `linear-gradient(180deg, rgba(15, 14, 12, 0.42), rgba(15, 14, 12, 0.96)), url("${backgroundImage}")`
+              }
+            : undefined
+        }
+      >
+        <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
+          <article className="max-w-3xl fade-up">
+            <Breadcrumb
+              crumbs={[
+                { label: "Home", href: "/" },
+                { label: series.title, href: basePath },
+                { label: booklet.title, href: `${basePath}/${publicSlug}` }
+              ]}
+            />
+
+            <p className="font-label text-sm uppercase tracking-[0.24em] text-muted">
+              {series.title} / {booklet.numberLabel}
+            </p>
+            <p className="mt-8 font-label text-sm uppercase tracking-[0.26em] text-gold">
+              {booklet.numberLabel}
+            </p>
+            <h1 className="responsive-page-title mt-4 font-display font-semibold text-parchment">
+              {booklet.title}
+            </h1>
+            <p className="mt-4 text-xl italic leading-tight text-muted sm:text-2xl">
+              {getBookletDetailSubtitle(booklet)}
+            </p>
+            {booklet.sourcesNote || booklet.authorNote || booklet.note ? (
+              <p className="mt-6 text-lg italic leading-8 text-muted">
+                {booklet.sourcesNote || booklet.authorNote || booklet.note}
+              </p>
+            ) : null}
+            {booklet.oneLineHook ? (
+              <p className="mt-8 border-l border-gold/45 pl-5 text-xl italic leading-8 text-gold sm:text-2xl">
+                {booklet.oneLineHook}
+              </p>
+            ) : null}
+            <p className="responsive-prose mt-8 text-parchment/88">
+              {getBookletDetailIntro(booklet)}
+            </p>
+            {booklet.readerPositioning ? (
+              <section className="mt-8 rounded-md border border-gold/15 bg-surface/55 p-5">
+                <p className="font-label text-xs uppercase tracking-[0.24em] text-gold">
+                  Reader Positioning
+                </p>
+                <p className="mt-3 text-lg leading-8 text-parchment/84">
+                  {booklet.readerPositioning}
+                </p>
+              </section>
+            ) : null}
+            {booklet.explores ? (
+              <section className="mt-6 rounded-md border border-gold/15 bg-surface/55 p-5">
+                <p className="font-label text-xs uppercase tracking-[0.24em] text-gold">
+                  What This Booklet Explores
+                </p>
+                <p className="mt-3 text-lg leading-8 text-parchment/84">{booklet.explores}</p>
+              </section>
+            ) : null}
+            <div className="mt-10 flex flex-wrap gap-3">
+              <BackLink href={basePath} label={`Back to ${series.title}`} />
+            </div>
+            <BookletReader booklet={booklet} />
+          </article>
+
+          {navigationBooklets.length > 0 ? (
+            <aside className="fade-up lg:sticky lg:top-28 lg:self-start">
+              <h2 className="font-label text-sm uppercase tracking-[0.23em] text-muted">
+                Previous / Next
+              </h2>
+              <div className="mt-5 grid gap-4">
+                {navigationBooklets.map((navigationItem) => (
+                  <div
+                    className="rounded-md border border-gold/15 bg-surface/70 p-5"
+                    key={`${navigationItem.label}-${navigationItem.booklet.slug}`}
+                  >
+                    <p className="font-label text-xs uppercase tracking-[0.2em] text-gold">
+                      {navigationItem.label}
+                    </p>
+                    <h3 className="mt-3 font-display text-xl text-parchment">
+                      {navigationItem.booklet.title}
+                    </h3>
+                    <div className="mt-4">
+                      <PrimaryLink
+                        cta={{
+                          label: "Read",
+                          href: `${basePath}/${bookletPublicSlug(navigationItem.booklet)}`
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </aside>
+          ) : null}
+        </div>
+      </section>
+      <section className="quiet-divider px-4 pb-12 pt-4 sm:px-5">
+        <div className="mx-auto max-w-3xl space-y-12">
+          <section>
+            <p className="font-label text-sm uppercase tracking-[0.24em] text-gold">FAQ</p>
+            <h2 className="mt-4 font-display text-3xl font-semibold text-parchment">
+              Frequently Asked Questions
+            </h2>
+            <FaqAccordion items={faqItems} />
+          </section>
+          <ReflectionForm bookletSlug={booklet.slug} />
+        </div>
+      </section>
+      {relatedBooklets.length > 0 && (
+        <section className="quiet-divider px-4 pb-20 pt-12 sm:px-5">
+          <div className="mx-auto max-w-6xl">
+            <p className="font-label text-sm uppercase tracking-[0.24em] text-gold">
+              Related Booklets
+            </p>
+            <h2 className="mt-4 font-display text-3xl font-semibold text-parchment">
+              Related Booklets
+            </h2>
+            <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {relatedBooklets.map((relatedBooklet) => (
+                <BookletCard
+                  basePath={basePath}
+                  booklet={relatedBooklet}
+                  key={relatedBooklet.slug}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+    </PageShell>
+  );
+}

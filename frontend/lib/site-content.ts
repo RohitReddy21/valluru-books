@@ -103,6 +103,29 @@ export type Booklet = {
   seo?: SeoMetadata;
 };
 
+/**
+ * A standalone book series with its own landing page and booklet detail pages.
+ *
+ * The Inward Fire Series predates this type and still lives on `SiteContent.series`
+ * at `/series`. Every series added after it uses this shape and is routed under
+ * `/{routeSegment}`.
+ */
+export type BookSeries = {
+  routeSegment: string;
+  status?: PublishStatus;
+  navLabel: string;
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  opening: string[];
+  readingOrderNote: string;
+  bookletsHeading: string;
+  bookletsIntro: string;
+  booklets: Booklet[];
+  closing: string[];
+  seo?: SeoMetadata;
+};
+
 export type SiteMedia = {
   homeHeroImage: string;
   pageHeroImage: string;
@@ -156,6 +179,7 @@ export type SiteContent = {
     booklets: Booklet[];
     closing: string[];
   };
+  inwardMirror: BookSeries;
   movements: {
     heroTitle?: string;
     heroSubtitle?: string;
@@ -599,6 +623,47 @@ export const defaultSiteContent: SiteContent = {
       "Read slowly. Return when needed."
     ]
   },
+  // The Inward Mirror ships as a draft: the series is hidden from the public site,
+  // the nav, and the footer until `status` is set to "published" from /admin.
+  // The copy below is placeholder scaffolding meant to be replaced from the admin editor.
+  inwardMirror: {
+    routeSegment: "inward-mirror",
+    status: "draft",
+    navLabel: "The Inward Mirror",
+    eyebrow: "The Inward Mirror · Sasidhar Valluru",
+    title: "The Inward Mirror",
+    subtitle:
+      "A second series of booklets. Replace this subtitle from the admin editor before publishing.",
+    opening: [
+      "The Inward Mirror is the second series. Replace this opening paragraph from the admin editor.",
+      "Each booklet in this series asks one inward question and stays with it. Replace this paragraph from the admin editor."
+    ],
+    readingOrderNote:
+      "Read them in sequence first. Replace this reading-order note from the admin editor.",
+    bookletsHeading: "The Inward Mirror Booklets",
+    bookletsIntro: "Explore every booklet in the reading order.",
+    booklets: [
+      {
+        slug: "mirror-booklet-one",
+        numberLabel: "Booklet One",
+        title: "New Booklet",
+        subtitle: "Subtitle",
+        description:
+          "Placeholder booklet. Edit the title, subtitle, and description from the admin editor, attach a PDF, then set the status to published.",
+        tag: "Coming Soon",
+        status: "draft"
+      }
+    ],
+    closing: [
+      "Replace this closing paragraph from the admin editor.",
+      "Read slowly. Return when needed."
+    ],
+    seo: {
+      title: "The Inward Mirror — The Valluru",
+      description:
+        "The Inward Mirror, a series of booklets by Sasidhar Valluru."
+    }
+  },
   movements: {
     items: [
       {
@@ -722,6 +787,19 @@ export const defaultSiteContent: SiteContent = {
 
 export function isPublished(status?: PublishStatus) {
   return !status || status === "published";
+}
+
+export function seriesBasePath(series: Pick<BookSeries, "routeSegment">) {
+  const segment = (series.routeSegment || "").replace(/^\/+|\/+$/g, "");
+
+  return `/${segment}`;
+}
+
+export function seriesBookletHref(
+  series: Pick<BookSeries, "routeSegment">,
+  booklet: Pick<Booklet, "slug" | "numberLabel" | "title">
+) {
+  return `${seriesBasePath(series)}/${bookletPublicSlug(booklet)}`;
 }
 
 export function getBookletCardSubtitle(booklet: Booklet) {

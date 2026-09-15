@@ -3,8 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Download, Eye, FileText, ImageIcon, Mail, Package, Plus, RefreshCw, RotateCcw, Save, Trash2, Upload } from "lucide-react";
 import { apiUrl } from "@/lib/api";
-import type { Booklet, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
-import { defaultSiteContent, getBookletMovementIndex, isBookletInMovement } from "@/lib/site-content";
+import type { BookSeries, Booklet, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
+import {
+  defaultSiteContent,
+  getBookletMovementIndex,
+  isBookletInMovement,
+  seriesBasePath
+} from "@/lib/site-content";
 import { ImageManagerPanel } from "@/components/image-manager-panel";
 
 type Props = {
@@ -12,8 +17,21 @@ type Props = {
   source: string;
 };
 
-type Tab = "dashboard" | "booklets" | "movements" | "pages" | "pdfs" | "media" | "images" | "orders" | "settings" | "navigation";
+type Tab =
+  | "dashboard"
+  | "booklets"
+  | "inward mirror"
+  | "movements"
+  | "pages"
+  | "pdfs"
+  | "media"
+  | "images"
+  | "orders"
+  | "settings"
+  | "navigation";
 type MediaTarget = "homeHeroImage" | "pageHeroImage" | "authorImage";
+/** A booklet in the PDF-assignment dropdown, labelled with the series it belongs to. */
+type BookletAssignmentOption = Booklet & { seriesTitle?: string };
 type DataExportType =
   | "all"
   | "subscribers"
@@ -308,6 +326,21 @@ export function AdminEditor({ initialContent, source }: Props) {
   const [bookletBackgroundStatus, setBookletBackgroundStatus] = useState(
     "Upload a background image for this booklet page."
   );
+  const [selectedMirrorSlug, setSelectedMirrorSlug] = useState(
+    initialContent.inwardMirror?.booklets[0]?.slug || ""
+  );
+  const [mirrorPdfFile, setMirrorPdfFile] = useState<File | null>(null);
+  const [mirrorUploadStatus, setMirrorUploadStatus] = useState(
+    "Upload a PDF and attach it to a booklet."
+  );
+  const [mirrorCoverFile, setMirrorCoverFile] = useState<File | null>(null);
+  const [mirrorCoverStatus, setMirrorCoverStatus] = useState(
+    "Upload a cover image for this booklet."
+  );
+  const [mirrorBackgroundFile, setMirrorBackgroundFile] = useState<File | null>(null);
+  const [mirrorBackgroundStatus, setMirrorBackgroundStatus] = useState(
+    "Upload a background image for this booklet page."
+  );
   const [status, setStatus] = useState("Edit content and save.");
   const [uploadStatus, setUploadStatus] = useState(
     "Upload a PDF and attach it to a booklet."
@@ -350,6 +383,31 @@ export function AdminEditor({ initialContent, source }: Props) {
     return Array.from(byKey.values());
   }, [mediaItems, pdfItems]);
 
+  const inwardMirror = useMemo(
+    () => content.inwardMirror || defaultSiteContent.inwardMirror,
+    [content.inwardMirror]
+  );
+  const selectedMirrorBooklet = useMemo(
+    () =>
+      inwardMirror.booklets.find((booklet) => booklet.slug === selectedMirrorSlug) ||
+      inwardMirror.booklets[0],
+    [inwardMirror.booklets, selectedMirrorSlug]
+  );
+  // A PDF in the library can be attached to a booklet in any series.
+  const assignableBooklets = useMemo<BookletAssignmentOption[]>(
+    () => [
+      ...content.series.booklets.map((booklet) => ({
+        ...booklet,
+        seriesTitle: content.series.title
+      })),
+      ...inwardMirror.booklets.map((booklet) => ({
+        ...booklet,
+        seriesTitle: inwardMirror.title
+      }))
+    ],
+    [content.series.booklets, content.series.title, inwardMirror.booklets, inwardMirror.title]
+  );
+
   function updateBooklet(slug: string, patch: Partial<Booklet>) {
     setContent((current) => ({
       ...current,
@@ -360,6 +418,101 @@ export function AdminEditor({ initialContent, source }: Props) {
         )
       }
     }));
+  }
+
+  function updateInwardMirror(patch: Partial<BookSeries>) {
+    setContent((current) => ({
+      ...current,
+      inwardMirror: {
+        ...(current.inwardMirror || defaultSiteContent.inwardMirror),
+        ...patch
+      }
+    }));
+  }
+
+  function updateMirrorBooklets(
+    transform: (booklets: Booklet[]) => Booklet[]
+  ) {
+    setContent((current) => {
+      const series = current.inwardMirror || defaultSiteContent.inwardMirror;
+
+      return {
+        ...current,
+        inwardMirror: {
+          ...series,
+          booklets: transform(series.booklets)
+        }
+      };
+    });
+  }
+
+  function updateMirrorBooklet(slug: string, patch: Partial<Booklet>) {
+    updateMirrorBooklets((booklets) =>
+      booklets.map((booklet) => (booklet.slug === slug ? { ...booklet, ...patch } : booklet))
+    );
+  }
+
+  function reorderMirrorBooklet(slug: string, targetIndex: number) {
+    updateMirrorBooklets((booklets) => {
+      const fromIndex = booklets.findIndex((booklet) => booklet.slug === slug);
+      const nextIndex = Math.max(0, Math.min(targetIndex, booklets.length - 1));
+
+      if (fromIndex === -1 || fromIndex === nextIndex) {
+        return booklets;
+      }
+
+      return moveArrayItem(booklets, fromIndex, nextIndex);
+    });
+  }
+
+  function updateMirrorBookletStatus(slug: string, statusValue: PublishStatus) {
+    updateMirrorBooklet(slug, { status: statusValue });
+  }
+
+  function bulkMirrorBookletStatus(statusValue: PublishStatus) {
+    updateMirrorBooklets((booklets) =>
+      booklets.map((booklet) => ({ ...booklet, status: statusValue }))
+    );
+  }
+
+  function addMirrorBooklet() {
+    // Slugs are the key for PDF lookups and read tracking across the whole site, so they
+    // stay unique per series rather than restarting at booklet-1.
+    const existingSlugs = new Set(inwardMirror.booklets.map((booklet) => booklet.slug));
+    let nextNumber = inwardMirror.booklets.length + 1;
+
+    while (existingSlugs.has(`mirror-booklet-${nextNumber}`)) {
+      nextNumber += 1;
+    }
+
+    const newBooklet: Booklet = {
+      slug: `mirror-booklet-${nextNumber}`,
+      numberLabel: `Booklet ${nextNumber}`,
+      title: "New Booklet",
+      status: "draft",
+      subtitle: "Subtitle",
+      description: "Add the full booklet description here.",
+      tag: "Available"
+    };
+
+    updateMirrorBooklets((booklets) => [...booklets, newBooklet]);
+    setSelectedMirrorSlug(newBooklet.slug);
+    setTab("inward mirror");
+  }
+
+  function deleteMirrorBooklet(slug: string) {
+    const target = inwardMirror.booklets.find((booklet) => booklet.slug === slug);
+
+    if (
+      !window.confirm(
+        `Delete "${target?.title || slug}" from ${inwardMirror.title}? Save afterwards to make it permanent.`
+      )
+    ) {
+      return;
+    }
+
+    updateMirrorBooklets((booklets) => booklets.filter((booklet) => booklet.slug !== slug));
+    setSelectedMirrorSlug((current) => (current === slug ? "" : current));
   }
 
   function reorderBooklet(slug: string, targetIndex: number) {
@@ -536,16 +689,43 @@ export function AdminEditor({ initialContent, source }: Props) {
     }
   }
 
-  async function uploadPdf() {
-    if (!pdfFile || !selectedBooklet) {
-      setUploadStatus("Choose a booklet and PDF file first.");
+  /**
+   * The backend attaches the PDF by looking the booklet up in saved content, so unsaved
+   * booklets (and unsaved renames) have to reach the server first — the same order the
+   * movement PDF upload already uses.
+   */
+  async function uploadBookletPdfFor(
+    booklet: Booklet | undefined,
+    file: File | null,
+    applyPatch: (slug: string, patch: Partial<Booklet>) => void,
+    setStatusText: (value: string) => void
+  ) {
+    if (!file || !booklet) {
+      setStatusText("Choose a booklet and PDF file first.");
       return;
     }
 
-    setUploadStatus("Uploading PDF...");
+    setStatusText("Saving content before upload...");
+
+    try {
+      const saveResponse = await persistContent();
+
+      if (!saveResponse.ok) {
+        const savePayload = (await saveResponse.json().catch(() => null)) as {
+          error?: string;
+        } | null;
+        setStatusText(savePayload?.error || "Save failed before PDF upload.");
+        return;
+      }
+    } catch {
+      setStatusText("Save failed before PDF upload.");
+      return;
+    }
+
+    setStatusText("Uploading PDF...");
     const formData = new FormData();
-    formData.append("bookletSlug", selectedBooklet.slug);
-    formData.append("pdf", pdfFile);
+    formData.append("bookletSlug", booklet.slug);
+    formData.append("pdf", file);
 
     try {
       const { ok, payload } = await uploadFormData<{
@@ -553,23 +733,36 @@ export function AdminEditor({ initialContent, source }: Props) {
         pdf?: string;
         media?: MediaAsset;
       }>("/api/admin/upload-pdf", formData, (percent) =>
-        setUploadStatus(`Uploading PDF... ${percent}%`)
+        setStatusText(`Uploading PDF... ${percent}%`)
       );
 
       if (!ok || !payload?.pdf) {
         const errorMsg = payload?.error || "PDF upload failed.";
-        setUploadStatus(typeof errorMsg === "string" ? errorMsg : "PDF upload failed.");
+        setStatusText(typeof errorMsg === "string" ? errorMsg : "PDF upload failed.");
         return;
       }
 
-      updateBooklet(selectedBooklet.slug, { pdf: payload.pdf });
+      applyPatch(booklet.slug, { pdf: payload.pdf });
       if (payload.media) {
         setPdfItems((current) => [payload.media as MediaAsset, ...current.filter((item) => item.id !== payload.media?.id)]);
       }
-      setUploadStatus(`Uploaded and attached to ${selectedBooklet.title}.`);
+      setStatusText(`Uploaded and attached to ${booklet.title}.`);
     } catch {
-      setUploadStatus("PDF upload failed. Check your connection and try again.");
+      setStatusText("PDF upload failed. Check your connection and try again.");
     }
+  }
+
+  function uploadPdf() {
+    return uploadBookletPdfFor(selectedBooklet, pdfFile, updateBooklet, setUploadStatus);
+  }
+
+  function uploadMirrorPdf() {
+    return uploadBookletPdfFor(
+      selectedMirrorBooklet,
+      mirrorPdfFile,
+      updateMirrorBooklet,
+      setMirrorUploadStatus
+    );
   }
 
   async function uploadMovementPdf(movementIndex: number, movementPdfFile: File, setMovementUploadStatus: (status: string) => void) {
@@ -622,23 +815,42 @@ export function AdminEditor({ initialContent, source }: Props) {
     setMovementUploadStatus("PDF uploaded and attached to this movement.");
   }
 
-  async function uploadBookletCover() {
-    if (!bookletCoverFile || !selectedBookletSlug) {
-      setBookletCoverStatus("Choose a booklet and cover image first.");
+  async function uploadBookletImageFor(
+    slug: string,
+    file: File | null,
+    imageRole: "cover" | "background",
+    applyPatch: (slug: string, patch: Partial<Booklet>) => void,
+    setStatusText: (value: string) => void,
+    clearFile: () => void
+  ) {
+    const isBackground = imageRole === "background";
+
+    if (!file || !slug) {
+      setStatusText(
+        isBackground
+          ? "Choose a booklet and background image first."
+          : "Choose a booklet and cover image first."
+      );
       return;
     }
 
-    setBookletCoverStatus("Uploading cover image to storage...");
+    setStatusText(
+      isBackground
+        ? "Uploading background image to storage..."
+        : "Uploading cover image to storage..."
+    );
+
     try {
       const formData = new FormData();
-      formData.append("file", bookletCoverFile);
-      formData.append("slug", selectedBookletSlug);
-
-      const headers = adminHeaders();
+      formData.append("file", file);
+      formData.append("slug", slug);
+      if (isBackground) {
+        formData.append("imageRole", "background");
+      }
 
       const response = await fetch(apiUrl("/api/admin/upload-booklet-cover"), {
         method: "POST",
-        headers,
+        headers: adminHeaders(),
         credentials: "include",
         body: formData
       });
@@ -646,63 +858,69 @@ export function AdminEditor({ initialContent, source }: Props) {
       if (!response.ok) {
         try {
           const error = await response.json();
-          setBookletCoverStatus(`Upload failed: ${error.error || "Unknown error"}`);
+          setStatusText(`Upload failed: ${error.error || "Unknown error"}`);
         } catch {
-          setBookletCoverStatus(`Upload failed: ${response.statusText || "Unknown error"}`);
+          setStatusText(`Upload failed: ${response.statusText || "Unknown error"}`);
         }
         return;
       }
 
       const data = await response.json();
-      updateBooklet(selectedBookletSlug, { coverImage: data.url });
-      setBookletCoverStatus("✓ Image uploaded. Click the Save button to persist changes.");
-      setBookletCoverFile(null);
+      applyPatch(slug, isBackground ? { backgroundImage: data.url } : { coverImage: data.url });
+      setStatusText(
+        isBackground
+          ? "✓ Background uploaded. Click the Save button to persist changes."
+          : "✓ Image uploaded. Click the Save button to persist changes."
+      );
+      clearFile();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Error uploading image";
-      setBookletCoverStatus(errorMessage);
+      setStatusText(errorMessage);
     }
   }
 
-  async function uploadBookletBackground() {
-    if (!bookletBackgroundFile || !selectedBookletSlug) {
-      setBookletBackgroundStatus("Choose a booklet and background image first.");
-      return;
-    }
+  function uploadBookletCover() {
+    return uploadBookletImageFor(
+      selectedBookletSlug,
+      bookletCoverFile,
+      "cover",
+      updateBooklet,
+      setBookletCoverStatus,
+      () => setBookletCoverFile(null)
+    );
+  }
 
-    setBookletBackgroundStatus("Uploading background image to storage...");
-    try {
-      const formData = new FormData();
-      formData.append("file", bookletBackgroundFile);
-      formData.append("slug", selectedBookletSlug);
-      formData.append("imageRole", "background");
+  function uploadBookletBackground() {
+    return uploadBookletImageFor(
+      selectedBookletSlug,
+      bookletBackgroundFile,
+      "background",
+      updateBooklet,
+      setBookletBackgroundStatus,
+      () => setBookletBackgroundFile(null)
+    );
+  }
 
-      const headers = adminHeaders();
+  function uploadMirrorCover() {
+    return uploadBookletImageFor(
+      selectedMirrorBooklet?.slug || "",
+      mirrorCoverFile,
+      "cover",
+      updateMirrorBooklet,
+      setMirrorCoverStatus,
+      () => setMirrorCoverFile(null)
+    );
+  }
 
-      const response = await fetch(apiUrl("/api/admin/upload-booklet-cover"), {
-        method: "POST",
-        headers,
-        credentials: "include",
-        body: formData
-      });
-
-      if (!response.ok) {
-        try {
-          const error = await response.json();
-          setBookletBackgroundStatus(`Upload failed: ${error.error || "Unknown error"}`);
-        } catch {
-          setBookletBackgroundStatus(`Upload failed: ${response.statusText || "Unknown error"}`);
-        }
-        return;
-      }
-
-      const data = await response.json();
-      updateBooklet(selectedBookletSlug, { backgroundImage: data.url });
-      setBookletBackgroundStatus("✓ Background uploaded. Click the Save button to persist changes.");
-      setBookletBackgroundFile(null);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Error uploading image";
-      setBookletBackgroundStatus(errorMessage);
-    }
+  function uploadMirrorBackground() {
+    return uploadBookletImageFor(
+      selectedMirrorBooklet?.slug || "",
+      mirrorBackgroundFile,
+      "background",
+      updateMirrorBooklet,
+      setMirrorBackgroundStatus,
+      () => setMirrorBackgroundFile(null)
+    );
   }
 
   async function loadAdminData() {
@@ -1532,7 +1750,7 @@ export function AdminEditor({ initialContent, source }: Props) {
             </button>
 
             <div className="mt-5 grid gap-2">
-              {(["dashboard", "booklets", "movements", "pages", "pdfs", "media", "images", "orders", "settings", "navigation"] as Tab[]).map((item) => (
+              {(["dashboard", "booklets", "inward mirror", "movements", "pages", "pdfs", "media", "images", "orders", "settings", "navigation"] as Tab[]).map((item) => (
                 <button
                   className={`rounded-md border px-4 py-3 text-left font-label text-sm uppercase tracking-[0.18em] transition ${
                     tab === item
@@ -1611,6 +1829,36 @@ export function AdminEditor({ initialContent, source }: Props) {
               />
             ) : null}
 
+            {tab === "inward mirror" ? (
+              <InwardMirrorPanel
+                addBooklet={addMirrorBooklet}
+                booklet={selectedMirrorBooklet}
+                bulkBookStatus={bulkMirrorBookletStatus}
+                deleteBooklet={deleteMirrorBooklet}
+                fallbackBackgroundImage={content.media.pageHeroImage}
+                mediaItems={combinedMediaItems}
+                reorderBooklet={reorderMirrorBooklet}
+                selectedSlug={selectedMirrorBooklet?.slug || ""}
+                series={inwardMirror}
+                setSelectedSlug={setSelectedMirrorSlug}
+                updateBooklet={updateMirrorBooklet}
+                updateBookStatus={updateMirrorBookletStatus}
+                updateSeries={updateInwardMirror}
+                pdfFile={mirrorPdfFile}
+                setPdfFile={setMirrorPdfFile}
+                uploadPdf={uploadMirrorPdf}
+                uploadStatus={mirrorUploadStatus}
+                bookletCoverFile={mirrorCoverFile}
+                setBookletCoverFile={setMirrorCoverFile}
+                uploadBookletCover={uploadMirrorCover}
+                bookletCoverStatus={mirrorCoverStatus}
+                bookletBackgroundFile={mirrorBackgroundFile}
+                setBookletBackgroundFile={setMirrorBackgroundFile}
+                uploadBookletBackground={uploadMirrorBackground}
+                bookletBackgroundStatus={mirrorBackgroundStatus}
+              />
+            ) : null}
+
             {tab === "movements" ? (
               <MovementsPanel
                 addBooklet={addBooklet}
@@ -1635,7 +1883,7 @@ export function AdminEditor({ initialContent, source }: Props) {
 
             {tab === "pdfs" ? (
               <PdfsPanel
-                booklets={content.series.booklets}
+                booklets={assignableBooklets}
                 deletePdfAsset={deletePdfAsset}
                 loadPdfs={loadPdfs}
                 movements={content.home.seriesOverview.movements}
@@ -2405,7 +2653,7 @@ function PdfsPanel({
   updatePdfAsset,
   uploadLibraryPdf
 }: {
-  booklets: Booklet[];
+  booklets: BookletAssignmentOption[];
   deletePdfAsset: (id?: string, clearReferences?: boolean) => void;
   loadPdfs: () => void;
   movements: Movement[];
@@ -2525,7 +2773,7 @@ function PdfAssetCard({
   replacePdfAsset,
   updatePdfAsset
 }: {
-  booklets: Booklet[];
+  booklets: BookletAssignmentOption[];
   deletePdfAsset: (id?: string, clearReferences?: boolean) => void;
   item: MediaAsset;
   movements: Movement[];
@@ -2656,6 +2904,7 @@ function PdfAssetCard({
               >
                 {booklets.map((booklet) => (
                   <option key={booklet.slug} value={booklet.slug}>
+                    {booklet.seriesTitle ? `${booklet.seriesTitle} — ` : ""}
                     {booklet.numberLabel}: {booklet.title}
                   </option>
                 ))}
@@ -3503,6 +3752,242 @@ function SettingsPanel({
   );
 }
 
+/**
+ * Editor for a series that lives on its own top-level content key (everything except the
+ * Inward Fire series). Series-level copy lives here; the booklet fields are the same ones
+ * the Inward Fire series uses, so the booklet editor itself is reused as-is.
+ */
+function InwardMirrorPanel({
+  series,
+  updateSeries,
+  booklet,
+  selectedSlug,
+  setSelectedSlug,
+  addBooklet,
+  deleteBooklet,
+  reorderBooklet,
+  updateBooklet,
+  updateBookStatus,
+  bulkBookStatus,
+  mediaItems,
+  pdfFile,
+  setPdfFile,
+  uploadPdf,
+  uploadStatus,
+  bookletCoverFile,
+  setBookletCoverFile,
+  uploadBookletCover,
+  bookletCoverStatus,
+  bookletBackgroundFile,
+  setBookletBackgroundFile,
+  uploadBookletBackground,
+  bookletBackgroundStatus,
+  fallbackBackgroundImage
+}: {
+  series: BookSeries;
+  updateSeries: (patch: Partial<BookSeries>) => void;
+  booklet?: Booklet;
+  selectedSlug: string;
+  setSelectedSlug: (slug: string) => void;
+  addBooklet: () => void;
+  deleteBooklet: (slug: string) => void;
+  reorderBooklet: (slug: string, targetIndex: number) => void;
+  updateBooklet: (slug: string, patch: Partial<Booklet>) => void;
+  updateBookStatus: (slug: string, status: PublishStatus) => void;
+  bulkBookStatus: (status: PublishStatus) => void;
+  mediaItems: MediaAsset[];
+  pdfFile: File | null;
+  setPdfFile: (file: File | null) => void;
+  uploadPdf: () => void;
+  uploadStatus: string;
+  bookletCoverFile: File | null;
+  setBookletCoverFile: (file: File | null) => void;
+  uploadBookletCover: () => void;
+  bookletCoverStatus: string;
+  bookletBackgroundFile: File | null;
+  setBookletBackgroundFile: (file: File | null) => void;
+  uploadBookletBackground: () => void;
+  bookletBackgroundStatus: string;
+  fallbackBackgroundImage: string;
+}) {
+  const basePath = seriesBasePath(series);
+  const isLive = !series.status || series.status === "published";
+  const publishedCount = series.booklets.filter(
+    (item) => !item.status || item.status === "published"
+  ).length;
+
+  return (
+    <div className="grid gap-6">
+      <div className="rounded-md border border-gold/25 bg-ink p-5">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+          <div>
+            <p className="font-label text-sm uppercase tracking-[0.2em] text-gold">
+              {series.title}
+            </p>
+            <p className="mt-2 text-base leading-7 text-muted">
+              {isLive
+                ? `Live at ${basePath} — ${publishedCount} of ${series.booklets.length} booklet(s) published.`
+                : `Hidden from the site. ${basePath} returns 404 and the series stays out of the nav, footer, and subscriber emails until it is published.`}
+            </p>
+          </div>
+          <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted md:w-64">
+            Series Status
+            <select
+              className="mt-3 w-full rounded-md border border-gold/20 bg-surface px-3 py-2 text-base normal-case tracking-normal text-parchment outline-none focus:border-gold/60"
+              onChange={(event) =>
+                updateSeries({ status: event.target.value as PublishStatus })
+              }
+              value={series.status || "published"}
+            >
+              <option value="draft">Draft (hidden)</option>
+              <option value="published">Published (live)</option>
+              <option value="archived">Archived (hidden)</option>
+            </select>
+          </label>
+        </div>
+        {isLive ? (
+          <a
+            className="mt-4 inline-flex items-center gap-2 font-label text-sm uppercase tracking-[0.18em] text-gold transition hover:text-parchment"
+            href={basePath}
+            rel="noreferrer"
+            target="_blank"
+          >
+            <Eye size={16} />
+            View Page
+          </a>
+        ) : null}
+      </div>
+
+      <FieldGroup title="Series Page">
+        <TextField
+          label="Nav Label"
+          onChange={(value) => updateSeries({ navLabel: value })}
+          value={series.navLabel}
+        />
+        <TextField
+          label="Eyebrow"
+          onChange={(value) => updateSeries({ eyebrow: value })}
+          value={series.eyebrow}
+        />
+        <TextField
+          label="Series Title"
+          onChange={(value) => updateSeries({ title: value })}
+          value={series.title}
+        />
+        <TextField
+          label="Series Subtitle"
+          onChange={(value) => updateSeries({ subtitle: value })}
+          value={series.subtitle}
+        />
+        <TextAreaField
+          label="Series Opening"
+          onChange={(value) => updateSeries({ opening: toParagraphs(value) })}
+          rows={6}
+          value={fromParagraphs(series.opening)}
+        />
+        <TextField
+          label="Series Reading Order Note"
+          onChange={(value) => updateSeries({ readingOrderNote: value })}
+          value={series.readingOrderNote}
+        />
+        <TextField
+          label="Booklet Grid Heading"
+          onChange={(value) => updateSeries({ bookletsHeading: value })}
+          value={series.bookletsHeading}
+        />
+        <TextField
+          label="Booklet Grid Intro"
+          onChange={(value) => updateSeries({ bookletsIntro: value })}
+          value={series.bookletsIntro}
+        />
+        <TextAreaField
+          label="Series Closing"
+          onChange={(value) => updateSeries({ closing: toParagraphs(value) })}
+          rows={6}
+          value={fromParagraphs(series.closing)}
+        />
+      </FieldGroup>
+
+      <FieldGroup title="Series SEO">
+        <TextField
+          label="SEO Title"
+          onChange={(value) => updateSeries({ seo: { ...series.seo, title: value } })}
+          value={series.seo?.title || ""}
+        />
+        <TextAreaField
+          label="SEO Description"
+          onChange={(value) => updateSeries({ seo: { ...series.seo, description: value } })}
+          rows={3}
+          value={series.seo?.description || ""}
+        />
+        <TextField
+          label="SEO Keywords (comma separated)"
+          onChange={(value) => updateSeries({ seo: { ...series.seo, keywords: value } })}
+          value={series.seo?.keywords || ""}
+        />
+      </FieldGroup>
+
+      {booklet ? (
+        <>
+          <div className="flex flex-col justify-between gap-3 rounded-md border border-gold/15 bg-ink p-5 sm:flex-row sm:items-center">
+            <p className="text-base leading-7 text-muted">
+              Editing <span className="text-parchment">{booklet.title}</span>
+            </p>
+            <button
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/25 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
+              onClick={() => deleteBooklet(booklet.slug)}
+              type="button"
+            >
+              <Trash2 size={16} />
+              Delete Booklet
+            </button>
+          </div>
+          <BookletPanel
+            addBooklet={addBooklet}
+            booklet={booklet}
+            booklets={series.booklets}
+            bulkBookStatus={bulkBookStatus}
+            mediaItems={mediaItems}
+            movements={[]}
+            pdfFile={pdfFile}
+            selectedSlug={selectedSlug}
+            setPdfFile={setPdfFile}
+            setSelectedSlug={setSelectedSlug}
+            reorderBooklet={reorderBooklet}
+            updateBooklet={updateBooklet}
+            updateBookStatus={updateBookStatus}
+            uploadPdf={uploadPdf}
+            uploadStatus={uploadStatus}
+            bookletCoverFile={bookletCoverFile}
+            setBookletCoverFile={setBookletCoverFile}
+            uploadBookletCover={uploadBookletCover}
+            bookletCoverStatus={bookletCoverStatus}
+            bookletBackgroundFile={bookletBackgroundFile}
+            setBookletBackgroundFile={setBookletBackgroundFile}
+            uploadBookletBackground={uploadBookletBackground}
+            bookletBackgroundStatus={bookletBackgroundStatus}
+            fallbackBackgroundImage={fallbackBackgroundImage}
+          />
+        </>
+      ) : (
+        <div className="rounded-md border border-gold/15 bg-ink p-8 text-center">
+          <p className="text-lg leading-7 text-muted">
+            This series has no booklets yet.
+          </p>
+          <button
+            className="mt-5 inline-flex items-center justify-center gap-2 rounded-md border border-gold/60 px-4 py-3 font-label text-sm uppercase tracking-[0.18em] text-parchment transition hover:border-gold hover:text-gold"
+            onClick={addBooklet}
+            type="button"
+          >
+            <Plus size={16} />
+            Add First Booklet
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BookletPanel({
   booklet,
   booklets,
@@ -3762,22 +4247,25 @@ function BookletPanel({
           value={booklet.numberLabel}
         />
       </div>
-      <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted">
-        Movement
-        <select
-          className="mt-3 w-full rounded-md border border-gold/20 bg-ink px-3 py-2 text-base normal-case tracking-normal text-parchment outline-none focus:border-gold/60"
-          onChange={(event) =>
-            updateBooklet(booklet.slug, { movementIndex: Number(event.target.value) })
-          }
-          value={String(currentMovementIndex)}
-        >
-          {movements.map((movement, index) => (
-            <option key={`${movement.title}-${index}`} value={index}>
-              Movement {index + 1}: {movement.title}
-            </option>
-          ))}
-        </select>
-      </label>
+      {/* Movements belong to the Inward Fire series; other series pass an empty list. */}
+      {movements.length ? (
+        <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted">
+          Movement
+          <select
+            className="mt-3 w-full rounded-md border border-gold/20 bg-ink px-3 py-2 text-base normal-case tracking-normal text-parchment outline-none focus:border-gold/60"
+            onChange={(event) =>
+              updateBooklet(booklet.slug, { movementIndex: Number(event.target.value) })
+            }
+            value={String(currentMovementIndex)}
+          >
+            {movements.map((movement, index) => (
+              <option key={`${movement.title}-${index}`} value={index}>
+                Movement {index + 1}: {movement.title}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <TextField
         label="Title"
         onChange={(value) => updateBooklet(booklet.slug, { title: value })}

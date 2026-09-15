@@ -1,7 +1,10 @@
 import { apiUrl } from "@/lib/api";
 import {
   defaultSiteContent,
+  isPublished,
   movementSlug,
+  seriesBasePath,
+  type BookSeries,
   type Booklet,
   type Movement,
   type SiteContent
@@ -83,6 +86,59 @@ function normalizeSearchSnippetText(value: string) {
 
 function asArray<T>(value: T[] | undefined, fallback: T[] = []) {
   return Array.isArray(value) ? value : fallback;
+}
+
+/**
+ * Unlike the Inward Fire series, a saved booklet list here is authoritative: booklets
+ * removed from the admin editor stay removed instead of being merged back from defaults.
+ */
+function normalizeBookSeries(
+  saved: Partial<BookSeries> | null | undefined,
+  defaults: BookSeries
+): BookSeries {
+  return {
+    ...defaults,
+    ...(saved || {}),
+    // The route segment is a filesystem path under app/(public), so it stays code-owned.
+    // A stale or edited value in saved content would point links at a route that does not exist.
+    routeSegment: defaults.routeSegment,
+    opening: asArray(saved?.opening, defaults.opening),
+    closing: asArray(saved?.closing, defaults.closing),
+    booklets: Array.isArray(saved?.booklets) ? saved.booklets : defaults.booklets,
+    seo: {
+      ...defaults.seo,
+      ...(saved?.seo || {})
+    }
+  };
+}
+
+function withSeriesLink(
+  links: Array<{ label: string; href: string }>,
+  series: BookSeries,
+  afterHref: string
+) {
+  const href = seriesBasePath(series);
+  const existingIndex = links.findIndex((link) => link.href === href);
+
+  if (!isPublished(series.status)) {
+    return existingIndex === -1 ? links : links.filter((_, index) => index !== existingIndex);
+  }
+
+  if (existingIndex !== -1) {
+    return links;
+  }
+
+  const nextLinks = [...links];
+  const anchorIndex = nextLinks.findIndex((link) => link.href === afterHref);
+  const link = { label: series.navLabel, href };
+
+  if (anchorIndex === -1) {
+    nextLinks.push(link);
+  } else {
+    nextLinks.splice(anchorIndex + 1, 0, link);
+  }
+
+  return nextLinks;
 }
 
 const movementAssetFields = ["pdf", "coverImage"] as const;
@@ -211,6 +267,11 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
     ...(content?.footer || {})
   };
 
+  const inwardMirror = normalizeBookSeries(
+    content?.inwardMirror,
+    defaultSiteContent.inwardMirror
+  );
+
   // Ensure "Movements" is in nav links
   const navLinks = [...asArray(nav.links, defaultSiteContent.nav.links)].filter(
     (link) => link.href !== "/essays" && link.href !== "/cart" && link.href !== "/checkout"
@@ -238,6 +299,10 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
       footerLinks.push({ label: "Movements", href: "/movements" });
     }
   }
+
+  // Additional series only reach the nav and footer once they are published.
+  const navLinksWithSeries = withSeriesLink(navLinks, inwardMirror, "/movements");
+  const footerLinksWithSeries = withSeriesLink(footerLinks, inwardMirror, "/movements");
 
   const codeSeriesOverviewMovements = defaultSiteContent.home.seriesOverview.movements.map(
     (movement, index) =>
@@ -308,10 +373,11 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
     },
     nav: {
       ...nav,
-      links: navLinks
+      links: navLinksWithSeries
     },
     home,
     series,
+    inwardMirror,
     movements: {
       ...defaultSiteContent.movements,
       ...(content?.movements || {}),
@@ -330,7 +396,7 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
     },
     footer: {
       ...footer,
-      links: footerLinks
+      links: footerLinksWithSeries
     }
   } as SiteContent;
 }
@@ -340,7 +406,9 @@ export async function getSiteContent(): Promise<SiteContent> {
     const response = await fetch(apiUrl("/api/content"), { cache: "no-store" });
 
     if (!response.ok) {
-      return defaultSiteContent;
+      // Normalize the defaults too, so an unreachable backend renders the same nav,
+      // footer, and series visibility rules as a healthy one.
+      return normalizeContent(null);
     }
 
     const payload = (await response.json()) as {
@@ -349,7 +417,7 @@ export async function getSiteContent(): Promise<SiteContent> {
 
     return normalizeContent(payload.content);
   } catch {
-    return defaultSiteContent;
+    return normalizeContent(null);
   }
 }
 
