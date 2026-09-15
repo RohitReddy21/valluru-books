@@ -86,11 +86,6 @@ function NavGroup({ link, items }: { link: Cta; items: Cta[] }) {
                 <span className="block font-label text-[13px] uppercase tracking-[0.18em] text-muted transition group-hover/item:text-gold">
                   {item.label}
                 </span>
-                {item.subtitle ? (
-                  <span className="mt-1 block font-body text-[11px] italic leading-tight text-muted/60">
-                    {item.subtitle}
-                  </span>
-                ) : null}
               </Link>
             ))}
           </div>
@@ -143,11 +138,6 @@ function MobileNavGroup({
               <span className="block font-label text-[13px] uppercase tracking-[0.18em] text-muted">
                 {item.label}
               </span>
-              {item.subtitle ? (
-                <span className="mt-1 block font-body text-[11px] italic leading-tight text-muted/60">
-                  {item.subtitle}
-                </span>
-              ) : null}
             </Link>
           ))}
         </div>
