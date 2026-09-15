@@ -3,6 +3,12 @@ export type Cta = {
   href: string;
   /** Optional caption rendered under the label in the main navigation. */
   subtitle?: string;
+  /**
+   * Sub-pages of this entry. The main navigation renders an entry carrying children as a
+   * dropdown whose label only opens the menu; `href` stays the fallback target for the
+   * places that render links flat, such as the footer.
+   */
+  children?: Cta[];
 };
 
 export type Movement = {
@@ -237,10 +243,11 @@ export type SiteContent = {
 export const defaultSiteContent: SiteContent = {
   nav: {
     logo: "The Valluru",
+    // The series entries are not listed here: normalizeContent() groups them under a
+    // single "The Series" dropdown so the labels stay driven by each series' navLabel.
     links: [
       { label: "Home", href: "/" },
       { label: "Movements", href: "/movements" },
-      { label: "Inward Series", href: "/inward-series" },
       { label: "About", href: "/about" }
       // { label: "Cart", href: "/cart" }
     ],
@@ -368,7 +375,7 @@ export const defaultSiteContent: SiteContent = {
       "Come in. Sit. Read. Carry what helps. Leave what does not."
   },
   series: {
-    navLabel: "The Inward Fire",
+    navLabel: "The Inward Fire Series",
     navSubtitle: "Eighteen booklets",
     title: "The Inward Fire Series",
     subtitle:
@@ -643,7 +650,7 @@ export const defaultSiteContent: SiteContent = {
   // The copy below is placeholder scaffolding meant to be replaced from the admin editor.
   inwardMirror: {
     routeSegment: "inward-mirror",
-    status: "draft",
+    status: "published",
     navLabel: "The Inward Mirror",
     navSubtitle: "A new series",
     eyebrow: "The Inward Mirror · Sasidhar Valluru",
@@ -668,7 +675,7 @@ export const defaultSiteContent: SiteContent = {
         description:
           "Placeholder booklet. Edit the title, subtitle, and description from the admin editor, attach a PDF, then set the status to published.",
         tag: "Coming Soon",
-        status: "draft"
+        status: "published"
       }
     ],
     closing: [

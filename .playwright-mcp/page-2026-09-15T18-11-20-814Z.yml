@@ -1,0 +1,176 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e3]:
+      - link [ref=e4] [cursor=pointer]:
+        - /url: /
+        - img "The Valluru" [ref=e5]
+      - navigation [ref=e6]:
+        - link "Home" [ref=e7] [cursor=pointer]:
+          - /url: /
+        - link "The Inward Fire Eighteen booklets" [ref=e9] [cursor=pointer]:
+          - /url: /series
+          - generic [ref=e10]: The Inward Fire
+          - generic [ref=e11]: Eighteen booklets
+        - link "Movements" [ref=e12] [cursor=pointer]:
+          - /url: /movements
+        - link "The Inward Mirror A new series" [ref=e14] [cursor=pointer]:
+          - /url: /inward-mirror
+          - generic [ref=e15]: The Inward Mirror
+          - generic [ref=e16]: A new series
+        - link "About" [ref=e17] [cursor=pointer]:
+          - /url: /about
+        - link "Begin Reading" [ref=e19] [cursor=pointer]:
+          - /url: /series/booklet-one-when-the-gods-fall-silent
+  - main [ref=e20]:
+    - generic [ref=e23]:
+      - paragraph [ref=e24]: The Inward Fire Series · Sasidhar Valluru
+      - heading "The Inward Fire Series" [level=1] [ref=e25]
+      - paragraph [ref=e26]: Writings on dharma, grief, language, surrender, and the inner life.
+      - generic [ref=e27]:
+        - paragraph [ref=e28]: For the competent but tired seeker. For the person who has optimized career, family, duty, migration, survival, and reputation — but still needs an inward anchor when grief, silence, responsibility, and mortality arrive.
+        - paragraph [ref=e29]: No spiritual performance. No costume. No promise of instant peace.
+        - paragraph [ref=e30]: Only a set of writings for those who are still willing to look inward.
+      - generic [ref=e31]:
+        - link "Begin with Booklet One" [ref=e32] [cursor=pointer]:
+          - /url: /series/booklet-one-when-the-gods-fall-silent
+        - link "View All Eighteen Booklets" [ref=e35] [cursor=pointer]:
+          - /url: /series
+    - generic [ref=e40]:
+      - generic [ref=e41]:
+        - paragraph [ref=e42]: A Second Series
+        - heading "The Inward Mirror" [level=2] [ref=e43]
+        - paragraph [ref=e44]: A second series of booklets. Replace this subtitle from the admin editor before publishing.
+        - generic [ref=e45]:
+          - paragraph [ref=e46]: Replace this home page paragraph from the admin editor. It introduces The Inward Mirror to readers arriving on the home page.
+          - paragraph [ref=e47]: Replace this second paragraph from the admin editor.
+        - link "Enter The Inward Mirror" [ref=e49] [cursor=pointer]:
+          - /url: /inward-mirror
+      - img "The Inward Mirror" [ref=e54]
+    - generic [ref=e56]:
+      - heading "Why This Exists" [level=2] [ref=e57]
+      - generic [ref=e58]:
+        - paragraph [ref=e59]: Modern life teaches us how to function.
+        - paragraph [ref=e60]: It teaches us how to earn, deliver, lead, migrate, manage, respond, recover, explain, and keep moving. It teaches us how to optimize nearly everything.
+        - paragraph [ref=e61]: But it does not always teach us how to stand when grief enters the room.
+        - paragraph [ref=e62]: It does not teach us what to do when duty becomes heavy, when the gods seem silent, when language fails, when achievement does not settle the heart, when responsibility becomes another face of ego, or when the person we built ourselves to be begins to feel too small for the life we are carrying.
+        - paragraph [ref=e63]: These writings come from that place.
+        - paragraph [ref=e64]: They draw from Sanātana Dharma, the Gita, Bhagavatam, Tripura Rahasya, Vijñāna Bhairava Tantra, Telugu poetry, nāda, bhakti, Siva, Krishna, Kāli, Kāśī, grief, memory, and lived experience.
+        - paragraph [ref=e65]: Not to build a new doctrine.
+        - paragraph [ref=e66]: To return the seeker to the inward fire.
+    - generic [ref=e68]:
+      - generic [ref=e69]:
+        - heading "The Series of Movements" [level=2] [ref=e70]
+        - paragraph [ref=e71]: Booklets on dharma, maya, nada, language, surrender, memory, and the long inward journey. Each booklet takes one doorway. Each one returns, in its own way, to surrender.
+      - generic [ref=e72]:
+        - article [ref=e73]:
+          - link "Movement 1 AVAILABLE The Inward Map Dharma is tested. Silence becomes sound. Language learns to bow. Explore Movement" [ref=e74] [cursor=pointer]:
+            - /url: /movements/the-inward-map
+            - generic [ref=e77]:
+              - generic [ref=e78]: Movement 1
+              - generic [ref=e79]: AVAILABLE
+            - generic [ref=e80]:
+              - heading "The Inward Map" [level=2] [ref=e81]
+              - paragraph [ref=e82]: Dharma is tested. Silence becomes sound. Language learns to bow.
+              - generic [ref=e83]: Explore Movement
+        - article [ref=e87]:
+          - link "Movement 2 AVAILABLE The Seeker and the Long Work of Bhagavān Maya, responsibility, surrender, the long witnesses, and the sacred interval where questions exhaust themselves. Explore Movement" [ref=e88] [cursor=pointer]:
+            - /url: /movements/the-seeker-and-the-long-work
+            - generic [ref=e91]:
+              - generic [ref=e92]: Movement 2
+              - generic [ref=e93]: AVAILABLE
+            - generic [ref=e94]:
+              - heading "The Seeker and the Long Work of Bhagavān" [level=2] [ref=e95]
+              - paragraph [ref=e96]: Maya, responsibility, surrender, the long witnesses, and the sacred interval where questions exhaust themselves.
+              - generic [ref=e97]: Explore Movement
+        - article [ref=e101]:
+          - link "Movement 3 AVAILABLE Grief as Fire Grief enters as fire, becomes nāda, becomes vow, becomes offering. Explore Movement" [ref=e102] [cursor=pointer]:
+            - /url: /movements/grief-as-fire
+            - generic [ref=e105]:
+              - generic [ref=e106]: Movement 3
+              - generic [ref=e107]: AVAILABLE
+            - generic [ref=e108]:
+              - heading "Grief as Fire" [level=2] [ref=e109]
+              - paragraph [ref=e110]: Grief enters as fire, becomes nāda, becomes vow, becomes offering.
+              - generic [ref=e111]: Explore Movement
+        - article [ref=e115]:
+          - link "Movement 4 AVAILABLE Nāda as Offering The seeker turns toward Nādeśvara. The bow becomes rhythm. Explore Movement" [ref=e116] [cursor=pointer]:
+            - /url: /movements/nada-as-offering
+            - generic [ref=e119]:
+              - generic [ref=e120]: Movement 4
+              - generic [ref=e121]: AVAILABLE
+            - generic [ref=e122]:
+              - heading "Nāda as Offering" [level=2] [ref=e123]
+              - paragraph [ref=e124]: The seeker turns toward Nādeśvara. The bow becomes rhythm.
+              - generic [ref=e125]: Explore Movement
+        - article [ref=e129]:
+          - link "Movement 5 AVAILABLE The Child Returns Bhakti becomes childlike again. The child asks to be held. Explore Movement" [ref=e130] [cursor=pointer]:
+            - /url: /movements/the-child-returns
+            - generic [ref=e133]:
+              - generic [ref=e134]: Movement 5
+              - generic [ref=e135]: AVAILABLE
+            - generic [ref=e136]:
+              - heading "The Child Returns" [level=2] [ref=e137]
+              - paragraph [ref=e138]: Bhakti becomes childlike again. The child asks to be held.
+              - generic [ref=e139]: Explore Movement
+        - article [ref=e143]:
+          - link "Movement 6 AVAILABLE The Human Field Around the Seeker Blame, dependency, role, boundary, love, and the difficult return to people after the inward fire. Explore Movement" [ref=e144] [cursor=pointer]:
+            - /url: /movements/return-to-people
+            - generic [ref=e147]:
+              - generic [ref=e148]: Movement 6
+              - generic [ref=e149]: AVAILABLE
+            - generic [ref=e150]:
+              - heading "The Human Field Around the Seeker" [level=2] [ref=e151]
+              - paragraph [ref=e152]: Blame, dependency, role, boundary, love, and the difficult return to people after the inward fire.
+              - generic [ref=e153]: Explore Movement
+    - generic [ref=e158]:
+      - heading "For Whom" [level=2] [ref=e159]
+      - generic [ref=e160]:
+        - paragraph [ref=e161]: These writings are for the urban exile with a thinking mind and a wounded heart.
+        - paragraph [ref=e162]: The professional who appears fine. The immigrant who belongs everywhere and nowhere. The Indian who knows the tradition is somewhere inside, but cannot enter it through noise. The seeker who has watched too many sermons and still feels unanchored. The grieving parent, child, spouse, friend, or colleague who does not need motivational slogans. The reader who wants depth without theatrics.
+        - paragraph [ref=e163]: You do not have to agree with everything here.
+        - paragraph [ref=e164]: Sit with what speaks. Leave what does not. Return when needed.
+    - generic [ref=e166]:
+      - blockquote [ref=e167]: “When the gods fall silent, the seeker finally hears himself.”
+      - paragraph [ref=e168]: — The Inward Fire Series, Booklet One
+    - generic [ref=e170]:
+      - heading "The Inward Fire Letter" [level=2] [ref=e171]
+      - paragraph [ref=e172]: A monthly letter with one short reflection, one quote, and one booklet recommendation. Plain, literary, restrained. No clickbait. No exclamation marks.
+      - generic [ref=e173]:
+        - generic [ref=e174]:
+          - generic [ref=e175]: Name
+          - textbox "Name" [ref=e176]:
+            - /placeholder: Your name
+          - generic [ref=e177]: Email address
+          - textbox "Email address" [ref=e178]:
+            - /placeholder: you@example.com
+          - button "Subscribe" [ref=e179] [cursor=pointer]
+        - paragraph [ref=e183]: Quiet updates only. Unsubscribe any time.
+    - paragraph [ref=e185]: Come in. Sit. Read. Carry what helps. Leave what does not.
+  - contentinfo [ref=e186]:
+    - generic [ref=e187]:
+      - generic [ref=e188]:
+        - link [ref=e189] [cursor=pointer]:
+          - /url: /
+          - img "The Valluru" [ref=e190]
+        - paragraph [ref=e191]: The Valluru — The Inward Fire Series
+      - navigation [ref=e192]:
+        - link "The Inward Fire" [ref=e193] [cursor=pointer]:
+          - /url: /series
+        - link "Movements" [ref=e194] [cursor=pointer]:
+          - /url: /movements
+        - link "The Inward Mirror" [ref=e195] [cursor=pointer]:
+          - /url: /inward-mirror
+        - link "About the Author" [ref=e196] [cursor=pointer]:
+          - /url: /about
+        - link "Newsletter" [ref=e197] [cursor=pointer]:
+          - /url: /#newsletter
+      - generic [ref=e198]:
+        - paragraph [ref=e199]: thevalluru.org
+        - link "sasi@theValluru.org" [ref=e200] [cursor=pointer]:
+          - /url: mailto:sasi@theValluru.org
+    - paragraph [ref=e201]: A quiet archive of writings on dharma, grief, language, surrender, and the inner life. © Sasidhar Valluru 2026
+    - paragraph [ref=e202]:
+      - text: Powered by
+      - link "Primeverse.in" [ref=e203] [cursor=pointer]:
+        - /url: https://primeverse.in
+  - alert [ref=e204]

@@ -145,7 +145,49 @@ function withSeriesLink(links: Cta[], series: BookSeries, afterHref: string) {
 }
 
 /** Labels for the Inward Fire nav entry that predate the two-series naming. */
-const staleSeriesNavLabels = new Set(["The Series", "The Books", "Series", "Books"]);
+const staleSeriesNavLabels = new Set([
+  "The Series",
+  "The Books",
+  "Series",
+  "Books",
+  "The Inward Fire"
+]);
+
+/** Label of the nav dropdown the two series sit under. */
+const seriesGroupLabel = "The Series";
+
+/**
+ * Drops group wrappers and keeps their sub-links, so saved content that was written with a
+ * grouped nav can be re-grouped from scratch instead of nesting a group inside a group.
+ */
+function flattenNavGroups(links: Cta[]) {
+  return links.flatMap((link) => (link.children?.length ? link.children : [link]));
+}
+
+/**
+ * Moves the series entries under one "The Series" dropdown, in the position the first of
+ * them held. The group keeps the Inward Fire path as its `href` fallback; the nav renders
+ * the label as a menu trigger rather than a link.
+ */
+function withSeriesGroup(links: Cta[], seriesHrefs: string[], label = seriesGroupLabel) {
+  const hrefs = new Set(seriesHrefs);
+  const children = links.filter((link) => hrefs.has(link.href));
+
+  if (!children.length) {
+    return links;
+  }
+
+  const groupIndex = links.findIndex((link) => hrefs.has(link.href));
+  const rest = links.filter((link) => !hrefs.has(link.href));
+
+  rest.splice(groupIndex, 0, {
+    label: label.trim() || seriesGroupLabel,
+    href: children[0].href,
+    children
+  });
+
+  return rest;
+}
 
 /**
  * Keeps the Inward Fire entry present, named, and captioned. Its label was "The Series"
@@ -319,8 +361,12 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
   // "/inward-series" was never a route; drop it so saved content cannot link to a 404.
   const deadNavHrefs = new Set(["/essays", "/cart", "/checkout", "/inward-series"]);
 
+  // A group label edited from the admin editor survives the flatten-and-regroup below.
+  const savedNavLinks = asArray(nav.links, defaultSiteContent.nav.links);
+  const savedSeriesGroupLabel = savedNavLinks.find((link) => link.children?.length)?.label;
+
   // Ensure "Movements" is in nav links
-  const navLinks = [...asArray(nav.links, defaultSiteContent.nav.links)].filter(
+  const navLinks = flattenNavGroups(savedNavLinks).filter(
     (link) => !deadNavHrefs.has(link.href)
   );
   const hasMovementsInNav = navLinks.some((link) => link.href === "/movements");
@@ -348,11 +394,12 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
   }
 
   // The Inward Fire entry is renamed and captioned; the Inward Mirror entry only reaches
-  // the nav and footer once the series is published.
-  const navLinksWithSeries = withSeriesLink(
-    withInwardFireLink(navLinks, inwardFireNav, 1),
-    inwardMirror,
-    "/movements"
+  // the nav and footer once the series is published. In the nav the two then sit inside
+  // one "The Series" dropdown; the footer keeps them flat.
+  const navLinksWithSeries = withSeriesGroup(
+    withSeriesLink(withInwardFireLink(navLinks, inwardFireNav, 1), inwardMirror, "/movements"),
+    ["/series", seriesBasePath(inwardMirror)],
+    savedSeriesGroupLabel || seriesGroupLabel
   );
   const footerLinksWithSeries = withSeriesLink(
     withInwardFireLink(footerLinks, inwardFireNav, 0),
