@@ -117,15 +117,47 @@ function normalizeMovementRange(movement: Movement) {
   return movement;
 }
 
-function normalizeBookletCountText(value: string) {
-  return value
-    .replaceAll("Seventeen booklets", "Eighteen booklets")
-    .replaceAll("seventeen booklets", "eighteen booklets")
-    .replaceAll("View All Seventeen Booklets", "View All Eighteen Booklets");
+const COUNT_WORDS = [
+  "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+  "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
+  "eighteen", "nineteen", "twenty", "twenty-one", "twenty-two", "twenty-three",
+  "twenty-four", "twenty-five"
+];
+
+const COUNT_WORD_PATTERN = new RegExp(`\\b(${COUNT_WORDS.join("|")})(\\s+booklets)\\b`, "gi");
+
+function matchCapitalisation(word: string, sample: string) {
+  if (sample === sample.toUpperCase()) {
+    return word.toUpperCase();
+  }
+
+  return sample[0] === sample[0].toUpperCase()
+    ? word.replace(/(^|-)([a-z])/g, (_, prefix, letter) => prefix + letter.toUpperCase())
+    : word;
 }
 
-function normalizeSearchSnippetText(value: string) {
-  return normalizeBookletCountText(value)
+/**
+ * Rewrites "Seventeen booklets" and the like to whatever the series actually holds.
+ *
+ * This replaces a hardcoded Seventeen-to-Eighteen swap that had drifted twice over: the
+ * series now publishes twenty-one, so the patched copy was wrong by three. Deriving the
+ * number from the booklets means adding one cannot leave the sentence stale again.
+ *
+ * The real fix is for the copy not to carry a count at all, but it lives in the admin
+ * editor, so correcting it there is an editorial change rather than a code one.
+ */
+function normalizeBookletCountText(value: string, publishedCount?: number) {
+  if (!publishedCount || publishedCount >= COUNT_WORDS.length) {
+    return value;
+  }
+
+  return value.replace(COUNT_WORD_PATTERN, (_match, word: string, suffix: string) =>
+    matchCapitalisation(COUNT_WORDS[publishedCount], word) + suffix
+  );
+}
+
+function normalizeSearchSnippetText(value: string, publishedCount?: number) {
+  return normalizeBookletCountText(value, publishedCount)
     .replaceAll(
       "Eighteen booklets on dharma, grief, language, and surrender. For the seeker who still needs an inward anchor.",
       "Booklets on dharma, grief, language, and surrender. For the seeker who still needs an inward anchor."
@@ -247,10 +279,16 @@ function withSeriesGroup(links: Cta[], seriesHrefs: string[], label = seriesGrou
 function withInwardFireLink(
   links: Cta[],
   series: Pick<SiteContent["series"], "navLabel" | "navSubtitle">,
-  atIndex: number
+  atIndex: number,
+  publishedCount?: number
 ) {
   const label = series.navLabel || "The Inward Fire";
-  const subtitle = series.navSubtitle || "Eighteen booklets";
+  // Falls back to the real count rather than a number frozen at the time it was written.
+  const subtitle =
+    normalizeBookletCountText(series.navSubtitle || "", publishedCount) ||
+    (publishedCount && publishedCount < COUNT_WORDS.length
+      ? `${matchCapitalisation(COUNT_WORDS[publishedCount], "E")} booklets`
+      : "Booklets");
   const existingIndex = links.findIndex((link) => link.href === "/series");
 
   if (existingIndex === -1) {
@@ -268,7 +306,9 @@ function withInwardFireLink(
     return {
       ...link,
       label: staleSeriesNavLabels.has(link.label.trim()) ? label : link.label,
-      subtitle: link.subtitle || subtitle
+      // Normalised, not just preferred: a saved nav caption carries its own count, and
+      // keeping it as-is is what left "Eighteen booklets" on a series of twenty-one.
+      subtitle: normalizeBookletCountText(link.subtitle || "", publishedCount) || subtitle
     };
   });
 }
@@ -390,6 +430,13 @@ function appendSavedMovements(
 }
 
 function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
+  // Counted once, up front, so every sentence and nav caption that mentions a number
+  // reports the same one the series page actually lists.
+  const normalizedBooklets = normalizeBooklets(content?.series?.booklets);
+  const publishedBookletCount = normalizedBooklets.filter((booklet) =>
+    isPublished(booklet.status)
+  ).length;
+
   const nav = {
     ...defaultSiteContent.nav,
     ...(content?.nav || {})
@@ -448,12 +495,12 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
   // the nav and footer once the series is published. In the nav the two then sit inside
   // one "The Series" dropdown; the footer keeps them flat.
   const navLinksWithSeries = withSeriesGroup(
-    withSeriesLink(withInwardFireLink(navLinks, inwardFireNav, 1), inwardMirror, "/movements"),
+    withSeriesLink(withInwardFireLink(navLinks, inwardFireNav, 1, publishedBookletCount), inwardMirror, "/movements"),
     ["/series", seriesBasePath(inwardMirror)],
     savedSeriesGroupLabel || seriesGroupLabel
   );
   const footerLinksWithSeries = withSeriesLink(
-    withInwardFireLink(footerLinks, inwardFireNav, 0),
+    withInwardFireLink(footerLinks, inwardFireNav, 0, publishedBookletCount),
     inwardMirror,
     "/movements"
   );
@@ -487,27 +534,34 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
   };
   home.hero = {
     ...hero,
-    subtitle: normalizeSearchSnippetText(hero.subtitle || defaultSiteContent.home.hero.subtitle),
-    body: asArray(hero.body, defaultSiteContent.home.hero.body).map(normalizeSearchSnippetText),
+    subtitle: normalizeSearchSnippetText(
+      hero.subtitle || defaultSiteContent.home.hero.subtitle,
+      publishedBookletCount
+    ),
+    body: asArray(hero.body, defaultSiteContent.home.hero.body).map((line) =>
+      normalizeSearchSnippetText(line, publishedBookletCount)
+    ),
     secondaryCta: {
       ...defaultSiteContent.home.hero.secondaryCta,
       ...(hero.secondaryCta || {}),
       label: normalizeBookletCountText(
-        hero.secondaryCta?.label || defaultSiteContent.home.hero.secondaryCta.label
+        hero.secondaryCta?.label || defaultSiteContent.home.hero.secondaryCta.label,
+        publishedBookletCount
       )
     }
   };
   home.seriesOverview = {
     ...home.seriesOverview,
-    intro: normalizeSearchSnippetText(home.seriesOverview.intro)
+    intro: normalizeSearchSnippetText(home.seriesOverview.intro, publishedBookletCount)
   };
   const series = {
     ...defaultSiteContent.series,
     ...(content?.series || {}),
     subtitle: normalizeSearchSnippetText(
-      content?.series?.subtitle || defaultSiteContent.series.subtitle
+      content?.series?.subtitle || defaultSiteContent.series.subtitle,
+      publishedBookletCount
     ),
-    booklets: normalizeBooklets(content?.series?.booklets)
+    booklets: normalizedBooklets
   };
 
   return {
