@@ -1,0 +1,10 @@
+# Never ship env files. server.js loads .env with override:true, so an uploaded .env
+# silently beats every variable configured in the Vercel dashboard — which is how a
+# deployment ends up running with someone's localhost settings and rejecting its own
+# frontend's origin.
+.env
+.env.*
+!.env.example
+
+node_modules
+.vercel

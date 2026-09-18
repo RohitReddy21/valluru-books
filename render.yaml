@@ -1,3 +1,9 @@
+# Render blueprint for the Express backend.
+#
+# Values that differ between production and a sandbox are `sync: false`, meaning Render
+# asks for them per service rather than baking them in. That matters most for MONGODB_DB
+# and FRONTEND_ORIGIN: hardcoding them here is how a service named "sandbox" ends up
+# writing to the live database and trusting the live origin.
 services:
   - type: web
     name: valluru-books-backend
@@ -10,28 +16,52 @@ services:
         value: production
       - key: MAX_UPLOAD_BYTES
         value: 1073741824
+
+      # Per-environment. Production: https://www.thevalluru.org and valluru_books.
+      # A sandbox service must get its own frontend origin and its own database.
       - key: PUBLIC_SITE_URL
-        value: https://www.thevalluru.org
+        sync: false
       - key: FRONTEND_ORIGIN
-        value: https://www.thevalluru.org,https://thevalluru.org
+        sync: false
       - key: MONGODB_DB
-        value: valluru_books
+        sync: false
       - key: MONGODB_URI
+        sync: false
+
+      # Signs subscriber cookies and booklet access tokens. Without it the code falls back
+      # to ADMIN_PASSWORD, and the booklet gate can be forged by anyone who guesses it.
+      # Generate: node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+      # Changing it invalidates every existing subscriber cookie and access token.
+      - key: ACCESS_TOKEN_SECRET
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
+
+      # Must match the frontend's value, or an admin save cannot clear its cache.
+      - key: REVALIDATE_SECRET
+        sync: false
+      - key: FRONTEND_REVALIDATE_URL
+        sync: false
+
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+
       - key: RESEND_FROM
         value: The Valluru <hello@thevalluru.org>
       - key: RESEND_API_KEY
-        sync: false  # REQUIRED: Set in Render dashboard. Without this, no emails are sent.
+        sync: false # REQUIRED: without this, no emails are sent.
       - key: ADMIN_NOTIFICATION_EMAIL
-        sync: false  # REQUIRED: Set to sasi@thevalluru.org in Render dashboard. Without this, owner gets NO subscriber notifications!
+        sync: false # REQUIRED: without this, the owner gets NO subscriber notifications.
       - key: REPLY_TO_EMAIL
-        sync: false  # Optional: Falls back to ADMIN_NOTIFICATION_EMAIL if not set.
-    # Increase Nginx client max body size via Render's config
+        sync: false # Optional: falls back to ADMIN_NOTIFICATION_EMAIL.
     headers:
       - path: /*
         name: "X-Content-Type-Options"
         value: "nosniff"
     healthCheckPath: /health
+
+    # Production auto-deploys on push. Leave this off for a sandbox service until you
+    # want that, so a push cannot ship an untested phase on its own.
     autoDeploy: true
