@@ -1,6 +1,7 @@
 "use client";
 
 import type { HTMLAttributes } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { Booklet, Cta, Movement } from "@/lib/site-content";
@@ -46,6 +47,42 @@ export function WideSection({
   );
 }
 
+/**
+ * The hero image, served through next/image rather than as a CSS background.
+ *
+ * As a background these loaded as full-size PNGs at every viewport — the heaviest thing
+ * on the page. next/image gives them AVIF/WebP and responsive sizes; the gradient that
+ * used to be the first layer of the background shorthand is now an overlay above it.
+ *
+ * Decorative, so the alt text is empty and it is hidden from assistive technology.
+ */
+const HERO_OVERLAY_DEFAULT =
+  "bg-[linear-gradient(180deg,rgba(15,14,12,0.42),rgba(15,14,12,0.96))]";
+
+export function HeroBackground({
+  src,
+  priority = false,
+  overlayClassName = HERO_OVERLAY_DEFAULT
+}: {
+  src: string;
+  priority?: boolean;
+  overlayClassName?: string;
+}) {
+  return (
+    <div aria-hidden="true" className="absolute inset-0 -z-10">
+      <Image
+        alt=""
+        className="object-cover"
+        fill
+        priority={priority}
+        sizes="100vw"
+        src={src}
+      />
+      <div className={`absolute inset-0 ${overlayClassName}`} />
+    </div>
+  );
+}
+
 export function PageHeader({
   title,
   subtitle,
@@ -56,16 +93,8 @@ export function PageHeader({
   backgroundImage?: string;
 }) {
   return (
-    <section
-      className="valluru-hero-image px-4 pb-12 pt-24 sm:px-5 sm:pb-16 sm:pt-32"
-      style={
-        backgroundImage
-          ? {
-              backgroundImage: `linear-gradient(180deg, rgba(15, 14, 12, 0.42), rgba(15, 14, 12, 0.96)), url("${backgroundImage}")`
-            }
-          : undefined
-      }
-    >
+    <section className="valluru-hero-image relative isolate overflow-hidden px-4 pb-12 pt-24 sm:px-5 sm:pb-16 sm:pt-32">
+      {backgroundImage ? <HeroBackground src={backgroundImage} priority /> : null}
       <div className="mx-auto max-w-3xl fade-up">
         <p className="mb-5 font-label text-sm uppercase tracking-[0.26em] text-gold/85">
           The Valluru

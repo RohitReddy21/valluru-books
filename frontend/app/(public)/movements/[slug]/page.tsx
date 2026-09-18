@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { BackLink, PageShell, PrimaryLink, BookletCard } from "@/components/ui";
+import { BackLink, HeroBackground, PageShell, PrimaryLink, BookletCard } from "@/components/ui";
 import { MovementPdfReader } from "@/components/movement-pdf-reader";
 import { defaultSiteContent, isBookletInMovement, movementSlug, isPublished } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
@@ -66,16 +66,8 @@ export default async function MovementDetailPage({
 
   return (
     <PageShell>
-      <section
-        className="valluru-hero-image px-4 pb-12 pt-24 sm:px-5 sm:pt-32"
-        style={
-          media.pageHeroImage
-            ? {
-                backgroundImage: `linear-gradient(180deg, rgba(15, 14, 12, 0.42), rgba(15, 14, 12, 0.96)), url("${media.pageHeroImage}")`
-              }
-            : undefined
-        }
-      >
+      <section className="valluru-hero-image relative isolate overflow-hidden px-4 pb-12 pt-24 sm:px-5 sm:pt-32">
+        {media.pageHeroImage ? <HeroBackground priority src={media.pageHeroImage} /> : null}
         <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <article className="max-w-3xl fade-up">
             <p className="font-label text-sm uppercase tracking-[0.24em] text-muted">

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { BookletReader } from "@/components/booklet-reader";
 import { ReflectionForm } from "@/components/reflection-form";
-import { BackLink, BookletCard, PageShell, PrimaryLink } from "@/components/ui";
+import { BackLink, BookletCard, HeroBackground, PageShell, PrimaryLink } from "@/components/ui";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { FaqAccordion } from "@/components/faq-accordion";
 import {
@@ -191,16 +191,8 @@ export default async function InwardMirrorBookletPage({
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
 
-      <section
-        className="valluru-hero-image px-4 pb-12 pt-24 sm:px-5 sm:pt-32"
-        style={
-          backgroundImage
-            ? {
-                backgroundImage: `linear-gradient(180deg, rgba(15, 14, 12, 0.42), rgba(15, 14, 12, 0.96)), url("${backgroundImage}")`
-              }
-            : undefined
-        }
-      >
+      <section className="valluru-hero-image relative isolate overflow-hidden px-4 pb-12 pt-24 sm:px-5 sm:pt-32">
+        {backgroundImage ? <HeroBackground priority src={backgroundImage} /> : null}
         <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">
           <article className="max-w-3xl fade-up">
             <Breadcrumb

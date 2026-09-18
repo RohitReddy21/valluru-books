@@ -38,21 +38,21 @@ a {
   color: #fff7e8;
 }
 
+/*
+ * Gradient only. These used to carry a hardcoded WordPress image as a third background
+ * layer, which has returned 403 since the site moved off WordPress — a failed request
+ * behind every hero on every page. The hero image itself now comes from HeroBackground,
+ * which serves whatever the content configures through next/image; what is left here is
+ * the tint a section falls back to when no image is set.
+ */
 .hero-texture {
   background-image:
     linear-gradient(90deg, rgba(15, 14, 12, 0.94) 0%, rgba(15, 14, 12, 0.82) 42%, rgba(15, 14, 12, 0.2) 72%),
-    linear-gradient(180deg, rgba(15, 14, 12, 0.18), rgba(15, 14, 12, 0.88)),
-    url("https://thevalluru.org/wp-content/uploads/2026/05/chatgpt-image-may-22-2026-02_43_16-pm-1.png?w=1800");
-  background-size: cover;
-  background-position: center right;
+    linear-gradient(180deg, rgba(15, 14, 12, 0.18), rgba(15, 14, 12, 0.88));
 }
 
 .valluru-hero-image {
-  background-image:
-    linear-gradient(180deg, rgba(15, 14, 12, 0.42), rgba(15, 14, 12, 0.96)),
-    url("https://thevalluru.org/wp-content/uploads/2026/05/chatgpt-image-may-22-2026-02_43_16-pm-1.png?w=1600");
-  background-size: cover;
-  background-position: center;
+  background-image: linear-gradient(180deg, rgba(15, 14, 12, 0.42), rgba(15, 14, 12, 0.96));
 }
 
 .quiet-divider {

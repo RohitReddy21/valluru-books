@@ -1,5 +1,6 @@
 import { NewsletterForm } from "@/components/newsletter-form";
 import {
+  HeroBackground,
   PageShell,
   PrimaryLink,
   ProseBlocks,
@@ -28,16 +29,16 @@ export default async function HomePage() {
 
   return (
     <PageShell>
-      <section
-        className="hero-texture px-4 pb-14 pt-24 sm:px-5 sm:pb-20 sm:pt-32"
-        style={
-          media.homeHeroImage
-            ? {
-                backgroundImage: `linear-gradient(90deg, rgba(15, 14, 12, 0.94) 0%, rgba(15, 14, 12, 0.82) 42%, rgba(15, 14, 12, 0.2) 72%), linear-gradient(180deg, rgba(15, 14, 12, 0.18), rgba(15, 14, 12, 0.88)), url("${media.homeHeroImage}")`
-              }
-            : undefined
-        }
-      >
+      <section className="hero-texture relative isolate overflow-hidden px-4 pb-14 pt-24 sm:px-5 sm:pb-20 sm:pt-32">
+        {media.homeHeroImage ? (
+          // Two stacked gradients, as the CSS background had: the horizontal one keeps the
+          // headline legible over the image, the vertical one settles it into the page.
+          <HeroBackground
+            overlayClassName="bg-[linear-gradient(90deg,rgba(15,14,12,0.94)_0%,rgba(15,14,12,0.82)_42%,rgba(15,14,12,0.2)_72%),linear-gradient(180deg,rgba(15,14,12,0.18),rgba(15,14,12,0.88))]"
+            priority
+            src={media.homeHeroImage}
+          />
+        ) : null}
         <div className="mx-auto grid min-h-[min(720px,calc(100dvh-6rem))] max-w-6xl items-center fade-up">
           <div className="max-w-3xl text-left max-md:text-center">
           <p className="font-label text-sm uppercase tracking-[0.28em] text-muted">
