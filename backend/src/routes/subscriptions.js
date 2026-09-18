@@ -48,7 +48,7 @@ function registerSubscriptionRoutes(
           response.cookie(`valluru_booklet_${bookletSlug}`, "true", cookieOptions(request));
         }
 
-        if (setSubscriberCookie && email && name) {
+        if (setSubscriberCookie && email) {
           setSubscriberCookie(response, request, { email, name });
         }
         
@@ -73,11 +73,8 @@ function registerSubscriptionRoutes(
       const bookletTitle = String(request.body?.bookletTitle || "").trim() || null;
       const source = String(request.body?.source || "newsletter").trim() || "newsletter";
 
-      if (!name) {
-        response.status(400).json({ error: "Name is required." });
-        return;
-      }
-
+      // Email only: the chapter gate asks for one field, so a name cannot be required.
+      // Older forms still send one and it is still stored when present.
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         response.status(400).json({ error: "A valid email is required." });
         return;
