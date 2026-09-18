@@ -194,11 +194,116 @@ function preserveRedactedChapters(incoming, stored) {
   return result;
 }
 
+/** What the public payload advertises instead of a directly downloadable storage URL. */
+function bookletPdfPath(slug) {
+  return `/api/booklets/${encodeURIComponent(String(slug || ""))}/pdf`;
+}
+
+function isRedactedPdfPath(value) {
+  return typeof value === "string" && value.startsWith("/api/booklets/");
+}
+
+/**
+ * Replaces booklet PDF URLs in the public payload with the gated API path.
+ *
+ * The storage URLs are public and were being published in the page source, so the whole
+ * library could be downloaded by reading the HTML — no sign-up, no API call, and the
+ * access check on /api/booklets/:slug/pdf never runs. Publishing the route instead of the
+ * object means the gate is at least on the only path the site advertises.
+ *
+ * This is necessary but not sufficient: anyone who already has a storage URL keeps it
+ * until the objects stop being publicly readable.
+ */
+function redactBookletPdfs(content) {
+  if (!content || typeof content !== "object") {
+    return content;
+  }
+
+  const redactSeries = (series) => {
+    if (!Array.isArray(series?.booklets)) {
+      return series;
+    }
+
+    return {
+      ...series,
+      booklets: series.booklets.map((booklet) =>
+        booklet?.pdf && !isRedactedPdfPath(booklet.pdf)
+          ? { ...booklet, pdf: bookletPdfPath(booklet.slug) }
+          : booklet
+      )
+    };
+  };
+
+  const result = { ...content };
+
+  if (content.series) {
+    result.series = redactSeries(content.series);
+  }
+
+  if (content.inwardMirror) {
+    result.inwardMirror = redactSeries(content.inwardMirror);
+  }
+
+  return result;
+}
+
+/**
+ * Restores real storage URLs on save, for the same reason chapters are restored: the
+ * admin editor loads from the redacted public payload, so saving it back would replace
+ * every booklet's PDF with the API path it was shown.
+ */
+function preserveRedactedPdfs(incoming, stored) {
+  if (!incoming || typeof incoming !== "object" || !stored || typeof stored !== "object") {
+    return incoming;
+  }
+
+  const mergeSeries = (incomingSeries, storedSeries) => {
+    if (!Array.isArray(incomingSeries?.booklets)) {
+      return incomingSeries;
+    }
+
+    const storedBySlug = new Map(
+      (Array.isArray(storedSeries?.booklets) ? storedSeries.booklets : []).map((booklet) => [
+        booklet?.slug,
+        booklet
+      ])
+    );
+
+    return {
+      ...incomingSeries,
+      booklets: incomingSeries.booklets.map((booklet) => {
+        if (!isRedactedPdfPath(booklet?.pdf)) {
+          return booklet;
+        }
+
+        const previous = storedBySlug.get(booklet.slug);
+
+        return previous?.pdf ? { ...booklet, pdf: previous.pdf } : booklet;
+      })
+    };
+  };
+
+  const result = { ...incoming };
+
+  if (incoming.series) {
+    result.series = mergeSeries(incoming.series, stored.series);
+  }
+
+  if (incoming.inwardMirror) {
+    result.inwardMirror = mergeSeries(incoming.inwardMirror, stored.inwardMirror);
+  }
+
+  return result;
+}
+
 module.exports = {
   CHAPTER_TEASER_LENGTH,
   FREE_CHAPTER_COUNT,
+  bookletPdfPath,
   isChapterFree,
   preserveRedactedChapters,
+  preserveRedactedPdfs,
+  redactBookletPdfs,
   redactGatedChapters,
   resolveChapterAccess
 };

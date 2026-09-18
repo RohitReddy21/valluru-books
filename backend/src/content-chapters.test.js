@@ -3,6 +3,8 @@ const { test } = require("node:test");
 const {
   isChapterFree,
   preserveRedactedChapters,
+  preserveRedactedPdfs,
+  redactBookletPdfs,
   redactGatedChapters,
   resolveChapterAccess
 } = require("./content-chapters");
@@ -141,4 +143,46 @@ test("content without chapters passes through untouched", () => {
 
   assert.deepEqual(redactGatedChapters(plain), plain);
   assert.deepEqual(preserveRedactedChapters(plain, plain), plain);
+});
+
+test("the public payload advertises the gated route, not the storage URL", () => {
+  const withPdf = {
+    series: {
+      booklets: [
+        { slug: "booklet-one", pdf: "https://x.supabase.co/storage/v1/object/public/books/pdfs/a.pdf" }
+      ]
+    }
+  };
+
+  const redacted = redactBookletPdfs(withPdf);
+
+  assert.equal(redacted.series.booklets[0].pdf, "/api/booklets/booklet-one/pdf");
+  assert.ok(
+    !JSON.stringify(redacted).includes("supabase.co"),
+    "a directly downloadable storage URL leaked into the public payload"
+  );
+});
+
+test("saving the redacted payload does not destroy the real PDF URL", () => {
+  const stored = {
+    series: {
+      booklets: [
+        { slug: "booklet-one", pdf: "https://x.supabase.co/storage/v1/object/public/books/pdfs/a.pdf" }
+      ]
+    }
+  };
+
+  const saved = preserveRedactedPdfs(redactBookletPdfs(stored), stored);
+
+  assert.equal(
+    saved.series.booklets[0].pdf,
+    "https://x.supabase.co/storage/v1/object/public/books/pdfs/a.pdf"
+  );
+});
+
+test("a genuinely new PDF URL still saves", () => {
+  const stored = { series: { booklets: [{ slug: "booklet-one", pdf: "https://x/old.pdf" }] } };
+  const edited = { series: { booklets: [{ slug: "booklet-one", pdf: "https://x/new.pdf" }] } };
+
+  assert.equal(preserveRedactedPdfs(edited, stored).series.booklets[0].pdf, "https://x/new.pdf");
 });

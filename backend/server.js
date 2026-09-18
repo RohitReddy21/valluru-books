@@ -14,6 +14,8 @@ const { Readable } = require("node:stream");
 const { pipeline } = require("node:stream/promises");
 const {
   preserveRedactedChapters,
+  preserveRedactedPdfs,
+  redactBookletPdfs,
   redactGatedChapters,
   resolveChapterAccess
 } = require("./src/content-chapters");
@@ -265,6 +267,38 @@ function getSupabaseObjectFromUrl(url = "") {
 
     return { bucket, storagePath: pathParts.join("/") };
   } catch {
+    return null;
+  }
+}
+
+/** How long a signed booklet link stays valid. Long enough to download, not to share. */
+const SIGNED_URL_TTL_SECONDS = 300;
+
+/**
+ * A short-lived link to a storage object, so a reader who passed the gate can be handed
+ * the file without the URL being useful to anyone else later.
+ *
+ * Returns null when signing is unavailable, and the caller falls back to streaming the
+ * file through this server — which is slower but never exposes a storage URL at all.
+ */
+async function createSignedStorageUrl(bucket, storagePath) {
+  if (!hasSupabaseConfig()) {
+    return null;
+  }
+
+  try {
+    const { data, error } = await getSupabaseClient()
+      .storage.from(bucket)
+      .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
+
+    if (error || !data?.signedUrl) {
+      debugLog("[signed-url] could not sign", { bucket, storagePath, error: error?.message });
+      return null;
+    }
+
+    return data.signedUrl;
+  } catch (error) {
+    debugLog("[signed-url] threw", error?.message || error);
     return null;
   }
 }
@@ -2331,7 +2365,7 @@ app.get("/api/content", async (request, response, next) => {
       });
     }
 
-    response.json({ content: redactGatedChapters(content) });
+    response.json({ content: redactBookletPdfs(redactGatedChapters(content)) });
   } catch (error) {
     next(error);
   }
@@ -2349,7 +2383,10 @@ app.put("/api/content", verifyAdmin, async (request, response, next) => {
     }
 
     const previousContent = await getSiteContent();
-    const incomingContent = preserveRedactedChapters(request.body.content, previousContent);
+    const incomingContent = preserveRedactedPdfs(
+      preserveRedactedChapters(request.body.content, previousContent),
+      previousContent
+    );
 
     await saveSiteContent(incomingContent);
     queueSubscriberAnnouncementCheck(previousContent, incomingContent, "content-save");
@@ -3840,10 +3877,16 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
     }
 
     if (/^https?:\/\//.test(booklet.pdf)) {
-      // The gate ends here: this hands back a public URL the reader can pass on freely.
-      // Phase 4 replaces it with a short-lived Supabase signed URL.
-      debugLog("[booklets/:slug/pdf] Treating as remote URL, redirecting");
-      response.redirect(booklet.pdf);
+      // Sign it rather than handing back the stored URL, which is public and would stay
+      // usable long after this reader is gone. Falls back to the stored URL only when
+      // signing is unavailable, so a misconfigured Supabase cannot break the download.
+      const remoteObject = getSupabaseObjectFromUrl(booklet.pdf);
+      const signed = remoteObject
+        ? await createSignedStorageUrl(remoteObject.bucket, remoteObject.storagePath)
+        : null;
+
+      debugLog("[booklets/:slug/pdf] Remote URL, redirecting", { signed: Boolean(signed) });
+      response.redirect(signed || booklet.pdf);
       return;
     }
 
