@@ -1,0 +1,409 @@
+---
+name: valluru-site-engineering
+description: Engineering plan for thevalluru.org - performance fixes, depth-gated booklet reading, and the chapter migration. Use when working on the site's repo (thevalluruorgsandbox or valluru-books), or on any booklet reading, sign-up gate, caching, or chapter-extraction work for The Valluru.
+---
+
+# thevalluru.org — site engineering
+
+Everything needed to continue this work from a cold start.
+
+## The product context (drives every technical choice)
+
+The Valluru publishes contemplative booklets. Instagram Reels and YouTube Shorts drive
+traffic; each reel quotes one booklet and must land the viewer **on that booklet**.
+Booklets are free to read after an email sign-up. The business metric is **sign-ups per
+100 link clicks** (target 25%+), not pageviews.
+
+### Locked decisions — do not relitigate
+
+- Chapters 1–3 of **every** booklet are free and public; the gate sits at the chapter 3/4
+  boundary. Gate by *depth*, never by booklet — a reel about Booklet 5 must not land
+  someone on "read Booklet 1 instead".
+- The sign-up moment offers something **added** (rest of the booklet, illustrated PDF,
+  notice when the next is ready) rather than withholding access at the door.
+- The site-wide pop-up (5s, name + email, no close button) is to be replaced by the
+  in-page gate. An undismissable interstitial also risks Google's intrusive-interstitial
+  penalty on mobile.
+- Email only — drop the name field.
+- Every reel must quote from chapters 1–3 of its booklet, so the promise in the video
+  always matches what the reader can read.
+
+### Still open
+
+- **Interior illustrations.** Do text chapters carry the plates, or does the illustrated
+  PDF stay the subscriber reward? Largest single variable in Phase 3.
+- **The pop-up.** Removing an undismissable wall is Sasidhar's business call, not a
+  technical one.
+
+## Stack
+
+- **Frontend:** Next.js 16 App Router, React 19, Tailwind 3, TypeScript, ESLint at zero
+  warnings. Deployed on Vercel.
+- **Backend:** Express (`backend/server.js`, ~3.9k lines) on **Render free tier** — sleeps
+  when idle, cold starts are slow.
+- **Data:** MongoDB for site content behind an admin editor; Supabase storage for PDFs and
+  images.
+- **Repos:** sandbox `uppikodari/thevalluruorgsandbox`; production deploys
+  `www.thevalluru.org`.
+
+### Environment keys
+
+Backend (`backend/.env`, from `backend/.env.example`):
+
+| Key | Sandbox value |
+| --- | --- |
+| `MONGODB_URI` | sandbox cluster connection string — never production |
+| `MONGODB_DB` | `valluru_sandbox` |
+| `SUPABASE_URL` | sandbox Supabase project |
+| `SUPABASE_SERVICE_ROLE_KEY` | sandbox service key (`SUPABASE_SERVICE_KEY` also accepted) |
+| `REVALIDATE_SECRET` | shared with the frontend; must match |
+| `FRONTEND_REVALIDATE_URL` | frontend origin for the revalidate ping |
+| `ACCESS_TOKEN_SECRET` | long random value — **the booklet gate depends on it**; see Phase 2 |
+| `ADMIN_PASSWORD` | admin editor login, and the fallback signing secret when the above is unset |
+
+Frontend (`frontend/.env.local`, from `frontend/.env.example`):
+
+| Key | Sandbox value |
+| --- | --- |
+| `NEXT_PUBLIC_API_BASE_URL` | sandbox backend origin |
+| `REVALIDATE_SECRET` | same value as the backend |
+
+`getApiBaseUrl()` (`frontend/lib/api.ts`) reads `NEXT_PUBLIC_API_BASE_URL`, then
+`API_BASE_URL`, then falls back to `http://127.0.0.1:4000` on the server.
+
+## Ranked problems (found by reading the code, not guessing)
+
+| # | Problem | Where | Status |
+| --- | --- | --- | --- |
+| 1 | Every public page `force-dynamic` + `/api/content` fetched `no-store`, twice per page (layout + page) | all page files; `frontend/lib/content-store.ts` | Fixed in Phase 1 |
+| 2 | Booklets are PDF-only, rendered page-by-page to canvas → PNG data URLs held in React state | `frontend/components/pdf-book-modal.tsx` | Phase 3 — text path built, awaiting chapter import |
+| 3 | The gate is decorative: `verifyAccessToken` defined but **never called**; `/api/booklets/:slug/pdf` checks publish status only | `backend/server.js` | Fixed in Phase 2 |
+| 4 | Access lives in `localStorage` per booklet — no cross-device memory | `frontend/components/booklet-reader.tsx` | Fixed in Phase 2 (server-side; reader UI still reads localStorage as a hint) |
+| 5 | Pop-up has no close button | `frontend/components/global-subscribe-popup.tsx` | Fixed in Phase 2 |
+| 6 | GTM + GA4 + Meta Pixel + Ads all load in `<head>`; GA4 possibly double-counted | `frontend/app/(public)/layout.tsx` | Fixed in Phase 1 |
+| 7 | `next.config.mjs` empty — no image optimisation, no remote patterns, no cache headers | — | Fixed in Phase 1 |
+| 8 | Reader comments fetched on page load (~1.1s measured) against the sleepy API | `frontend/components/reflection-form.tsx` | Fixed in Phase 1 |
+| 9 | Runtime string-replacement patching content copy ("Seventeen" → "Eighteen booklets") | `frontend/lib/content-store.ts` | Open — clean up when the content model is next touched |
+| 10 | Three Google font families; brand guidelines specify two | `frontend/app/(public)/layout.tsx` | Open — needs visual review |
+| 11 | `admin-editor.tsx` 5.4k lines, `server.js` 3.9k lines; `console.log` in production paths | — | Phase 4 |
+
+**Problem 2 is the keystone:** no text version of any booklet exists, which simultaneously
+blocks depth-gating, blocks SEO, and makes mobile heavy.
+
+## Phase 1 — performance ✅ built
+
+Branch `perf/phase-1`.
+
+- **`frontend/lib/content-store.ts`** — wrapped `getSiteContent` in React `cache()` so
+  layout and page share one fetch per request; swapped `cache: "no-store"` for
+  `next: { revalidate: 300, tags: ["site-content"] }` plus a 6s `AbortSignal.timeout`.
+  Exports `CONTENT_REVALIDATE_SECONDS` and `CONTENT_CACHE_TAG`.
+- **Public pages** — `export const dynamic = "force-dynamic"` replaced with
+  `export const revalidate = 300` in `(public)/page.tsx`, `series/page.tsx`,
+  `series/[slug]/page.tsx`, `movements/page.tsx`, `movements/[slug]/page.tsx`,
+  `inward-mirror/page.tsx`, `inward-mirror/[slug]/page.tsx`, `about/page.tsx`,
+  `ads/page.tsx`. `(admin)` and `checkout` stay dynamic.
+- **`frontend/app/api/revalidate/route.ts`** — POST/GET with `secret` (query or JSON
+  body), compared to `process.env.REVALIDATE_SECRET` with `timingSafeEqual` over SHA-256
+  digests so the comparison stays constant-time and never throws on a length mismatch.
+  401 on mismatch, 503 when unconfigured. Next.js 16 deprecated the one-argument
+  `revalidateTag`, so this calls `revalidateTag(CONTENT_CACHE_TAG, { expire: 0 })` —
+  `{ expire: 0 }` rather than the `'max'` profile, because an admin who just published
+  should see the change on the next request instead of one more stale copy.
+- **`backend/server.js`** — `PUT /api/content` pings the revalidate route after a
+  successful save, fire-and-forget so a failed ping never fails the admin save.
+- **`frontend/app/(public)/layout.tsx`** — GTM, GA4 and Pixel moved out of `<head>` into
+  `next/script` with `strategy="afterInteractive"`; preconnect hints kept.
+- **`frontend/components/reflection-form.tsx`** — comments load via `IntersectionObserver`
+  (`rootMargin: "600px 0px"`) with a 1.2s timeout fallback.
+- **`frontend/next.config.mjs`** — was empty; Supabase remote patterns, AVIF/WebP, device
+  sizes, 30-day minimum cache TTL, `poweredByHeader: false`, `compress: true`, and
+  `headers()` with `nosniff` / `Referrer-Policy` / `X-Frame-Options: SAMEORIGIN`
+  (`SAMEORIGIN`, not `DENY` — the reader frames `/pdfjs` itself) plus an immutable cache
+  header on `/pdfjs`. Do **not** add one for `/_next/static`: Next.js already serves that
+  immutable, and overriding it emits "Setting a custom Cache-Control header can break
+  Next.js development behavior" at build time.
+
+**Phase 1 acceptance:** site renders with the backend awake; site still renders with the
+backend **asleep** (fallback path); GA4 / Ads / Pixel still record a sign-up; admin save →
+`/api/revalidate` → change visible.
+
+### Verified locally (2026-09-18)
+
+`npm run build` clean, zero warnings, `tsc --noEmit` clean. Build ran with **no backend
+up**, which exercises the fallback path: every page rendered with correct nav, footer and
+title. The route table went from all-dynamic to `○ Static` / `● SSG` at a 5m revalidate —
+18 booklet pages and 6 movement pages now prerendered — with `/admin`, `/checkout` and
+`/api/revalidate` correctly still `ƒ`. Pages serve
+`Cache-Control: s-maxage=300, stale-while-revalidate=31535700`, security headers present,
+no `X-Powered-By`. The revalidate route answers 503 unconfigured, 401 for a missing,
+wrong, or different-length secret, and 200 for the correct secret by query or body.
+
+### Still to verify on a real deployment
+
+- The GTM container — if GA4 `G-HYV3VRYR06` is configured there too, delete the standalone
+  gtag in the layout or it double-counts. This needs the container, not the code.
+- GA4 / Ads / Pixel still recording a sign-up end to end.
+- `admin save → /api/revalidate → change visible` against a live backend and frontend with
+  a matching `REVALIDATE_SECRET`.
+- Re-measure mobile and desktop load numbers against the 2026-09-17 baseline below.
+
+### Pre-existing lint failures (not from Phase 1)
+
+`npm run lint` runs `eslint . --max-warnings=0` and currently fails on 3 errors / 7
+warnings that pre-date this work: `components/seo.tsx:58` (`no-explicit-any`),
+`scripts/generate-sitemap.js:1-2` (`no-require-imports`), plus unused-variable warnings in
+`cart/page.tsx`, `image-manager-panel.tsx`, `reflection-form.tsx` and `valluru-image.tsx`.
+Worth clearing so the gate is meaningful, but it is a separate change.
+
+## Phase 2 — make the gate real ✅ built
+
+### ⚠ `ACCESS_TOKEN_SECRET` must be set, or none of this is real
+
+`getAccessTokenSecret()` (`server.js:639`) falls back to `ADMIN_PASSWORD` and then to the
+literal `"valluru-local-token"`. Production was running with no `ACCESS_TOKEN_SECRET` and
+a short, guessable `ADMIN_PASSWORD`, which means every subscriber cookie and access token
+was signed with that password — forgeable in seconds by anyone who guesses it. A gate on a
+guessable secret is worse than no gate,
+because it looks closed.
+
+Set a long random value before trusting any of this:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
+
+The backend now logs a startup warning when it is unset. **Changing it invalidates every
+existing subscriber cookie and access token**, so it is a one-time cost best paid on a
+quiet day — and the grace path below is what keeps that from locking people out.
+
+### What was built
+
+- **`hasBookletAccess(request, slug)`** in `server.js`, called from
+  `/api/booklets/:slug/pdf`. Access is granted when any of these hold, in order:
+  1. the booklet is in `FREE_BOOKLET_SLUGS` (currently just `booklet-one` — mirrors the
+     `isFree` rule in `booklet-reader.tsx`; the two must stay in step);
+  2. a valid signed `valluru_subscriber` cookie — **the source of truth**, survives
+     cleared localStorage and works on other devices;
+  3. the legacy `valluru_booklet_<slug>` cookie — *grace path*;
+  4. a valid access token from `?token=` or `Authorization: Bearer` — *grace path*, and a
+     `"*"` token grants every booklet.
+- Gated PDFs now send `Cache-Control: private, no-store` instead of
+  `public, max-age=3600`, so a shared cache cannot hand a gated PDF to the next reader
+  without the checks ever running.
+- **Pop-up** got a close button, Escape-to-close and backdrop-click-to-close, and remembers
+  the dismissal in `valluru_global_popup_dismissed`. Its copy no longer claims
+  "Subscription is required to access all content" — that line was both untrue (booklet one
+  is free) and the thing that makes Google treat the interstitial as intrusive.
+
+### Two real bugs found while wiring it
+
+- **`pdf-book-modal.tsx` set `withCredentials: !isExternal`.** In production the API *is* a
+  different origin, which is precisely when the subscriber cookie needs sending — so it was
+  never sent. Now unconditionally `true`.
+- **The same file only attached `Authorization: Bearer` when the URL was same-origin**, so
+  in production the access token never reached the server either. The token now rides in
+  the query string (`?token=`), which works cross-origin and on a plain `<a href>` download.
+
+That second one matters beyond the bug: the subscriber cookie is third-party to the site's
+origin, so Safari and Chrome's third-party cookie restrictions can drop it. The URL token
+is what keeps the gate working when that happens.
+
+### Verified locally (2026-09-18)
+
+Backend run with no database, `ACCESS_TOKEN_SECRET=test-access-secret`:
+
+| Request | Result |
+| --- | --- |
+| Gated booklet, no credentials | **401** (was handing over the PDF) |
+| Gated booklet, garbage token | **401** |
+| Free `booklet-one`, no credentials | not 401 — passes the gate |
+| Legacy `valluru_booklet_<slug>` cookie | passes — grace path holds |
+| Subscriber cookie alone | passes |
+| Access token alone, no cookies | passes — the cross-device case |
+| `booklet-two` token against `booklet-three` | **401** — correctly scoped |
+
+Subscribe sets both `valluru_subscriber` and the legacy per-booklet cookie.
+
+### Known limitation
+
+When `booklet.pdf` is a plain `https://` URL the route still 302-redirects to it, so a
+subscriber receives a public URL they can pass on. The gate controls *who gets the link*,
+not what happens after. Phase 4's Supabase signed URLs close this.
+
+### Still open in Phase 2
+
+- `localStorage` is no longer the source of truth on the server, but
+  `booklet-reader.tsx` still decides what UI to show from it. Harmless — the server is
+  authoritative now — but the reader does not yet handle a 401 gracefully.
+- The name field is still on the pop-up and the reader. The locked decision is **email
+  only**; that change belongs with the Phase 3 in-page gate rather than here.
+- Whether the pop-up survives at all is Sasidhar's call.
+
+## Phase 3 — booklets as text ◑ machinery built, content not yet imported
+
+The pipeline, content model, rendering and gate are built and tested. **No real chapter
+data exists yet** — that half is blocked, see below.
+
+### ⚠ The booklet PDFs are not in this repo
+
+Nothing under the repo is a PDF. Booklets are referenced by URL from content, and the
+defaults point at `https://thevalluru.org/wp-content/uploads/2026/05/*.pdf` — a public
+WordPress path. **8 of the 18 booklets currently have a PDF**, not seven:
+
+```
+when-the-gods-fall-silent-booklet_one        where-language-learns-to-bow-booklet_three
+when-silence-became-sound-booklet_two        when-the-seeker-stops-optimizing-booklet_four
+the-witnesses-who-remain-booklet_five        when-grief-became-nada-booklet_six
+nadeswara-kshobhasamana-stotram-booklet_eight  in-ammas-lap-booklet_nine-1
+```
+
+So the extraction run and its human review still have to happen. Everything downstream of
+it is ready and waiting.
+
+### What was built
+
+**1. Extraction — `backend/scripts/extract-booklet-chapters.mjs`**
+
+```bash
+node backend/scripts/extract-booklet-chapters.mjs <pdf...> --out chapters-review --slug booklet-two
+```
+
+Writes reviewable JSON and touches no database. Headings are found by **type size**, not
+regex — these are typeset booklets, so a chapter opening is reliably larger than its body
+— with a regex fallback for `Chapter N` / roman numerals. Repeated page furniture is
+detected by looking for the same line recurring in the top or bottom 8% of at least 40% of
+pages (digits normalised, so page numbers collapse together). Paragraphs break where the
+vertical gap exceeds 1.5× the usual leading, and words hyphenated across a line break are
+rejoined. It prints a per-chapter summary and warns when it finds suspiciously few or many
+chapters, or a chapter short enough to be a pull-quote.
+
+Verified on a synthetic typeset PDF: 4 chapters found, header and page numbers stripped,
+paragraphs split at the wider gaps, depth rule applied.
+
+**2. Content model** — `BookletChapter` (`id`, `number`, `title`, `paragraphs`, optional
+`free`, optional `teaser`) on `Booklet.chapters`, plus `FREE_CHAPTER_COUNT = 3` and
+`isChapterFree()` in `frontend/lib/site-content.ts`. `normalizeChapters` in
+`content-store.ts` treats chapters as untrusted admin input. **A chapter with no
+paragraphs is kept when it has a title** — that is exactly the shape a gated chapter
+arrives in.
+
+**3. `backend/src/content-chapters.js`** — the visibility rules, pulled out of `server.js`
+because they decide what prose reaches the public internet. Covered by 9 tests
+(`npm --prefix backend test`).
+
+**4. `GET /api/booklets/:slug/chapters`** — free chapters to anyone, gated chapters only
+when `hasBookletAccess` passes. Returns `hasAccess`, `totalChapters`, `freeChapters`.
+Sends `private, no-store` when it carries gated prose, `public, max-age=300` otherwise.
+
+**5. Rendering** — `BookletChapters` is a **server component**: free chapters are plain
+server HTML, indexable and needing no JavaScript, which is the entire point of the
+migration. `ChapterGate` is the client component at the 3/4 boundary — fading teaser of
+the next chapter, one email field, and it fetches the rest once the API says the reader is
+allowed them. A subscriber arriving with a valid cookie never sees the form.
+
+### Two traps worth knowing about
+
+- **`/api/content` is public and ISR-cached for 300s**, so putting chapters in it would
+  have published every gated booklet to the world. `redactGatedChapters` strips gated
+  prose from it; only numbers, titles and one teaser survive.
+- **That redaction creates a data-loss bug.** The admin page loads content through the
+  same public route, so the editor holds chapters with empty paragraphs — and
+  `persistContent()` PUTs them straight back, which would wipe the writing from MongoDB.
+  `preserveRedactedChapters` restores stored prose wherever an incoming chapter carries
+  none, making the round-trip lossless. **Consequence: emptying a chapter's paragraphs
+  cannot clear it — delete the chapter instead.** There is a test named for this.
+
+**6. `Article` schema** on the booklet page, emitted only once a booklet has chapter text.
+Uses Google's partial-paywall pattern: `isAccessibleForFree: false` plus a `hasPart`
+`WebPageElement` whose `cssSelector` is `.valluru-gated` (the class on `ChapterGate`).
+Without that declaration, showing a crawler more than a signed-out reader reads as
+cloaking rather than as a declared gate.
+
+**7. `/r/[code]` short links** — `frontend/app/r/[code]/route.ts`. `/r/b5?s=story` lands on
+booklet five with UTM parameters attached server-side, so a bio link can be repointed
+without editing every surface it was posted to. `b1…bN` index the published booklets in
+series order. `?s=` sets `utm_medium` from the whitelist (bio, story, highlight, dm,
+comment, shorts_desc, defaulting to bio); `utm_source` is youtube for `shorts_desc` and
+instagram otherwise, overridable with `?src=`; `?c=` sets `utm_content`;
+`utm_campaign` is the booklet slug. Unknown codes redirect to `/series` rather than 404.
+**307, not 308** — a permanent redirect would be cached in browsers long after the posting
+schedule moved on. `Disallow: /r/` is in robots.txt so short links do not compete with the
+canonical booklet URL.
+
+**8. `/read` hub** — `frontend/app/(public)/read/page.tsx`. Every booklet listed under the
+hook line from its reel (`oneLineHook`, which already existed and is already admin-editable),
+so a viewer recognises the sentence they just heard. The top slot follows
+`settings.featuredBookletSlug`, editable under **Reel Posting Schedule** in the admin, and
+falls back to the first published booklet. Added to the sitemap.
+
+### Verified locally (2026-09-18)
+
+`/r/b1` → booklet one, `utm_medium=bio`. `/r/b5?s=story` → booklet five, `utm_medium=story`.
+`/r/b2?s=shorts_desc&c=hook-a` → booklet two with `utm_source=youtube` and
+`utm_content=hook-a`. `/r/b3?s=nonsense` falls back to `bio`. `/r/b99` and `/r/garbage` land
+on `/series`. Following a short link through returns 200. `/read` renders the featured slot
+and all 18 booklets. Build clean, zero warnings; `tsc` clean; 9 backend tests pass.
+
+> If a route handler 404s against a locally started `next start`, restart the server before
+> debugging the route — a stale instance 404s every root-level handler while pages still serve.
+
+### Still to do in Phase 3
+
+- Run the extraction on the real PDFs and have someone who knows the writing read a
+  booklet through before import. Needs the sandbox.
+- Admin editor fields for chapter text (`admin-editor.tsx` — 5.4k lines, budget for it).
+  The **Reel Posting Schedule** group is in; chapter editing is not.
+- **Interior illustrations — still undecided.** Built text-only for now, which is the
+  reversible default: the illustrated PDF stays the subscriber reward. Largest variable
+  in this phase.
+- `BookletReader` (the PDF modal) and `BookletChapters` currently both render on the
+  booklet page. Once real chapters exist, decide which is the primary reading surface.
+- `generate-sitemap.js` hardcodes its booklet list, so it can drift from the content in
+  MongoDB. Worth driving from content when something else touches it.
+
+Also in this phase (small, high value for the content operation):
+
+- **`/read` hub page** whose top slot features the booklet the current reel came from,
+  driven by a posting schedule in the admin. List each booklet under **the hook line from
+  its reel** so viewers recognise the sentence they just heard.
+- **`/r/b1` … `/r/b7` redirects** that attach UTM parameters server-side (`utm_medium` per
+  surface: bio, story, highlight, dm, comment, shorts_desc).
+
+Why this is light, not heavy: each booklet is ~4,000 words, three free chapters ~1,500
+words ≈ 8–12KB gzipped — less than one PNG background the page already loads. It renders
+with the page, needs no JavaScript, and removes the canvas renderer from the free path.
+
+## Phase 4 — durability
+
+- Move the API off Render free tier, or make every public page independent of it at
+  request time (Phase 1 mostly achieves the latter).
+- Serve PDFs from Supabase via signed URLs instead of streaming through the API.
+- Split `admin-editor.tsx` (5.4k lines) and `server.js` (3.9k lines) when something else
+  already touches them.
+- Strip `console.log` from production request paths.
+
+## Working agreement
+
+- **Sandbox first:** separate Mongo database and Supabase project — never point the
+  sandbox at production data.
+- One phase per branch, one PR each, before/after numbers in the description.
+- Vercel preview deployments are the test rig; share the preview URL rather than files.
+- Production auto-deploys, so merge one phase at a time on a quiet day with the previous
+  commit ready to revert.
+- The stray `.playwright-mcp/` folder (screenshots and console logs from an earlier
+  session) is gitignored — delete it before it reaches a public repo.
+
+### What to test at every phase
+
+Mobile and desktop page-load numbers, the booklet page on a real phone, the sign-up flow
+end to end including the email arriving, the PDF download for a subscriber **and** for a
+non-subscriber, the admin editor still saving correctly, and that GA4, Ads and the Pixel
+still record a sign-up.
+
+## Baseline measurements (2026-09-17, production)
+
+TTFB 107ms · DOMContentLoaded 1.77s · load 2.27s (desktop) · `/api/reflections` 1.08s ·
+booklet prose absent from server HTML (so invisible to search).
+
+Re-measure before and after each phase and put both numbers in the PR.
