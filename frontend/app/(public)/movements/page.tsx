@@ -4,7 +4,7 @@ import { PageHeader, PageShell, Section, MovementCard } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
 import { defaultSiteContent, movementSlug } from "@/lib/site-content";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "Movements | The Valluru",

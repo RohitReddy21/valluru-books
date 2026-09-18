@@ -12,6 +12,11 @@ const os = require("node:os");
 const path = require("node:path");
 const { Readable } = require("node:stream");
 const { pipeline } = require("node:stream/promises");
+const {
+  isChapterFree,
+  preserveRedactedChapters,
+  redactGatedChapters
+} = require("./src/content-chapters");
 const { registerAdminDataRoutes } = require("./src/routes/admin-data");
 const { registerImageRoutes } = require("./src/routes/images");
 const { registerSubscriptionRoutes } = require("./src/routes/subscriptions");
@@ -653,6 +658,37 @@ function getPublicSiteUrl() {
   return String(process.env.PUBLIC_SITE_URL || "https://www.thevalluru.org")
     .trim()
     .replace(/\/$/, "");
+}
+
+/**
+ * Drops the frontend's cached copy of the site content so an admin save is visible before
+ * the ISR window expires. Fire-and-forget: a failed ping must never fail the save itself.
+ */
+async function revalidateSiteContent() {
+  const secret = process.env.REVALIDATE_SECRET;
+
+  if (!secret) {
+    return;
+  }
+
+  const baseUrl = String(process.env.FRONTEND_REVALIDATE_URL || getPublicSiteUrl())
+    .trim()
+    .replace(/\/$/, "");
+
+  try {
+    const response = await fetch(`${baseUrl}/api/revalidate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ secret }),
+      signal: AbortSignal.timeout(5000)
+    });
+
+    if (!response.ok) {
+      console.warn(`Content revalidation returned ${response.status}.`);
+    }
+  } catch (error) {
+    console.warn("Content revalidation request failed.", error?.message || error);
+  }
 }
 
 function formatSubscriptionTime(date = new Date()) {
@@ -1501,6 +1537,42 @@ function setSubscriberCookie(response, request, subscriber) {
   response.cookie("valluru_subscriber", createSubscriberToken({ email, name }), cookieOptions(request));
 }
 
+/**
+ * Booklet one is the free sample. booklet-reader.tsx applies the same rule client-side,
+ * so the two must stay in step.
+ */
+const FREE_BOOKLET_SLUGS = new Set(["booklet-one"]);
+
+/**
+ * Decides whether a request may read a booklet PDF.
+ *
+ * The signed subscriber cookie is the source of truth: it survives a cleared localStorage
+ * and works on the reader's other devices. The two checks below it are the grace path —
+ * readers who subscribed before this gate existed hold a per-booklet cookie or an access
+ * token instead, and must not be locked out of a booklet they already gave an email for.
+ */
+function hasBookletAccess(request, slug) {
+  if (FREE_BOOKLET_SLUGS.has(slug)) {
+    return true;
+  }
+
+  if (getSubscriberFromRequest(request)) {
+    return true;
+  }
+
+  if (getCookies(request)[`valluru_booklet_${slug}`] === "true") {
+    return true;
+  }
+
+  const bearer = String(request.get("authorization") || "")
+    .replace(/^Bearer\s+/i, "")
+    .trim();
+  const token = String(request.query?.token || "").trim() || bearer;
+
+  // A "*" token predates per-booklet tokens and grants every booklet.
+  return Boolean(token) && (verifyAccessToken(token, slug) || verifyAccessToken(token, "*"));
+}
+
 function pdfFilename(slug) {
   return `${slug}.pdf`;
 }
@@ -2252,7 +2324,7 @@ app.get("/api/content", async (request, response, next) => {
       });
     }
 
-    response.json({ content });
+    response.json({ content: redactGatedChapters(content) });
   } catch (error) {
     next(error);
   }
@@ -2270,9 +2342,11 @@ app.put("/api/content", verifyAdmin, async (request, response, next) => {
     }
 
     const previousContent = await getSiteContent();
+    const incomingContent = preserveRedactedChapters(request.body.content, previousContent);
 
-    await saveSiteContent(request.body.content);
-    queueSubscriberAnnouncementCheck(previousContent, request.body.content, "content-save");
+    await saveSiteContent(incomingContent);
+    queueSubscriberAnnouncementCheck(previousContent, incomingContent, "content-save");
+    void revalidateSiteContent();
     response.json({ ok: true });
   } catch (error) {
     next(error);
@@ -3715,6 +3789,11 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
       return;
     }
 
+    if (!hasBookletAccess(request, slug)) {
+      response.status(401).json({ error: "Subscribe to read this booklet." });
+      return;
+    }
+
     if (!booklet.pdf) {
       console.log("[booklets/:slug/pdf] No PDF available");
       response.status(404).json({ error: "No uploaded PDF is available for this booklet yet." });
@@ -3724,6 +3803,12 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
     console.log("[booklets/:slug/pdf] PDF available:", {
       pdfUrl: booklet.pdf.substring(0, 100)
     });
+
+    // A gated PDF must never sit in a shared cache, or a CDN hands it to the next
+    // reader along without one of the checks above ever running.
+    const pdfCacheControl = FREE_BOOKLET_SLUGS.has(slug)
+      ? "public, max-age=3600"
+      : "private, no-store";
 
     const supabaseObject = getSupabaseObjectFromUrl(booklet.pdf);
 
@@ -3735,7 +3820,7 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
 
       const streamed = await streamSupabaseFile(supabaseObject.bucket, supabaseObject.storagePath, response, {
         "Content-Disposition": `inline; filename="${slug}.pdf"`,
-        "Cache-Control": "public, max-age=3600"
+        "Cache-Control": pdfCacheControl
       });
 
       if (streamed) {
@@ -3748,6 +3833,8 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
     }
 
     if (/^https?:\/\//.test(booklet.pdf)) {
+      // The gate ends here: this hands back a public URL the reader can pass on freely.
+      // Phase 4 replaces it with a short-lived Supabase signed URL.
       console.log("[booklets/:slug/pdf] Treating as remote URL, redirecting");
       response.redirect(booklet.pdf);
       return;
@@ -3758,6 +3845,46 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
   } catch (error) {
     console.error("[booklets/:slug/pdf] Error:", error.message, error.stack);
     response.status(500).json({ error: "Failed to retrieve PDF. Please try again." });
+  }
+});
+
+app.get("/api/booklets/:slug/chapters", async (request, response, next) => {
+  try {
+    const { slug } = request.params;
+    const content = await getSiteContent();
+    const entry = findContentBookletEntry(content, slug);
+    const booklet = entry?.booklet;
+
+    if (
+      !booklet ||
+      (booklet.status && booklet.status !== "published") ||
+      !isPublishedStatus(entry.series?.status)
+    ) {
+      response.status(404).json({ error: "Booklet not found." });
+      return;
+    }
+
+    const chapters = Array.isArray(booklet.chapters) ? booklet.chapters : [];
+    const hasAccess = hasBookletAccess(request, slug);
+    const visible = chapters.filter((chapter) => hasAccess || isChapterFree(chapter));
+
+    // A response carrying gated prose is per-reader and must not reach a shared cache.
+    response.set("Cache-Control", hasAccess ? "private, no-store" : "public, max-age=300");
+    response.json({
+      slug,
+      hasAccess,
+      totalChapters: chapters.length,
+      freeChapters: chapters.filter(isChapterFree).length,
+      chapters: visible.map((chapter) => ({
+        id: chapter.id,
+        number: chapter.number,
+        title: chapter.title,
+        free: isChapterFree(chapter),
+        paragraphs: Array.isArray(chapter.paragraphs) ? chapter.paragraphs : []
+      }))
+    });
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -3874,4 +4001,12 @@ app.listen(port, "0.0.0.0", () => {
     console.error("[email-config] ⚠ WARNING: ADMIN_NOTIFICATION_EMAIL is not configured. You will NOT receive new subscriber notifications!");
   }
   console.log("[email-config] ================================================");
+
+  // The booklet gate is only as strong as this secret. Unset, it silently falls back to
+  // ADMIN_PASSWORD (or a hardcoded string), and anyone who can guess it can mint a token.
+  if (!process.env.ACCESS_TOKEN_SECRET) {
+    console.error(
+      "[access-config] ⚠ WARNING: ACCESS_TOKEN_SECRET is not set. Subscriber cookies and booklet access tokens are being signed with ADMIN_PASSWORD or a default string, so the booklet gate is forgeable. Set a long random value."
+    );
+  }
 });

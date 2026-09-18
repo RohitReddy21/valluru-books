@@ -15,7 +15,7 @@ import {
   isPublished
 } from "@/lib/site-content";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "The Inward Fire Series | The Valluru",

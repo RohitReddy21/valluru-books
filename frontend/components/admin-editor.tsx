@@ -3763,6 +3763,28 @@ function SettingsPanel({
           <p className="mt-3 text-base italic text-muted">{emailTestStatus}</p>
         </div>
       </FieldGroup>
+      <FieldGroup title="Reel Posting Schedule">
+        <p className="text-base leading-7 text-muted">
+          Which booklet the current reel quotes. It takes the top slot on /read, so change
+          it whenever the reel changes. Short links /r/b1 … /r/b18 point at booklets in
+          series order and do not depend on this.
+        </p>
+        <label className="block font-label text-sm uppercase tracking-[0.2em] text-muted">
+          Featured Booklet
+          <select
+            className="mt-3 w-full rounded-md border border-gold/20 bg-ink px-3 py-2 text-base normal-case tracking-normal text-parchment outline-none focus:border-gold/60"
+            onChange={(event) => updateSettings({ featuredBookletSlug: event.target.value })}
+            value={settings.featuredBookletSlug || ""}
+          >
+            <option value="">First published booklet</option>
+            {content.series.booklets.map((booklet) => (
+              <option key={booklet.slug} value={booklet.slug}>
+                {booklet.numberLabel} — {booklet.title}
+              </option>
+            ))}
+          </select>
+        </label>
+      </FieldGroup>
       <FieldGroup title="Checkout Settings">
         <TextField label="WhatsApp Number" onChange={(value) => updateSettings({ whatsappNumber: value })} value={settings.whatsappNumber} />
         <TextField label="Website Name" onChange={(value) => updateSettings({ websiteName: value })} value={settings.websiteName} />

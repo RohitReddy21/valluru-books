@@ -1,8 +1,11 @@
 "use client";
 
 import { Star } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiUrl } from "@/lib/api";
+
+/** The API sleeps on Render's free tier; fail fast rather than spin on a cold start. */
+const COMMENTS_FETCH_TIMEOUT_MS = 1200;
 
 type ReaderComment = {
   name?: string;
@@ -22,6 +25,7 @@ export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">(
     "idle"
   );
+  const sectionRef = useRef<HTMLElement | null>(null);
 
   const loadComments = useCallback(async (showLoading = true) => {
     if (showLoading) {
@@ -32,7 +36,8 @@ export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
       const response = await fetch(
         apiUrl(`/api/reflections?bookletSlug=${encodeURIComponent(bookletSlug)}`),
         {
-          credentials: "include"
+          credentials: "include",
+          signal: AbortSignal.timeout(COMMENTS_FETCH_TIMEOUT_MS)
         }
       );
       const payload = (await response.json().catch(() => null)) as {
@@ -46,17 +51,34 @@ export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
 
       setComments(payload.comments);
       setCommentsStatus("ready");
-    } catch (error) {
+    } catch {
       setCommentsStatus("error");
     }
   }, [bookletSlug]);
 
+  // Comments sit well below the fold, so the fetch waits until the reader is heading
+  // towards them instead of competing with the booklet itself on load.
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadComments(false);
-    }, 0);
+    const section = sectionRef.current;
 
-    return () => window.clearTimeout(timer);
+    if (!section || typeof IntersectionObserver === "undefined") {
+      void loadComments(false);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          observer.disconnect();
+          void loadComments(false);
+        }
+      },
+      { rootMargin: "600px 0px" }
+    );
+
+    observer.observe(section);
+
+    return () => observer.disconnect();
   }, [loadComments]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -78,13 +100,13 @@ export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
         setRating(0);
         await loadComments();
       }
-    } catch (error) {
+    } catch {
       setStatus("error");
     }
   }
 
   return (
-    <section className="mt-12 border-t border-gold/15 pt-8">
+    <section className="mt-12 border-t border-gold/15 pt-8" ref={sectionRef}>
       <form onSubmit={submit}>
         <h2 className="font-display text-2xl text-parchment sm:text-3xl">
           Reader Reflection

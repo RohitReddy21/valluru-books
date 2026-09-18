@@ -1,13 +1,14 @@
 "use client";
 
-import { Mail } from "lucide-react";
+import { Mail, X } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 import { trackEmailSubscription } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api";
 
 const storageKey = "valluru_global_subscribed";
 const subscriberInfoKey = "valluru_subscriber_info";
+const dismissedKey = "valluru_global_popup_dismissed";
 
 export function GlobalSubscribePopup() {
   const pathname = usePathname();
@@ -31,10 +32,11 @@ export function GlobalSubscribePopup() {
     let timer: number | undefined;
     const frame = window.requestAnimationFrame(() => {
       const alreadySubscribed = window.localStorage.getItem(storageKey) === "subscribed";
+      const alreadyDismissed = window.localStorage.getItem(dismissedKey) === "dismissed";
       setHasSubscribed(alreadySubscribed);
       setIsClient(true);
 
-      if (!alreadySubscribed) {
+      if (!alreadySubscribed && !alreadyDismissed) {
         timer = window.setTimeout(() => {
           setShowPopup(true);
         }, 5000);
@@ -48,6 +50,34 @@ export function GlobalSubscribePopup() {
       }
     };
   }, [pathname]);
+
+  // Once dismissed it stays dismissed on this device. The in-page gate at the chapter
+  // boundary is the real sign-up path; this should not be the thing that converts.
+  const dismiss = useCallback(() => {
+    setShowPopup(false);
+
+    try {
+      window.localStorage.setItem(dismissedKey, "dismissed");
+    } catch {
+      // A blocked localStorage only costs us the memory of the dismissal.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!showPopup) {
+      return;
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        dismiss();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [dismiss, showPopup]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -102,9 +132,22 @@ export function GlobalSubscribePopup() {
       aria-describedby={descriptionId}
       aria-modal="true"
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink/70 px-4 py-8 backdrop-blur-md sm:px-5"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          dismiss();
+        }
+      }}
       role="dialog"
     >
-      <div className="w-full max-w-lg rounded-md border border-gold/30 bg-[#141210] p-6 shadow-[0_26px_90px_rgba(0,0,0,0.7)] sm:p-8 fade-up">
+      <div className="relative w-full max-w-lg rounded-md border border-gold/30 bg-[#141210] p-6 shadow-[0_26px_90px_rgba(0,0,0,0.7)] sm:p-8 fade-up">
+        <button
+          aria-label="Close"
+          className="absolute right-3 top-3 inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted transition hover:text-gold focus:outline-none focus-visible:ring-1 focus-visible:ring-gold/60"
+          onClick={dismiss}
+          type="button"
+        >
+          <X size={18} />
+        </button>
         <p className="font-label text-xs uppercase tracking-[0.24em] text-gold/90">
           The Inward Fire Letter
         </p>
@@ -160,7 +203,7 @@ export function GlobalSubscribePopup() {
           <p className="min-h-6 text-sm italic text-muted">
             {status === "error"
               ? "The form could not be saved. Please try again."
-              : "Subscription is required to access all content."}
+              : "Booklet one is free to read. Subscribers receive the illustrated PDFs and a note when the next booklet is ready."}
           </p>
         </form>
       </div>

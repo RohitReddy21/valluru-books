@@ -3,6 +3,10 @@ Allow: /
 Disallow: /checkout
 Disallow: /admin
 
+# Campaign short links. These redirect to booklet pages with UTM parameters attached;
+# indexing them would compete with the canonical booklet URL they point at.
+Disallow: /r/
+
 # Crawl delay for respectful crawling
 Crawl-delay: 1
 

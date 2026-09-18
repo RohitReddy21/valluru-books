@@ -4,7 +4,7 @@ import { MovementPdfReader } from "@/components/movement-pdf-reader";
 import { defaultSiteContent, isBookletInMovement, movementSlug, isPublished } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export function generateStaticParams() {
   return defaultSiteContent.home.seriesOverview.movements.map((movement, index) => ({

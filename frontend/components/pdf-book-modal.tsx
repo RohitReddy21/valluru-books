@@ -61,7 +61,9 @@ export function PdfBookModal({
           standardFontDataUrl: `${PDFJS_ASSET_PATH}standard_fonts/`,
           useWasm: true,
           wasmUrl: `${PDFJS_ASSET_PATH}wasm/`,
-          withCredentials: !isExternal
+          // The API is a different origin in production, which is exactly when the
+          // subscriber cookie needs sending — so this must not be conditional on that.
+          withCredentials: true
         } as Parameters<typeof pdfjs.getDocument>[0];
         const pdf = await pdfjs.getDocument(loadingParams).promise;
         const renderedPages: PdfPage[] = [];

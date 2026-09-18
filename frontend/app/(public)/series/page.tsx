@@ -3,7 +3,7 @@ import { BookletCard, PageHeader, PageShell, ProseBlocks, Section, WideSection }
 import { getSiteContent } from "@/lib/content-store";
 import { defaultSiteContent, isPublished } from "@/lib/site-content";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export default async function SeriesPage() {
   const content = await getSiteContent();

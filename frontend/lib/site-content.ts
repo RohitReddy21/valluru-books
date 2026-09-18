@@ -74,6 +74,34 @@ export type BookletFaq = {
   answer: string;
 };
 
+export type BookletChapter = {
+  /** Stable identifier, used for the heading anchor and by the admin editor. */
+  id: string;
+  /** 1-based position in the booklet. Decides free vs gated via the depth rule below. */
+  number: number;
+  title: string;
+  /**
+   * Plain-text paragraphs. The renderer wraps each one in a <p>. Empty for a gated
+   * chapter: the public content API redacts those and serves them per-reader instead.
+   */
+  paragraphs: string[];
+  /** Set only to override the depth rule for this one chapter. */
+  free?: boolean;
+  /** Opening lines of the first gated chapter, shown fading above the gate. */
+  teaser?: string;
+};
+
+/**
+ * Chapters 1-3 of every booklet are free and public; the gate sits at the 3/4 boundary.
+ * Gating by depth rather than by booklet is the point: a reel quoting booklet five must
+ * land the reader on booklet five with something to read, not on "read booklet one".
+ */
+export const FREE_CHAPTER_COUNT = 3;
+
+export function isChapterFree(chapter: Pick<BookletChapter, "number" | "free">) {
+  return chapter.free ?? chapter.number <= FREE_CHAPTER_COUNT;
+}
+
 export type Booklet = {
   slug: string;
   numberLabel: string;
@@ -89,6 +117,7 @@ export type Booklet = {
   readButtonText?: string;
   downloadButtonText?: string;
   faqs?: BookletFaq[];
+  chapters?: BookletChapter[];
   relatedBookletSlugs?: string[];
   movementIndex?: number;
   status?: PublishStatus;
@@ -229,6 +258,12 @@ export type SiteContent = {
       instagram?: string;
       youtube?: string;
     };
+    /**
+     * Booklet the current reel quotes. It takes the top slot on /read, so this is the
+     * posting schedule in practice: change it when the reel changes. Empty falls back to
+     * the first published booklet.
+     */
+    featuredBookletSlug?: string;
     seo: SeoMetadata;
   };
   footer: {

@@ -5,7 +5,7 @@ import { BookletCard, PageHeader, PageShell, ProseBlocks, Section, WideSection }
 import { getSiteContent } from "@/lib/content-store";
 import { defaultSiteContent, isPublished, seriesBasePath } from "@/lib/site-content";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export async function generateMetadata(): Promise<Metadata> {
   const content = await getSiteContent();

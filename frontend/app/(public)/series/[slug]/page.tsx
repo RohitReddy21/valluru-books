@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
+import { BookletChapters } from "@/components/booklet-chapters";
 import { BookletReader } from "@/components/booklet-reader";
 import { ReflectionForm } from "@/components/reflection-form";
 import { BackLink, BookletCard, PageShell, PrimaryLink } from "@/components/ui";
@@ -14,11 +15,12 @@ import {
   getBookletDetailSubtitle,
   getBookletFaqs,
   getBookletNeighbors,
+  isChapterFree,
   isPublished
 } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export function generateStaticParams() {
   return defaultSiteContent.series.booklets.map((booklet) => ({
@@ -157,6 +159,54 @@ export default async function BookletPage({
     }
   };
 
+  const chapters = booklet.chapters ?? [];
+  const freeChapters = chapters.filter(
+    (chapter) => isChapterFree(chapter) && chapter.paragraphs.length
+  );
+  const hasGatedChapters = chapters.some((chapter) => !isChapterFree(chapter));
+
+  /**
+   * Only emitted once a booklet actually has chapter text. `hasPart` is Google's pattern
+   * for partially gated writing: it declares which part of the page is withheld, so that
+   * showing a crawler more than a signed-out reader reads as a declared paywall rather
+   * than as cloaking.
+   */
+  const articleSchema = freeChapters.length
+    ? {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        headline: booklet.title,
+        description: getBookletDetailIntro(booklet),
+        url: canonicalUrl,
+        image: coverImage,
+        inLanguage: "en",
+        wordCount: freeChapters.reduce(
+          (total, chapter) => total + chapter.paragraphs.join(" ").split(/\s+/).length,
+          0
+        ),
+        isAccessibleForFree: !hasGatedChapters,
+        ...(hasGatedChapters
+          ? {
+              hasPart: {
+                "@type": "WebPageElement",
+                isAccessibleForFree: false,
+                cssSelector: ".valluru-gated"
+              }
+            }
+          : {}),
+        author: {
+          "@type": "Person",
+          name: "Sasidhar Valluru"
+        },
+        publisher: {
+          "@type": "Organization",
+          name: "The Valluru",
+          url: "https://www.thevalluru.org"
+        },
+        mainEntityOfPage: canonicalUrl
+      }
+    : null;
+
   const faqSchema = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
@@ -180,6 +230,12 @@ export default async function BookletPage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
+      {articleSchema ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+        />
+      ) : null}
 
       <section
         className="valluru-hero-image px-4 pb-12 pt-24 sm:px-5 sm:pt-32"
@@ -262,6 +318,7 @@ export default async function BookletPage({
               ) : null} */}
             </div>
             <BookletReader booklet={booklet} />
+            <BookletChapters booklet={booklet} />
           </article>
 
           {navigationBooklets.length > 0 ? (

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { apiUrl } from "@/lib/api";
 import {
   defaultSiteContent,
@@ -6,6 +7,7 @@ import {
   seriesBasePath,
   type BookSeries,
   type Booklet,
+  type BookletChapter,
   type Cta,
   type Movement,
   type SiteContent
@@ -19,6 +21,48 @@ function sameBooklet(left: Booklet, right: Booklet) {
   );
 }
 
+/**
+ * Chapters are written through the admin editor, so treat them as untrusted input and
+ * order what survives by chapter number.
+ *
+ * A chapter with no paragraphs is kept as long as it has a title: that is exactly the
+ * shape a gated chapter arrives in, since the public content API redacts its prose. Only
+ * an entry with neither prose nor a title is dropped.
+ */
+function normalizeChapters(chapters: Booklet["chapters"]): BookletChapter[] | undefined {
+  if (!Array.isArray(chapters)) {
+    return undefined;
+  }
+
+  const normalized = chapters
+    .map((chapter, index) => {
+      const paragraphs = Array.isArray(chapter?.paragraphs)
+        ? chapter.paragraphs.map((paragraph) => String(paragraph ?? "").trim()).filter(Boolean)
+        : [];
+      const title = String(chapter?.title ?? "").trim();
+
+      if (!paragraphs.length && !title) {
+        return null;
+      }
+
+      const number = Number(chapter?.number) > 0 ? Number(chapter.number) : index + 1;
+      const teaser = String(chapter?.teaser ?? "").trim();
+
+      return {
+        id: String(chapter?.id || `chapter-${number}`),
+        number,
+        title: title || `Chapter ${number}`,
+        paragraphs,
+        ...(typeof chapter?.free === "boolean" ? { free: chapter.free } : {}),
+        ...(teaser ? { teaser } : {})
+      };
+    })
+    .filter((chapter): chapter is BookletChapter => chapter !== null)
+    .sort((left, right) => left.number - right.number);
+
+  return normalized.length ? normalized : undefined;
+}
+
 function normalizeBooklets(booklets?: Booklet[]) {
   const sourceBooklets = booklets?.length ? booklets : defaultSiteContent.series.booklets;
   const mergedBooklets = sourceBooklets.map((booklet) => {
@@ -26,7 +70,10 @@ function normalizeBooklets(booklets?: Booklet[]) {
       sameBooklet(defaultBooklet, booklet)
     );
 
-    return defaults ? { ...defaults, ...booklet } : booklet;
+    const merged = defaults ? { ...defaults, ...booklet } : booklet;
+    const chapters = normalizeChapters(merged.chapters);
+
+    return chapters ? { ...merged, chapters } : merged;
   });
 
   for (const defaultBooklet of defaultSiteContent.series.booklets) {
@@ -504,9 +551,23 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
   } as SiteContent;
 }
 
-export async function getSiteContent(): Promise<SiteContent> {
+export const CONTENT_REVALIDATE_SECONDS = 300;
+export const CONTENT_CACHE_TAG = "site-content";
+
+// The API runs on Render's free tier and sleeps when idle. Without a ceiling, the first
+// request after a quiet period blocks the page on a cold start.
+const CONTENT_FETCH_TIMEOUT_MS = 6000;
+
+/**
+ * `cache` dedupes this across one render pass, so the layout and the page share a single
+ * fetch instead of making the same call twice.
+ */
+export const getSiteContent = cache(async function getSiteContent(): Promise<SiteContent> {
   try {
-    const response = await fetch(apiUrl("/api/content"), { cache: "no-store" });
+    const response = await fetch(apiUrl("/api/content"), {
+      next: { revalidate: CONTENT_REVALIDATE_SECONDS, tags: [CONTENT_CACHE_TAG] },
+      signal: AbortSignal.timeout(CONTENT_FETCH_TIMEOUT_MS)
+    });
 
     if (!response.ok) {
       // Normalize the defaults too, so an unreachable backend renders the same nav,
@@ -522,7 +583,7 @@ export async function getSiteContent(): Promise<SiteContent> {
   } catch {
     return normalizeContent(null);
   }
-}
+});
 
 export function getContentSource() {
   return "backend API";

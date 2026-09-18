@@ -53,6 +53,13 @@ export function BookletReader({ booklet }: Props) {
   );
   const downloadButtonText = getBookletDownloadButtonText(booklet);
 
+  // The subscriber cookie is what normally proves access, but it is a third-party cookie
+  // to this origin and some browsers drop it. The token rides along in the URL so readers
+  // who subscribed before the gate existed keep working either way.
+  const pdfUrl = accessToken
+    ? apiUrl(`/api/booklets/${booklet.slug}/pdf?token=${encodeURIComponent(accessToken)}`)
+    : apiUrl(`/api/booklets/${booklet.slug}/pdf`);
+
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       const globalSubscribed = window.localStorage.getItem(globalStorageKey) === "subscribed";
@@ -197,7 +204,7 @@ export function BookletReader({ booklet }: Props) {
           {booklet.downloadButtonText ? (
             <a
               className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/35 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
-              href={apiUrl(`/api/booklets/${booklet.slug}/pdf`)}
+              href={pdfUrl}
               rel="noreferrer"
               target="_blank"
             >
@@ -247,7 +254,7 @@ export function BookletReader({ booklet }: Props) {
           numberLabel={booklet.numberLabel}
           onClose={() => setReaderOpen(false)}
           open={readerOpen}
-          pdfUrl={apiUrl(`/api/booklets/${booklet.slug}/pdf`)}
+          pdfUrl={pdfUrl}
           title={booklet.title}
         />
       ) : null}

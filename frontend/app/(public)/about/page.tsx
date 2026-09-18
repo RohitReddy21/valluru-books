@@ -2,7 +2,7 @@ import { PageHeader, PageShell, ProseBlocks, Section } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
 import { defaultSiteContent } from "@/lib/site-content";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export default async function AboutPage() {
   const content = await getSiteContent();

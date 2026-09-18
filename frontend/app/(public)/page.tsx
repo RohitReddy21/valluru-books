@@ -17,7 +17,7 @@ import {
   seriesBasePath
 } from "@/lib/site-content";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export default async function HomePage() {
   const content = await getSiteContent();
