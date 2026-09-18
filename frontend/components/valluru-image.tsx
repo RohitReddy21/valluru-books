@@ -46,7 +46,6 @@ const aspectRatios: Record<ImageContext, number> = {
 };
 
 export function VallruImage({
-  id,
   title,
   originalImage,
   crops,
@@ -144,7 +143,7 @@ export function VallruImage({
 
 // Helper hook to determine context based on viewport
 export function useImageContext(): ImageContext {
-  const [context, setContext] = useState<ImageContext>("booklet-card");
+  const [context] = useState<ImageContext>("booklet-card");
 
   // This would typically use a media query or context provider
   // For now, returns a default that can be overridden

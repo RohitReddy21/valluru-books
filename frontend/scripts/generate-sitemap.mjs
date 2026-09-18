@@ -1,11 +1,16 @@
-const fs = require('fs');
-const path = require('path');
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
 const BASE_URL = 'https://www.thevalluru.org';
 
 const staticPages = [
   { url: '/', priority: 1.0, changefreq: 'weekly' },
   { url: '/series', priority: 0.9, changefreq: 'weekly' },
+  // Landing hub for reel traffic; its top slot changes with the posting schedule.
+  { url: '/read', priority: 0.9, changefreq: 'weekly' },
   { url: '/movements', priority: 0.9, changefreq: 'weekly' },
   { url: '/about', priority: 0.7, changefreq: 'monthly' },
 ];
@@ -103,19 +108,8 @@ function generateSitemapXml() {
   return xml;
 }
 
-function generateSitemapIndex() {
-  let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-  xml += '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n';
-  xml += '  <sitemap>\n';
-  xml += `    <loc>${BASE_URL}/sitemap.xml</loc>\n`;
-  xml += `    <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>\n`;
-  xml += '  </sitemap>\n';
-  xml += '</sitemapindex>';
-  return xml;
-}
-
 const sitemapXml = generateSitemapXml();
-const sitemapPath = path.join(__dirname, '../public/sitemap.xml');
+const sitemapPath = path.join(scriptDir, '../public/sitemap.xml');
 
 try {
   fs.writeFileSync(sitemapPath, sitemapXml);

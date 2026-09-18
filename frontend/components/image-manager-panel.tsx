@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Upload, Image as ImageIcon } from "lucide-react";
+import { Upload } from "lucide-react";
 import { apiUrl } from "@/lib/api";
 
 interface ImageData {

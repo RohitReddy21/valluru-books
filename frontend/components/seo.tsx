@@ -55,7 +55,7 @@ export function SEO({
 }
 
 interface SchemaScriptProps {
-  schema: Record<string, any>;
+  schema: Record<string, unknown>;
 }
 
 export function SchemaScript({ schema }: SchemaScriptProps) {

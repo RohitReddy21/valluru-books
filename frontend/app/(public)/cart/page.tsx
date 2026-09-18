@@ -1,9 +1,6 @@
 import { PageShell, Section } from "@/components/ui";
-import { getSiteContent } from "@/lib/content-store";
 
-export default async function CartPage() {
-  const content = await getSiteContent();
-  
+export default function CartPage() {
   return (
     <PageShell>
       <Section>
