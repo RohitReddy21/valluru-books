@@ -1,0 +1,21 @@
+{
+  "name": "valluru-books",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "npm --prefix backend run dev",
+    "build": "npm --prefix frontend run build",
+    "lint": "npm --prefix frontend run lint",
+    "lint:backend": "npm --prefix backend run lint",
+    "start": "npm --prefix backend run start",
+    "start:frontend": "npm --prefix frontend run start",
+    "start:backend": "npm --prefix backend run start"
+  },
+  "dependencies": {
+    "react-helmet-async": "^3.0.0"
+  }
+}

@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: valluru-books-backend
+    env: node
+    buildCommand: "cd backend && npm ci"
+    startCommand: "cd backend && npm start"
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MAX_UPLOAD_BYTES
+        value: 1073741824
+      - key: PUBLIC_SITE_URL
+        value: https://www.thevalluru.org
+      - key: FRONTEND_ORIGIN
+        value: https://www.thevalluru.org,https://thevalluru.org
+      - key: MONGODB_DB
+        value: valluru_books
+      - key: MONGODB_URI
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: RESEND_FROM
+        value: The Valluru <hello@thevalluru.org>
+      - key: RESEND_API_KEY
+        sync: false  # REQUIRED: Set in Render dashboard. Without this, no emails are sent.
+      - key: ADMIN_NOTIFICATION_EMAIL
+        sync: false  # REQUIRED: Set to sasi@thevalluru.org in Render dashboard. Without this, owner gets NO subscriber notifications!
+      - key: REPLY_TO_EMAIL
+        sync: false  # Optional: Falls back to ADMIN_NOTIFICATION_EMAIL if not set.
+    # Increase Nginx client max body size via Render's config
+    headers:
+      - path: /*
+        name: "X-Content-Type-Options"
+        value: "nosniff"
+    healthCheckPath: /health
+    autoDeploy: true
