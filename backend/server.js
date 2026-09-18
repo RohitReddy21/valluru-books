@@ -13,9 +13,9 @@ const path = require("node:path");
 const { Readable } = require("node:stream");
 const { pipeline } = require("node:stream/promises");
 const {
-  isChapterFree,
   preserveRedactedChapters,
-  redactGatedChapters
+  redactGatedChapters,
+  resolveChapterAccess
 } = require("./src/content-chapters");
 const { registerAdminDataRoutes } = require("./src/routes/admin-data");
 const { registerImageRoutes } = require("./src/routes/images");
@@ -449,7 +449,11 @@ async function deleteSupabaseFile(media) {
   }
 }
 
-dotenv.config({ path: path.join(__dirname, ".env"), override: true });
+// override:false on purpose. A real environment variable — set by Render, by Vercel, or
+// by the shell — always wins over a file on disk, and .env only fills what is missing.
+// The reverse lets a stray .env that happens to be in a deployment silently replace the
+// whole production configuration.
+dotenv.config({ path: path.join(__dirname, ".env"), override: false });
 dotenv.config({ path: path.join(__dirname, ".env.local"), override: false });
 
 const app = express();
@@ -488,14 +492,16 @@ app.use(
   cors({
     credentials: true,
     origin(origin, callback) {
-      console.log("CORS origin received:", origin);
-      console.log("Allowed origins:", allowedOrigins);
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
         return;
       }
 
-      callback(new Error("Origin is not allowed by CORS."));
+      // Refuse by withholding the CORS headers, not by throwing. Throwing here turns
+      // every unrecognised origin into a 500, which hides the real cause behind a
+      // server error and reports a configuration mismatch as an outage.
+      console.warn(`[cors] rejected origin ${origin}; allowed: ${allowedOrigins.join(", ")}`);
+      callback(null, false);
     }
   })
 );
@@ -3866,7 +3872,8 @@ app.get("/api/booklets/:slug/chapters", async (request, response, next) => {
 
     const chapters = Array.isArray(booklet.chapters) ? booklet.chapters : [];
     const hasAccess = hasBookletAccess(request, slug);
-    const visible = chapters.filter((chapter) => hasAccess || isChapterFree(chapter));
+    const resolved = resolveChapterAccess(chapters);
+    const visible = resolved.filter((chapter) => hasAccess || chapter.free);
 
     // A response carrying gated prose is per-reader and must not reach a shared cache.
     response.set("Cache-Control", hasAccess ? "private, no-store" : "public, max-age=300");
@@ -3874,12 +3881,12 @@ app.get("/api/booklets/:slug/chapters", async (request, response, next) => {
       slug,
       hasAccess,
       totalChapters: chapters.length,
-      freeChapters: chapters.filter(isChapterFree).length,
+      freeChapters: resolved.filter((chapter) => chapter.free).length,
       chapters: visible.map((chapter) => ({
         id: chapter.id,
         number: chapter.number,
         title: chapter.title,
-        free: isChapterFree(chapter),
+        free: chapter.free,
         paragraphs: Array.isArray(chapter.paragraphs) ? chapter.paragraphs : []
       }))
     });
@@ -3980,7 +3987,17 @@ app.use((error, _request, response, _next) => {
   console.error(error);
   response.status(500).json({ error: "Server error." });
 });
-app.listen(port, "0.0.0.0", () => {
+// Bind a port only when started directly (`node server.js`, as Render does). When this
+// file is imported — by a serverless entry point, or by a test — the caller owns the
+// listening, so exporting the app has to be enough.
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = app;
+
+function startServer() {
+  return app.listen(port, "0.0.0.0", () => {
   console.log(`Valluru backend running on port ${port}`);
 
   // Startup email configuration check
@@ -4009,4 +4026,5 @@ app.listen(port, "0.0.0.0", () => {
       "[access-config] ⚠ WARNING: ACCESS_TOKEN_SECRET is not set. Subscriber cookies and booklet access tokens are being signed with ADMIN_PASSWORD or a default string, so the booklet gate is forgeable. Set a long random value."
     );
   }
-});
+  });
+}

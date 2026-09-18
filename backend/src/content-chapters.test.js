@@ -3,7 +3,8 @@ const { test } = require("node:test");
 const {
   isChapterFree,
   preserveRedactedChapters,
-  redactGatedChapters
+  redactGatedChapters,
+  resolveChapterAccess
 } = require("./content-chapters");
 
 function chapter(number, extra = {}) {
@@ -35,8 +36,9 @@ test("an explicit free flag overrides the depth rule either way", () => {
 });
 
 test("redaction keeps free prose and strips gated prose", () => {
-  const redacted = redactGatedChapters(content([chapter(1), chapter(4)]));
-  const [free, gated] = redacted.series.booklets[0].chapters;
+  const whole = [chapter(1), chapter(2), chapter(3), chapter(4)];
+  const redacted = redactGatedChapters(content(whole));
+  const [free, , , gated] = redacted.series.booklets[0].chapters;
 
   assert.deepEqual(free.paragraphs, ["Opening of chapter 1.", "More of chapter 1."]);
   assert.deepEqual(gated.paragraphs, []);
@@ -44,20 +46,52 @@ test("redaction keeps free prose and strips gated prose", () => {
 });
 
 test("only the first gated chapter carries a teaser", () => {
-  const redacted = redactGatedChapters(content([chapter(1), chapter(4), chapter(5)]));
-  const [, first, second] = redacted.series.booklets[0].chapters;
+  const whole = [chapter(1), chapter(2), chapter(3), chapter(4), chapter(5)];
+  const redacted = redactGatedChapters(content(whole));
+  const [, , , first, second] = redacted.series.booklets[0].chapters;
 
   assert.equal(first.teaser, "Opening of chapter 4.");
   assert.equal(second.teaser, undefined);
 });
 
 test("no gated prose survives anywhere in the public payload", () => {
-  const redacted = redactGatedChapters(content([chapter(1), chapter(4)]));
+  const whole = [chapter(1), chapter(2), chapter(3), chapter(4)];
+  const redacted = redactGatedChapters(content(whole));
 
   assert.ok(
     !JSON.stringify(redacted).includes("More of chapter 4."),
     "gated prose leaked into the public content payload"
   );
+});
+
+test("front matter is free but does not spend one of the three", () => {
+  const resolved = resolveChapterAccess([
+    { number: 1, title: "Title page", frontMatter: true },
+    { number: 2, title: "Contents", frontMatter: true },
+    { number: 3, title: "Opening" },
+    { number: 4, title: "Two" },
+    { number: 5, title: "Three" },
+    { number: 6, title: "Four" }
+  ]);
+
+  assert.deepEqual(
+    resolved.map((c) => c.free),
+    [true, true, true, true, true, false],
+    "front matter should be readable, and the three free chapters should be real ones"
+  );
+});
+
+test("front matter does not push the whole booklet behind the gate", () => {
+  // The bug this guards: title page, Author's Note and Contents counted as chapters
+  // 1-3, so a reader arriving from a reel hit the gate having read nothing.
+  const resolved = resolveChapterAccess([
+    { number: 1, title: "Title page", frontMatter: true },
+    { number: 2, title: "Author's Note", frontMatter: true },
+    { number: 3, title: "Contents", frontMatter: true },
+    { number: 4, title: "Opening", paragraphs: ["real writing"] }
+  ]);
+
+  assert.equal(resolved[3].free, true, "the first real chapter must be readable");
 });
 
 test("a redacted round-trip does not wipe gated prose", () => {

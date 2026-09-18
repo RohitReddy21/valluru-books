@@ -39,11 +39,32 @@ const FURNITURE_BAND = 0.08;
 const HEADING_SIZE_RATIO = 1.15;
 /** A vertical gap this much larger than the usual leading starts a new paragraph. */
 const PARAGRAPH_GAP_RATIO = 1.5;
+/**
+ * A section shorter than this is a pull-quote, not a chapter. These booklets set quotes
+ * in large type mid-prose, which otherwise reads exactly like a chapter opening. Its text
+ * is folded back into the chapter it interrupted rather than dropped.
+ */
+const MIN_CHAPTER_WORDS = 150;
 /** Chapters 1-3 are free; see FREE_CHAPTER_COUNT in frontend/lib/site-content.ts. */
 const FREE_CHAPTER_COUNT = 3;
 
 const HEADING_TEXT = /^(chapter|part|section)\b/i;
 const ROMAN_OR_NUMBER = /^(?:[ivxlcdm]+|\d{1,2})[.)]?$/i;
+
+/**
+ * Sections that are apparatus rather than writing. Marked free but excluded from the
+ * three-free-chapter count, so a booklet with three pages of front matter still opens
+ * with real prose instead of a gate.
+ */
+// Typeset booklets use a curly apostrophe, so the character class matches both.
+const FRONT_MATTER_TITLE =
+  /^(contents|table of contents|author['’]?s? note|acknowledge?ments?|copyright|dedication|about the author|colophon|foreword|preface|epigraph|imprint)\b/i;
+
+function isFrontMatter(title, index) {
+  // The opening section of these booklets is the cover: the title set large, the
+  // subtitle, and the author's name, with no body of its own.
+  return index === 0 || FRONT_MATTER_TITLE.test(String(title || "").trim());
+}
 
 function parseArgs(argv) {
   const files = [];
@@ -239,6 +260,13 @@ async function extract(file, options) {
       }
 
       if (isHeading(line, bodyHeight)) {
+        // A heading that wrapped onto a second line is still one heading. Without this,
+        // the tail line starts a new chapter and steals the body that follows it.
+        if (pending && !pending.lines.length) {
+          pending.title = `${pending.title} ${line.text}`.trim();
+          continue;
+        }
+
         if (pending) {
           chapters.push(pending);
         }
@@ -258,24 +286,53 @@ async function extract(file, options) {
   }
 
   const warnings = [];
-  const built = chapters
-    .map((chapter, index) => {
-      const number = index + 1;
-
-      return {
-        id: `chapter-${number}`,
-        number,
-        title: chapter.title,
-        free: number <= options.free,
-        paragraphs: toParagraphs(chapter.lines, bodyGap)
-      };
-    })
+  const sections = chapters
+    .map((chapter) => ({
+      title: chapter.title,
+      paragraphs: toParagraphs(chapter.lines, bodyGap)
+    }))
     .filter((chapter) => chapter.paragraphs.length);
+
+  const wordsIn = (chapter) => chapter.paragraphs.join(" ").split(/\s+/).length;
+
+  // Fold pull-quotes back into the chapter they interrupted, keeping their words.
+  const built = [];
+  let pullQuotes = 0;
+
+  for (const section of sections) {
+    if (built.length && wordsIn(section) < MIN_CHAPTER_WORDS) {
+      built[built.length - 1].paragraphs.push(section.title, ...section.paragraphs);
+      pullQuotes += 1;
+      continue;
+    }
+
+    built.push({
+      id: "",
+      number: 0,
+      title: section.title,
+      frontMatter: isFrontMatter(section.title, built.length),
+      free: false,
+      paragraphs: section.paragraphs
+    });
+  }
+
+  if (pullQuotes) {
+    warnings.push(`${pullQuotes} short section(s) folded back in as pull-quotes rather than treated as chapters.`);
+  }
+
+  // Front matter is free but does not spend one of the free chapters, so the count runs
+  // over body chapters only. Mirrors resolveChapterAccess on both sides of the app.
+  let bodyChaptersSoFar = 0;
 
   built.forEach((chapter, index) => {
     chapter.number = index + 1;
     chapter.id = `chapter-${chapter.number}`;
-    chapter.free = chapter.number <= options.free;
+
+    if (!chapter.frontMatter) {
+      bodyChaptersSoFar += 1;
+    }
+
+    chapter.free = chapter.frontMatter || bodyChaptersSoFar <= options.free;
   });
 
   if (built.length < 2) {

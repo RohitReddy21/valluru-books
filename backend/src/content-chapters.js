@@ -16,9 +16,45 @@ const FREE_CHAPTER_COUNT = 3;
 const CHAPTER_TEASER_LENGTH = 320;
 
 function isChapterFree(chapter) {
-  return typeof chapter?.free === "boolean"
-    ? chapter.free
-    : Number(chapter?.number) <= FREE_CHAPTER_COUNT;
+  if (typeof chapter?.free === "boolean") {
+    return chapter.free;
+  }
+
+  return Boolean(chapter?.frontMatter) || Number(chapter?.number) <= FREE_CHAPTER_COUNT;
+}
+
+/**
+ * Resolves which chapters are free, counting only the body. Front matter — title page,
+ * Author's Note, Contents — is always readable but never spends one of the three, or a
+ * booklet with three pages of front matter would gate the reader before a word of the
+ * writing.
+ *
+ * `resolveChapterAccess` in frontend/lib/site-content.ts carries the same rule. The
+ * server decides what prose to send and the page decides what to render, so if these two
+ * ever disagree a reader sees a gate over something the server already gave them.
+ */
+function resolveChapterAccess(chapters, freeCount = FREE_CHAPTER_COUNT) {
+  if (!Array.isArray(chapters)) {
+    return [];
+  }
+
+  let bodyChaptersSoFar = 0;
+
+  return chapters.map((chapter) => {
+    const frontMatter = Boolean(chapter?.frontMatter);
+
+    if (!frontMatter) {
+      bodyChaptersSoFar += 1;
+    }
+
+    return {
+      ...chapter,
+      free:
+        typeof chapter?.free === "boolean"
+          ? chapter.free
+          : frontMatter || bodyChaptersSoFar <= freeCount
+    };
+  });
 }
 
 function redactBookletChapters(booklet) {
@@ -28,8 +64,9 @@ function redactBookletChapters(booklet) {
 
   let teaserUsed = false;
 
-  const chapters = booklet.chapters.map((chapter) => {
-    if (isChapterFree(chapter)) {
+  // Resolved over the whole list first, so front matter does not spend a free chapter.
+  const chapters = resolveChapterAccess(booklet.chapters).map((chapter) => {
+    if (chapter.free) {
       return chapter;
     }
 
@@ -162,5 +199,6 @@ module.exports = {
   FREE_CHAPTER_COUNT,
   isChapterFree,
   preserveRedactedChapters,
-  redactGatedChapters
+  redactGatedChapters,
+  resolveChapterAccess
 };

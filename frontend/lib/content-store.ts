@@ -4,6 +4,7 @@ import {
   defaultSiteContent,
   isPublished,
   movementSlug,
+  resolveChapterAccess,
   seriesBasePath,
   type BookSeries,
   type Booklet,
@@ -54,13 +55,16 @@ function normalizeChapters(chapters: Booklet["chapters"]): BookletChapter[] | un
         title: title || `Chapter ${number}`,
         paragraphs,
         ...(typeof chapter?.free === "boolean" ? { free: chapter.free } : {}),
+        ...(chapter?.frontMatter ? { frontMatter: true } : {}),
         ...(teaser ? { teaser } : {})
       };
     })
     .filter((chapter): chapter is BookletChapter => chapter !== null)
     .sort((left, right) => left.number - right.number);
 
-  return normalized.length ? normalized : undefined;
+  // Resolved here rather than per-chapter, because the depth rule needs the whole list:
+  // front matter is free without spending one of the three.
+  return normalized.length ? resolveChapterAccess(normalized) : undefined;
 }
 
 function normalizeBooklets(booklets?: Booklet[]) {

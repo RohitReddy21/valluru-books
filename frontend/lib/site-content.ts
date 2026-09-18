@@ -87,6 +87,12 @@ export type BookletChapter = {
   paragraphs: string[];
   /** Set only to override the depth rule for this one chapter. */
   free?: boolean;
+  /**
+   * Title page, Author's Note, Contents and the like. Always readable, and never counted
+   * towards the free chapters — otherwise a booklet whose front matter runs to three
+   * pages would gate the reader before a word of the actual writing.
+   */
+  frontMatter?: boolean;
   /** Opening lines of the first gated chapter, shown fading above the gate. */
   teaser?: string;
 };
@@ -98,8 +104,38 @@ export type BookletChapter = {
  */
 export const FREE_CHAPTER_COUNT = 3;
 
-export function isChapterFree(chapter: Pick<BookletChapter, "number" | "free">) {
-  return chapter.free ?? chapter.number <= FREE_CHAPTER_COUNT;
+/**
+ * Resolves which chapters are free, counting only the body — front matter is free but
+ * does not spend one of the three.
+ *
+ * `backend/src/content-chapters.js` carries the same rule, because the server decides
+ * what prose to send and the page decides what to render. They must agree.
+ */
+export function resolveChapterAccess<T extends Pick<BookletChapter, "free" | "frontMatter">>(
+  chapters: T[],
+  freeCount = FREE_CHAPTER_COUNT
+): Array<T & { free: boolean }> {
+  let bodyChaptersSoFar = 0;
+
+  return chapters.map((chapter) => {
+    const frontMatter = Boolean(chapter.frontMatter);
+
+    if (!frontMatter) {
+      bodyChaptersSoFar += 1;
+    }
+
+    return {
+      ...chapter,
+      free:
+        typeof chapter.free === "boolean"
+          ? chapter.free
+          : frontMatter || bodyChaptersSoFar <= freeCount
+    };
+  });
+}
+
+export function isChapterFree(chapter: Pick<BookletChapter, "number" | "free" | "frontMatter">) {
+  return chapter.free ?? (Boolean(chapter.frontMatter) || chapter.number <= FREE_CHAPTER_COUNT);
 }
 
 export type Booklet = {
