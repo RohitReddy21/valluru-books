@@ -48,8 +48,19 @@ const MIN_CHAPTER_WORDS = 150;
 /** Chapters 1-3 are free; see FREE_CHAPTER_COUNT in frontend/lib/site-content.ts. */
 const FREE_CHAPTER_COUNT = 3;
 
-const HEADING_TEXT = /^(chapter|part|section)\b/i;
+const HEADING_TEXT = /^(chapter|part|section|stanza|canto)\b/i;
 const ROMAN_OR_NUMBER = /^(?:[ivxlcdm]+|\d{1,2})[.)]?$/i;
+
+/**
+ * A numbered chapter opening: "5. Nirguna, Saguna, Śakti, and the Guṇas".
+ *
+ * Some booklets set these in body-sized type, so the size test never sees them and the
+ * whole booklet collapses into one chapter. Capped at a short line and a two-digit
+ * number so numbered points inside prose are not mistaken for openings — and anything
+ * that slips through is folded back as a pull-quote by the word-count rule below.
+ */
+const NUMBERED_HEADING = /^\d{1,2}\.\s+\S/;
+const MAX_HEADING_CHARS = 90;
 
 /**
  * Sections that are apparatus rather than writing. Marked free but excluded from the
@@ -165,12 +176,20 @@ function findFurniture(pages) {
   );
 }
 
-function isHeading(line, bodyHeight) {
-  if (line.height > bodyHeight * HEADING_SIZE_RATIO) {
-    return true;
-  }
+/**
+ * A numbered or keyword opening ("4. Annapūrṇa Intimacy", "Stanza 3") is a chapter
+ * however short it is. Large type on its own is not: these booklets set pull-quotes
+ * large too, so size alone cannot tell a chapter opening from a quotation.
+ */
+function isStrongHeading(text) {
+  return (
+    text.length <= MAX_HEADING_CHARS &&
+    (HEADING_TEXT.test(text) || NUMBERED_HEADING.test(text) || ROMAN_OR_NUMBER.test(text))
+  );
+}
 
-  return HEADING_TEXT.test(line.text) || ROMAN_OR_NUMBER.test(line.text);
+function isHeading(line, bodyHeight) {
+  return line.height > bodyHeight * HEADING_SIZE_RATIO || isStrongHeading(line.text);
 }
 
 /** Joins body lines into paragraphs, breaking where the vertical gap widens. */
@@ -300,7 +319,10 @@ async function extract(file, options) {
   let pullQuotes = 0;
 
   for (const section of sections) {
-    if (built.length && wordsIn(section) < MIN_CHAPTER_WORDS) {
+    // A numbered opening stays a chapter even when short — booklet six's chapters are a
+    // verse and its commentary, barely over a hundred words each, and folding them by
+    // length collapsed the whole booklet into one.
+    if (built.length && !isStrongHeading(section.title) && wordsIn(section) < MIN_CHAPTER_WORDS) {
       built[built.length - 1].paragraphs.push(section.title, ...section.paragraphs);
       pullQuotes += 1;
       continue;
