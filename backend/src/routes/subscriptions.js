@@ -1,3 +1,5 @@
+const { debugLog } = require("../debug-log");
+
 function subscriptionSourceTag(source) {
   if (source === "booklet-reader" || source === "ads-landing") {
     return source;
@@ -140,7 +142,7 @@ function registerSubscriptionRoutes(
         owner: { status: "not_configured" }
       };
 
-      console.log(
+      debugLog(
         `[email] Subscribe email flow started — resend=${Boolean(resend)}, from=${from}, adminEmail=${
           adminEmail || "NOT SET"
         }, replyTo=${replyTo || "NOT SET"}`
@@ -182,7 +184,7 @@ function registerSubscriptionRoutes(
             isNewSubscriber
           });
 
-          console.log(`[email] Sending owner notification to ${adminEmail}...`);
+          debugLog(`[email] Sending owner notification to ${adminEmail}...`);
 
           deliveries.push(
             sendResendEmail(resend, "owner notification", {
@@ -201,7 +203,7 @@ function registerSubscriptionRoutes(
               if (result.status !== "sent") {
                 console.error(`[email] Owner notification to ${adminEmail} FAILED:`, result.error);
               } else {
-                console.log(`[email] Owner notification to ${adminEmail} sent successfully (id: ${result.id})`);
+                debugLog(`[email] Owner notification to ${adminEmail} sent successfully (id: ${result.id})`);
               }
             })
           );
@@ -216,7 +218,7 @@ function registerSubscriptionRoutes(
 
         await Promise.all(deliveries);
 
-        console.log(
+        debugLog(
           `[email] Delivery results — subscriber: ${emailDelivery.subscriber.status}, owner: ${emailDelivery.owner.status}`
         );
       }

@@ -17,6 +17,7 @@ const {
   redactGatedChapters,
   resolveChapterAccess
 } = require("./src/content-chapters");
+const { debugLog } = require("./src/debug-log");
 const { registerAdminDataRoutes } = require("./src/routes/admin-data");
 const { registerImageRoutes } = require("./src/routes/images");
 const { registerSubscriptionRoutes } = require("./src/routes/subscriptions");
@@ -50,20 +51,20 @@ function getSupabaseUrl() {
     .trim()
     .replace(/^`+|`+$/g, "") // Remove leading/trailing backticks
     .replace(/\/+$/, ""); // Remove trailing slashes
-  console.log("[getSupabaseUrl] Raw URL from env:", rawUrl);
+  debugLog("[getSupabaseUrl] Raw URL from env:", rawUrl);
 
   if (!rawUrl) {
-    console.log("[getSupabaseUrl] No URL found");
+    debugLog("[getSupabaseUrl] No URL found");
     return "";
   }
 
   try {
     const parsed = new URL(rawUrl);
     const url = parsed.origin;
-    console.log("[getSupabaseUrl] Parsed URL:", url);
+    debugLog("[getSupabaseUrl] Parsed URL:", url);
     return url;
   } catch {
-    console.log("[getSupabaseUrl] Failed to parse, returning raw:", rawUrl);
+    debugLog("[getSupabaseUrl] Failed to parse, returning raw:", rawUrl);
     return rawUrl;
   }
 }
@@ -77,7 +78,7 @@ function getSupabaseServiceKey() {
   )
     .trim()
     .replace(/^`+|`+$/g, ""); // Remove leading/trailing backticks
-  console.log("[getSupabaseServiceKey] Key found:", !!key);
+  debugLog("[getSupabaseServiceKey] Key found:", !!key);
   return key;
 }
 
@@ -85,7 +86,7 @@ function hasSupabaseConfig() {
   const hasUrl = !!getSupabaseUrl();
   const hasKey = !!getSupabaseServiceKey();
   const hasConfig = hasUrl && hasKey;
-  console.log("[hasSupabaseConfig]", { hasUrl, hasKey, hasConfig });
+  debugLog("[hasSupabaseConfig]", { hasUrl, hasKey, hasConfig });
   return hasConfig;
 }
 
@@ -291,7 +292,7 @@ async function parseStorageError(response) {
 }
 
 async function uploadToSupabase(file, { bucket, folder = "" }) {
-  console.log("[uploadToSupabase] Starting upload", {
+  debugLog("[uploadToSupabase] Starting upload", {
     bucket,
     folder,
     fileName: file?.originalname,
@@ -315,7 +316,7 @@ async function uploadToSupabase(file, { bucket, folder = "" }) {
   const storagePath = buildStoragePath(file, folder);
   const contentType = file.mimetype || "application/octet-stream";
 
-  console.log("[uploadToSupabase] Upload details", {
+  debugLog("[uploadToSupabase] Upload details", {
     bucket,
     storagePath,
     contentType
@@ -354,7 +355,7 @@ async function uploadToSupabase(file, { bucket, folder = "" }) {
       contentType
     };
 
-    console.log("[uploadToSupabase] Upload successful", result);
+    debugLog("[uploadToSupabase] Upload successful", result);
 
     return result;
   } catch (err) {
@@ -376,7 +377,7 @@ async function streamSupabaseFile(bucket, storagePath, response, headers = {}) {
   try {
     const supabase = getSupabaseClient();
 
-    console.log("[streamSupabaseFile] Downloading from Supabase", { bucket, storagePath });
+    debugLog("[streamSupabaseFile] Downloading from Supabase", { bucket, storagePath });
 
     const { data, error } = await supabase.storage
       .from(bucket)
@@ -392,7 +393,7 @@ async function streamSupabaseFile(bucket, storagePath, response, headers = {}) {
       return false;
     }
 
-    console.log("[streamSupabaseFile] Download successful, sending to client", {
+    debugLog("[streamSupabaseFile] Download successful, sending to client", {
       bucket,
       storagePath,
       dataType: typeof data,
@@ -1030,7 +1031,7 @@ function emailErrorMessage(error) {
 
 async function sendResendEmail(resend, label, payload) {
   try {
-    console.log(`[email] Attempting to send ${label} to ${payload.to} from ${payload.from}`);
+    debugLog(`[email] Attempting to send ${label} to ${payload.to} from ${payload.from}`);
     const { data, error } = await resend.emails.send(payload);
 
     if (error) {
@@ -1038,7 +1039,7 @@ async function sendResendEmail(resend, label, payload) {
       throw new Error(emailErrorMessage(error));
     }
 
-    console.log(`[email] ${label} accepted by Resend`, { id: data?.id || null, to: payload.to });
+    debugLog(`[email] ${label} accepted by Resend`, { id: data?.id || null, to: payload.to });
     return { status: "sent", id: data?.id || null };
   } catch (error) {
     const message = emailErrorMessage(error);
@@ -1421,7 +1422,7 @@ async function sendSubscriberAnnouncements(announcements, reason = "content-upda
       }
     );
 
-    console.log(
+    debugLog(
       `[subscriber-announcements] ${announcement.key} sent to ${sent.length}/${recipients.length} subscribers.`
     );
   }
@@ -2081,7 +2082,7 @@ app.get("/health", (_request, response) => {
 
 app.get("/api/admin/storage-health", verifyAdmin, async (_request, response, next) => {
   try {
-    console.log("[storage-health] Checking storage health");
+    debugLog("[storage-health] Checking storage health");
 
     const hasConfig = hasSupabaseConfig();
     let connectionStatus = "not_configured";
@@ -2097,7 +2098,7 @@ app.get("/api/admin/storage-health", verifyAdmin, async (_request, response, nex
           console.error("[storage-health] Buckets fetch failed:", error.message);
         } else {
           connectionStatus = "connected";
-          console.log("[storage-health] Buckets response from Supabase:", bucketsList);
+          debugLog("[storage-health] Buckets response from Supabase:", bucketsList);
           buckets = bucketsList.map((b) => ({
             name: b.name,
             id: b.id,
@@ -2211,7 +2212,7 @@ app.get("/api/content", async (request, response, next) => {
     }
 
     if (!hasMongo || !content) {
-      console.log("[api/content] Local dev mode - MongoDB not available, returning default content");
+      debugLog("[api/content] Local dev mode - MongoDB not available, returning default content");
       // Return default fallback content
       return response.json({
         content: {
@@ -2397,7 +2398,7 @@ app.post("/api/track-unlock", async (request, response, next) => {
     }
 
     if (!hasMongo) {
-      console.log("[track-unlock] Local dev mode - MongoDB not available, returning success");
+      debugLog("[track-unlock] Local dev mode - MongoDB not available, returning success");
       return response.json({ ok: true });
     }
 
@@ -3361,7 +3362,7 @@ app.get("/api/reflections", async (request, response, next) => {
     }
 
     if (!hasMongo) {
-      console.log("[reflections] Local dev mode - MongoDB not available, returning empty comments");
+      debugLog("[reflections] Local dev mode - MongoDB not available, returning empty comments");
       return response.json({ comments: [] });
     }
 
@@ -3407,7 +3408,7 @@ app.post("/api/reflections", async (request, response, next) => {
     }
 
     if (!hasMongo) {
-      console.log("[reflections] Local dev mode - MongoDB not available, returning success");
+      debugLog("[reflections] Local dev mode - MongoDB not available, returning success");
       return response.json({ ok: true });
     }
 
@@ -3441,7 +3442,7 @@ app.post(
   verifyAdmin,
   upload.single("pdf"),
   async (request, response, next) => {
-    console.log("[upload-pdf] Endpoint hit", {
+    debugLog("[upload-pdf] Endpoint hit", {
       body: request.body,
       hasFile: !!request.file,
       fileName: request.file?.originalname,
@@ -3449,12 +3450,12 @@ app.post(
     });
     try {
       if (!requireMongo(response)) {
-        console.log("[upload-pdf] MongoDB not configured");
+        debugLog("[upload-pdf] MongoDB not configured");
         return;
       }
 
       if (!requireSupabase(response)) {
-        console.log("[upload-pdf] Supabase not configured");
+        debugLog("[upload-pdf] Supabase not configured");
         return;
       }
 
@@ -3462,19 +3463,19 @@ app.post(
       const file = request.file;
 
       if (!bookletSlug) {
-        console.log("[upload-pdf] Missing bookletSlug");
+        debugLog("[upload-pdf] Missing bookletSlug");
         response.status(400).json({ error: "Choose a booklet." });
         return;
       }
 
       if (!file) {
-        console.log("[upload-pdf] Missing file");
+        debugLog("[upload-pdf] Missing file");
         response.status(400).json({ error: "Choose a PDF file." });
         return;
       }
 
       if (!isPdfUpload(file)) {
-        console.log("[upload-pdf] Invalid file type");
+        debugLog("[upload-pdf] Invalid file type");
         response.status(400).json({ error: "Only PDF files are allowed." });
         return;
       }
@@ -3483,7 +3484,7 @@ app.post(
       const booklet = findContentBookletEntry(content, bookletSlug)?.booklet;
 
       if (!booklet) {
-        console.log("[upload-pdf] Booklet not found:", bookletSlug);
+        debugLog("[upload-pdf] Booklet not found:", bookletSlug);
         response.status(404).json({ error: "Booklet not found." });
         return;
       }
@@ -3492,7 +3493,7 @@ app.post(
       let uploaded;
       try {
         const storageTarget = getStorageTarget(file, "books/pdfs", "book-pdf");
-        console.log("[upload-pdf] Storage target:", storageTarget);
+        debugLog("[upload-pdf] Storage target:", storageTarget);
         uploaded = await uploadToSupabase(file, storageTarget);
       } catch (uploadError) {
         console.error("[upload-pdf] Book PDF upload failed:", uploadError);
@@ -3501,7 +3502,7 @@ app.post(
       }
       const publicUrl = uploaded.url;
       
-      console.log("[upload-pdf] Uploaded successfully, updating content");
+      debugLog("[upload-pdf] Uploaded successfully, updating content");
       booklet.pdf = publicUrl;
       await saveSiteContent(content);
       queueSubscriberAnnouncementCheck(previousContent, content, "booklet-pdf-upload");
@@ -3516,7 +3517,7 @@ app.post(
         }
       });
 
-      console.log("[upload-pdf] Done, returning response");
+      debugLog("[upload-pdf] Done, returning response");
       response.json({ ok: true, pdf: publicUrl, bookletSlug, media });
     } catch (error) {
       console.error("[upload-pdf] Error:", error);
@@ -3532,7 +3533,7 @@ app.post(
   verifyAdmin,
   upload.single("pdf"),
   async (request, response, next) => {
-    console.log("[upload-movement-pdf] Endpoint hit", {
+    debugLog("[upload-movement-pdf] Endpoint hit", {
       body: request.body,
       hasFile: !!request.file,
       fileName: request.file?.originalname,
@@ -3540,12 +3541,12 @@ app.post(
     });
     try {
       if (!requireMongo(response)) {
-        console.log("[upload-movement-pdf] MongoDB not configured");
+        debugLog("[upload-movement-pdf] MongoDB not configured");
         return;
       }
 
       if (!requireSupabase(response)) {
-        console.log("[upload-movement-pdf] Supabase not configured");
+        debugLog("[upload-movement-pdf] Supabase not configured");
         return;
       }
 
@@ -3553,33 +3554,33 @@ app.post(
       const file = request.file;
 
       if (!Number.isInteger(movementIndex) || movementIndex < 0) {
-        console.log("[upload-movement-pdf] Invalid movement index:", movementIndex);
+        debugLog("[upload-movement-pdf] Invalid movement index:", movementIndex);
         response.status(400).json({ error: "Invalid movement index." });
         return;
       }
 
       if (!file) {
-        console.log("[upload-movement-pdf] Missing file");
+        debugLog("[upload-movement-pdf] Missing file");
         response.status(400).json({ error: "Choose a PDF file." });
         return;
       }
 
       if (!isPdfUpload(file)) {
-        console.log("[upload-movement-pdf] Invalid file type");
+        debugLog("[upload-movement-pdf] Invalid file type");
         response.status(400).json({ error: "Only PDF files are allowed." });
         return;
       }
 
       const content = await getSiteContent();
       if (!content) {
-        console.log("[upload-movement-pdf] No site content found");
+        debugLog("[upload-movement-pdf] No site content found");
         response.status(400).json({ error: "Please save site content first via the admin editor before uploading PDFs." });
         return;
       }
       const movement = content?.home?.seriesOverview?.movements?.[movementIndex];
 
       if (!movement) {
-        console.log("[upload-movement-pdf] Movement not found at index:", movementIndex);
+        debugLog("[upload-movement-pdf] Movement not found at index:", movementIndex);
         response.status(404).json({ error: "Movement not found." });
         return;
       }
@@ -3588,7 +3589,7 @@ app.post(
       let uploaded;
       try {
         const storageTarget = getStorageTarget(file, "movements/pdfs", "movement-pdf");
-        console.log("[upload-movement-pdf] Storage target:", storageTarget);
+        debugLog("[upload-movement-pdf] Storage target:", storageTarget);
         uploaded = await uploadToSupabase(file, storageTarget);
       } catch (uploadError) {
         console.error("[upload-movement-pdf] Movement PDF upload failed:", uploadError);
@@ -3597,7 +3598,7 @@ app.post(
       }
       const publicUrl = uploaded.url;
       
-      console.log("[upload-movement-pdf] Uploaded successfully, updating content");
+      debugLog("[upload-movement-pdf] Uploaded successfully, updating content");
       movement.pdf = publicUrl;
       await saveSiteContent(content);
       queueSubscriberAnnouncementCheck(previousContent, content, "movement-pdf-upload");
@@ -3612,7 +3613,7 @@ app.post(
         }
       });
 
-      console.log("[upload-movement-pdf] Done, returning response");
+      debugLog("[upload-movement-pdf] Done, returning response");
       response.json({ ok: true, pdf: publicUrl, movementIndex, media });
     } catch (error) {
       console.error("[upload-movement-pdf] Error:", error);
@@ -3761,13 +3762,13 @@ app.post(
 app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
   try {
     const { slug } = request.params;
-    console.log("[booklets/:slug/pdf] Request for:", slug);
+    debugLog("[booklets/:slug/pdf] Request for:", slug);
 
     const content = await getSiteContent();
     const entry = findContentBookletEntry(content, slug);
     const booklet = entry?.booklet;
 
-    console.log("[booklets/:slug/pdf] Booklet metadata:", {
+    debugLog("[booklets/:slug/pdf] Booklet metadata:", {
       slug,
       bookletFound: !!booklet,
       seriesKey: entry?.key,
@@ -3776,13 +3777,13 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
     });
 
     if (!booklet) {
-      console.log("[booklets/:slug/pdf] Booklet not found");
+      debugLog("[booklets/:slug/pdf] Booklet not found");
       response.status(404).json({ error: "Booklet not found." });
       return;
     }
 
     if (booklet.status && booklet.status !== "published") {
-      console.log("[booklets/:slug/pdf] Booklet not published:", booklet.status);
+      debugLog("[booklets/:slug/pdf] Booklet not published:", booklet.status);
       response.status(404).json({ error: "Booklet not found." });
       return;
     }
@@ -3790,7 +3791,7 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
     // Booklets in an unpublished series stay unreachable, so a draft series cannot leak
     // its PDFs through a guessed URL.
     if (!isPublishedStatus(entry.series?.status)) {
-      console.log("[booklets/:slug/pdf] Series not published:", entry.series?.status);
+      debugLog("[booklets/:slug/pdf] Series not published:", entry.series?.status);
       response.status(404).json({ error: "Booklet not found." });
       return;
     }
@@ -3801,12 +3802,12 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
     }
 
     if (!booklet.pdf) {
-      console.log("[booklets/:slug/pdf] No PDF available");
+      debugLog("[booklets/:slug/pdf] No PDF available");
       response.status(404).json({ error: "No uploaded PDF is available for this booklet yet." });
       return;
     }
 
-    console.log("[booklets/:slug/pdf] PDF available:", {
+    debugLog("[booklets/:slug/pdf] PDF available:", {
       pdfUrl: booklet.pdf.substring(0, 100)
     });
 
@@ -3819,7 +3820,7 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
     const supabaseObject = getSupabaseObjectFromUrl(booklet.pdf);
 
     if (supabaseObject) {
-      console.log("[booklets/:slug/pdf] Extracted Supabase object:", {
+      debugLog("[booklets/:slug/pdf] Extracted Supabase object:", {
         bucket: supabaseObject.bucket,
         storagePath: supabaseObject.storagePath
       });
@@ -3830,23 +3831,23 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
       });
 
       if (streamed) {
-        console.log("[booklets/:slug/pdf] Successfully streamed from Supabase");
+        debugLog("[booklets/:slug/pdf] Successfully streamed from Supabase");
         return;
       }
-      console.log("[booklets/:slug/pdf] Failed to stream from Supabase");
+      debugLog("[booklets/:slug/pdf] Failed to stream from Supabase");
     } else {
-      console.log("[booklets/:slug/pdf] URL is not a Supabase URL, parsing failed");
+      debugLog("[booklets/:slug/pdf] URL is not a Supabase URL, parsing failed");
     }
 
     if (/^https?:\/\//.test(booklet.pdf)) {
       // The gate ends here: this hands back a public URL the reader can pass on freely.
       // Phase 4 replaces it with a short-lived Supabase signed URL.
-      console.log("[booklets/:slug/pdf] Treating as remote URL, redirecting");
+      debugLog("[booklets/:slug/pdf] Treating as remote URL, redirecting");
       response.redirect(booklet.pdf);
       return;
     }
 
-    console.log("[booklets/:slug/pdf] No valid PDF URL available");
+    debugLog("[booklets/:slug/pdf] No valid PDF URL available");
     response.status(404).json({ error: "No uploaded PDF is available for this booklet yet." });
   } catch (error) {
     console.error("[booklets/:slug/pdf] Error:", error.message, error.stack);
@@ -3898,36 +3899,36 @@ app.get("/api/booklets/:slug/chapters", async (request, response, next) => {
 app.get("/api/movements/:index/pdf", async (request, response, next) => {
   try {
     const index = Number(request.params.index);
-    console.log("[movements/:index/pdf] Request for index:", index);
+    debugLog("[movements/:index/pdf] Request for index:", index);
 
     const content = await getSiteContent();
     const movement = content?.home?.seriesOverview?.movements?.[index];
 
-    console.log("[movements/:index/pdf] Movement metadata:", {
+    debugLog("[movements/:index/pdf] Movement metadata:", {
       index,
       movementFound: !!movement,
       published: movement?.published !== false
     });
 
     if (!movement) {
-      console.log("[movements/:index/pdf] Movement not found at index:", index);
+      debugLog("[movements/:index/pdf] Movement not found at index:", index);
       response.status(404).json({ error: "Movement not found." });
       return;
     }
 
     if (!movement.pdf) {
-      console.log("[movements/:index/pdf] No PDF available for movement");
+      debugLog("[movements/:index/pdf] No PDF available for movement");
       response.status(404).json({ error: "No uploaded PDF is available for this movement yet." });
       return;
     }
 
-    console.log("[movements/:index/pdf] PDF available:", {
+    debugLog("[movements/:index/pdf] PDF available:", {
       pdfUrl: movement.pdf.substring(0, 100)
     });
 
     const supabaseObject = getSupabaseObjectFromUrl(movement.pdf);
     if (supabaseObject) {
-      console.log("[movements/:index/pdf] Extracted Supabase object:", {
+      debugLog("[movements/:index/pdf] Extracted Supabase object:", {
         bucket: supabaseObject.bucket,
         storagePath: supabaseObject.storagePath
       });
@@ -3938,21 +3939,21 @@ app.get("/api/movements/:index/pdf", async (request, response, next) => {
       });
 
       if (streamed) {
-        console.log("[movements/:index/pdf] Successfully streamed from Supabase");
+        debugLog("[movements/:index/pdf] Successfully streamed from Supabase");
         return;
       }
-      console.log("[movements/:index/pdf] Failed to stream from Supabase");
+      debugLog("[movements/:index/pdf] Failed to stream from Supabase");
     } else {
-      console.log("[movements/:index/pdf] URL is not a Supabase URL, parsing failed");
+      debugLog("[movements/:index/pdf] URL is not a Supabase URL, parsing failed");
     }
 
     if (/^https?:\/\//.test(movement.pdf)) {
-      console.log("[movements/:index/pdf] Treating as remote URL, redirecting");
+      debugLog("[movements/:index/pdf] Treating as remote URL, redirecting");
       response.redirect(movement.pdf);
       return;
     }
 
-    console.log("[movements/:index/pdf] No valid PDF URL available");
+    debugLog("[movements/:index/pdf] No valid PDF URL available");
     response.status(404).json({ error: "No uploaded PDF is available for this movement yet." });
   } catch (error) {
     console.error("[movements/:index/pdf] Error:", error.message, error.stack);
