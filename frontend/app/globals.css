@@ -124,6 +124,10 @@ a {
   --reading-ink: rgba(232, 224, 212, 0.82);
   --reading-label: #c4a96b;
   --reading-rule: rgba(196, 169, 107, 0.22);
+  /* What a clipped passage fades into: the surface's own background. */
+  --reading-fade: #0f0e0c;
+  --reading-panel: rgba(26, 24, 21, 0.6);
+  --reading-field: #0f0e0c;
 }
 
 /* The printed booklet, sampled from the PDFs. See components/chapter-reader.tsx. */
@@ -133,4 +137,7 @@ a {
   --reading-ink: #2a2118;
   --reading-label: #a17a3e;
   --reading-rule: #ddd0b8;
+  --reading-fade: #f7f0e4;
+  --reading-panel: rgba(34, 24, 13, 0.045);
+  --reading-field: #fffaf0;
 }

@@ -444,8 +444,17 @@ Two consequences worth knowing:
   `.reading-surface` / `.reading-surface-paper` in `globals.css` declare them and the
   markup reads them through `var(--reading-*)`. Do not put a colour back into
   `chapter-body.tsx`.
-- `BookletReader` (the PDF modal) and `BookletChapters` currently both render on the
-  booklet page. Once real chapters exist, decide which is the primary reading surface.
+- ~~`BookletReader` (the PDF modal) and `BookletChapters` currently both render on the
+  booklet page.~~ **Decided: one way in.** The page offered three separate invitations to
+  read the same booklet — the PDF panel's *Read Booklet*, the chapters' *Open the reader*,
+  and the gate's *Keep reading*. Now `hasReadableChapters` picks the surface: the chapter
+  reader where text exists, the PDF modal where it does not (booklet twelve has no text
+  layer). The gate moved inside the reader, at the foot of the third free chapter, so a
+  reader meets it by reading on rather than by being sent to a panel elsewhere. The PDF
+  download stays beside the one button, because a file to keep is not a way to read.
+  The clipped on-page preview is `inert`: the sign-up form sits below the clip line, and
+  without it a keyboard reader tabs into a field they cannot see. Unlock tracking moved
+  from the PDF button to `ChapterReader`'s open, via `lib/subscriber.ts`.
 - `generate-sitemap.js` hardcodes its booklet list, so it can drift from the content in
   MongoDB. Worth driving from content when something else touches it.
 

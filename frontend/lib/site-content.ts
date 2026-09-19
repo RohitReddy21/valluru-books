@@ -252,6 +252,19 @@ export function isChapterFree(chapter: Pick<BookletChapter, "number" | "free" | 
   return chapter.free ?? (Boolean(chapter.frontMatter) || chapter.number <= FREE_CHAPTER_COUNT);
 }
 
+/**
+ * Whether a booklet has text to read, as opposed to only a PDF.
+ *
+ * The booklet page picks its reading surface on this: chapters where they exist, the PDF
+ * modal where the extraction has not reached yet — booklet twelve has no text layer at
+ * all. Both surfaces must agree on the answer, so neither decides it for itself.
+ */
+export function hasReadableChapters(booklet: { chapters?: BookletChapter[] }) {
+  return (booklet.chapters ?? []).some(
+    (chapter) => isChapterFree(chapter) && chapter.paragraphs.length > 0
+  );
+}
+
 export type Booklet = {
   slug: string;
   numberLabel: string;

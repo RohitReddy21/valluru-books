@@ -15,6 +15,7 @@ import {
   getBookletDetailSubtitle,
   getBookletFaqs,
   getBookletNeighbors,
+  hasReadableChapters,
   isChapterFree,
   isPublished
 } from "@/lib/site-content";
@@ -309,8 +310,17 @@ export default async function BookletPage({
                 </a>
               ) : null} */}
             </div>
-            <BookletReader booklet={booklet} />
-            <BookletChapters booklet={booklet} />
+            {/*
+              One way into a booklet. Where the text exists it is the reader; where it does
+              not — booklet twelve has no text layer to extract — the PDF modal still
+              stands in. Rendering both gave the page three separate invitations to read
+              the same booklet.
+            */}
+            {hasReadableChapters(booklet) ? (
+              <BookletChapters booklet={booklet} />
+            ) : (
+              <BookletReader booklet={booklet} />
+            )}
           </article>
 
           {navigationBooklets.length > 0 ? (
