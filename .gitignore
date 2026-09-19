@@ -25,3 +25,8 @@ backend/.env.local
 # Unreviewed chapter extraction output. Never commit this - it is a draft for
 # human review, not content, and the PDFs it came from are 400MB of source.
 chapters-review/
+
+# Extracted booklet plates. Generated from the PDFs and served from Supabase in
+# production; kept out of the repo because they are large binary derivatives.
+frontend/public/booklet-plates/
+booklet-images/

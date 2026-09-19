@@ -272,7 +272,11 @@ async function extract(file, options) {
   const chapters = [];
   let pending = null;
 
-  for (const lines of pages) {
+  // Page spans are tracked so the illustrations can be placed later: a plate belongs to
+  // whichever chapter was running on the page it was printed on.
+  for (const [pageIndex, lines] of pages.entries()) {
+    const pageNumber = pageIndex + 1;
+
     for (const line of lines) {
       if (furniture.has(normalizeForComparison(line.text))) {
         continue;
@@ -290,8 +294,12 @@ async function extract(file, options) {
           chapters.push(pending);
         }
 
-        pending = { title: line.text, lines: [] };
+        pending = { title: line.text, lines: [], startPage: pageNumber, endPage: pageNumber };
         continue;
+      }
+
+      if (pending) {
+        pending.endPage = pageNumber;
       }
 
       if (pending) {
@@ -308,6 +316,8 @@ async function extract(file, options) {
   const sections = chapters
     .map((chapter) => ({
       title: chapter.title,
+      startPage: chapter.startPage,
+      endPage: chapter.endPage,
       paragraphs: toParagraphs(chapter.lines, bodyGap)
     }))
     .filter((chapter) => chapter.paragraphs.length);
@@ -323,7 +333,10 @@ async function extract(file, options) {
     // verse and its commentary, barely over a hundred words each, and folding them by
     // length collapsed the whole booklet into one.
     if (built.length && !isStrongHeading(section.title) && wordsIn(section) < MIN_CHAPTER_WORDS) {
-      built[built.length - 1].paragraphs.push(section.title, ...section.paragraphs);
+      const previous = built[built.length - 1];
+      previous.paragraphs.push(section.title, ...section.paragraphs);
+      // A folded pull-quote extends the chapter it belongs to, so its pages come too.
+      previous.endPage = Math.max(previous.endPage || 0, section.endPage || 0);
       pullQuotes += 1;
       continue;
     }
@@ -334,6 +347,8 @@ async function extract(file, options) {
       title: section.title,
       frontMatter: isFrontMatter(section.title, built.length),
       free: false,
+      startPage: section.startPage,
+      endPage: section.endPage,
       paragraphs: section.paragraphs
     });
   }

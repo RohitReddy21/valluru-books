@@ -14,6 +14,7 @@
  * after that uses the title. numberLabel is the one field that stayed consistent.
  */
 import { readFile, readdir, writeFile } from "node:fs/promises";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 
@@ -117,6 +118,67 @@ function titleKeyFromExtractionSlug(slug) {
   );
 }
 
+/**
+ * Reads the plate manifest a booklet's image extraction wrote, if there is one.
+ *
+ * --images points at the directory extract-booklet-images.mjs wrote to, and --image-base
+ * at the URL those files are served from. Without both, chapters import as text only.
+ */
+function platesFor(slug, options) {
+  if (!options.images) {
+    return [];
+  }
+
+  const manifestPath = path.join(options.images, slug, "plates.json");
+
+  if (!existsSync(manifestPath)) {
+    return [];
+  }
+
+  const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+  const base = String(options["image-base"] || "").replace(/\/$/, "");
+
+  return (manifest.plates || []).map((plate) => ({
+    src: `${base}/${slug}/${plate.file}`,
+    width: plate.width,
+    height: plate.height,
+    page: plate.page
+  }));
+}
+
+/**
+ * Decides which chapter each plate belongs to.
+ *
+ * These booklets set illustrations on their own page facing a chapter opening, so a plate
+ * on page 6 is not inside any chapter's span — chapter five ends on page 5 and chapter six
+ * opens on page 7. Matching on containment finds almost nothing, which is what the first
+ * attempt at this did.
+ *
+ * A plate therefore goes to the first chapter that opens at or after it: the one it faces,
+ * and the one it was drawn to introduce. Plates after the last chapter opens fall to that
+ * chapter, so a closing plate is not dropped.
+ */
+function assignPlates(plates, chapters) {
+  const byChapter = new Map();
+
+  if (!plates.length || !chapters.length) {
+    return byChapter;
+  }
+
+  const opens = chapters
+    .map((chapter) => ({ id: chapter.id, startPage: chapter.startPage || 0 }))
+    .sort((left, right) => left.startPage - right.startPage);
+
+  for (const plate of plates) {
+    const facing = opens.find((chapter) => chapter.startPage >= plate.page);
+    const target = facing ? facing.id : opens[opens.length - 1].id;
+
+    byChapter.set(target, [...(byChapter.get(target) || []), plate]);
+  }
+
+  return byChapter;
+}
+
 const options = parseArgs(process.argv.slice(2));
 
 if (PROTECTED_DATABASES.has(options.db)) {
@@ -186,13 +248,21 @@ for (const series of [content.series]) {
 
     used.add(data.slug);
 
-    booklet.chapters = data.chapters.map((chapter) => ({
-      id: chapter.id,
-      number: chapter.number,
-      title: chapter.title,
-      paragraphs: chapter.paragraphs,
-      ...(chapter.frontMatter ? { frontMatter: true } : {})
-    }));
+    const plates = platesFor(data.slug, options);
+    const platesByChapter = assignPlates(plates, data.chapters);
+
+    booklet.chapters = data.chapters.map((chapter) => {
+      const images = platesByChapter.get(chapter.id) || [];
+
+      return {
+        id: chapter.id,
+        number: chapter.number,
+        title: chapter.title,
+        paragraphs: chapter.paragraphs,
+        ...(chapter.frontMatter ? { frontMatter: true } : {}),
+        ...(images.length ? { images } : {})
+      };
+    });
 
     const words = data.chapters.reduce(
       (total, chapter) => total + chapter.paragraphs.join(" ").split(/\s+/).length,

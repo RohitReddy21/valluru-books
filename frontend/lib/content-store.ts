@@ -56,7 +56,19 @@ function normalizeChapters(chapters: Booklet["chapters"]): BookletChapter[] | un
         paragraphs,
         ...(typeof chapter?.free === "boolean" ? { free: chapter.free } : {}),
         ...(chapter?.frontMatter ? { frontMatter: true } : {}),
-        ...(teaser ? { teaser } : {})
+        ...(teaser ? { teaser } : {}),
+        ...(Array.isArray(chapter?.images) && chapter.images.length
+          ? {
+              images: chapter.images
+                .filter((image) => image?.src && image.width > 0 && image.height > 0)
+                .map((image) => ({
+                  src: String(image.src),
+                  width: Number(image.width),
+                  height: Number(image.height),
+                  ...(image.page ? { page: Number(image.page) } : {})
+                }))
+            }
+          : {})
       };
     })
     .filter((chapter): chapter is BookletChapter => chapter !== null)

@@ -77,12 +77,15 @@ function redactBookletChapters(booklet) {
 
     teaserUsed = true;
 
+    // The plates go with the prose. They are part of what a subscriber is given, and
+    // publishing their URLs would hand the artwork over while withholding the words.
     return {
       id: chapter.id,
       number: chapter.number,
       title: chapter.title,
       free: false,
       paragraphs: [],
+      ...(chapter?.frontMatter ? { frontMatter: true } : {}),
       ...(teaser ? { teaser } : {})
     };
   });
@@ -172,9 +175,16 @@ function preserveRedactedChapters(incoming, stored) {
 
             const previous = storedChapters.get(chapterKey(chapter, index));
 
-            return previous?.paragraphs?.length
-              ? { ...chapter, paragraphs: previous.paragraphs }
-              : chapter;
+            if (!previous?.paragraphs?.length) {
+              return chapter;
+            }
+
+            // Plates are redacted alongside the prose, so they need restoring alongside it.
+            return {
+              ...chapter,
+              paragraphs: previous.paragraphs,
+              ...(previous.images?.length ? { images: previous.images } : {})
+            };
           })
         };
       })

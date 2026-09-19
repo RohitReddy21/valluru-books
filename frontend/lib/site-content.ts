@@ -95,6 +95,58 @@ export type BookletChapter = {
   frontMatter?: boolean;
   /** Opening lines of the first gated chapter, shown fading above the gate. */
   teaser?: string;
+  /**
+   * The interior plates printed within this chapter, in page order. Carried with the
+   * chapter rather than the booklet so a gated chapter's artwork is withheld along with
+   * its prose — the plates are part of what a subscriber is given.
+   */
+  images?: BookletChapterImage[];
+};
+
+/**
+ * A run of paragraphs that belongs together on the page.
+ *
+ * The Telugu booklets are verse: the extractor yields one line per paragraph, and
+ * rendering each as its own spaced paragraph pulls a four-line padyam apart into four
+ * disconnected sentences. Grouping consecutive short lines back into a verse block keeps
+ * them reading as the stanza they are.
+ */
+export type ChapterBlock = { kind: "prose" | "verse"; lines: string[] };
+
+/** Longer than this and a line is prose, however it was broken in the PDF. */
+const VERSE_LINE_MAX = 70;
+
+function looksLikeVerseLine(line: string) {
+  return line.length <= VERSE_LINE_MAX && !/[.!?]["')\]]?$/.test(line);
+}
+
+export function toChapterBlocks(paragraphs: string[]): ChapterBlock[] {
+  const blocks: ChapterBlock[] = [];
+
+  for (const line of paragraphs) {
+    const kind = looksLikeVerseLine(line) ? "verse" : "prose";
+    const last = blocks[blocks.length - 1];
+
+    // Only a run counts as verse: one short line amid prose is just a short paragraph.
+    if (last && last.kind === kind && kind === "verse") {
+      last.lines.push(line);
+      continue;
+    }
+
+    blocks.push({ kind, lines: [line] });
+  }
+
+  return blocks.map((block) =>
+    block.kind === "verse" && block.lines.length === 1 ? { kind: "prose", lines: block.lines } : block
+  );
+}
+
+export type BookletChapterImage = {
+  src: string;
+  width: number;
+  height: number;
+  /** The page it was printed on, kept so a re-import can match plates to chapters again. */
+  page?: number;
 };
 
 /**

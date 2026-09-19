@@ -1,5 +1,6 @@
+import Image from "next/image";
 import { ChapterGate } from "@/components/chapter-gate";
-import { isChapterFree, type Booklet } from "@/lib/site-content";
+import { isChapterFree, toChapterBlocks, type Booklet } from "@/lib/site-content";
 
 /**
  * Renders the free chapters as plain server HTML — this is the whole point of the chapter
@@ -32,14 +33,44 @@ export function BookletChapters({ booklet }: { booklet: Booklet }) {
             </span>
             {chapter.title}
           </h2>
-          {chapter.paragraphs.map((paragraph, index) => (
-            <p
-              className="mt-5 text-lg leading-8 text-parchment/82"
-              key={`${chapter.id}-${index}`}
-            >
-              {paragraph}
-            </p>
+          {/*
+            The plate opens the chapter, because that is where it sits in the booklet: on
+            its own page facing the chapter it was drawn to introduce.
+          */}
+          {chapter.images?.map((image) => (
+            <figure className="mt-6" key={image.src}>
+              <Image
+                alt=""
+                className="h-auto w-full rounded-md"
+                height={image.height}
+                sizes="(min-width: 1024px) 48rem, 100vw"
+                src={image.src}
+                width={image.width}
+              />
+            </figure>
           ))}
+
+          {toChapterBlocks(chapter.paragraphs).map((block, index) =>
+            block.kind === "verse" ? (
+              <p
+                className="mt-5 text-lg leading-8 text-parchment/82"
+                key={`${chapter.id}-${index}`}
+              >
+                {block.lines.map((line, lineIndex) => (
+                  <span className="block" key={`${chapter.id}-${index}-${lineIndex}`}>
+                    {line}
+                  </span>
+                ))}
+              </p>
+            ) : (
+              <p
+                className="mt-5 text-lg leading-8 text-parchment/82"
+                key={`${chapter.id}-${index}`}
+              >
+                {block.lines[0]}
+              </p>
+            )
+          )}
         </article>
       ))}
 
