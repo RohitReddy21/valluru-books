@@ -3,7 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { BookletChapters } from "@/components/booklet-chapters";
 import { BookletReader } from "@/components/booklet-reader";
 import { ReflectionForm } from "@/components/reflection-form";
-import { BackLink, BookletCard, HeroBackground, PageShell, PrimaryLink } from "@/components/ui";
+import { BackLink, BookletRow, HeroBackground, PageShell, PrimaryLink } from "@/components/ui";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { FaqAccordion } from "@/components/faq-accordion";
 // import { AddToCartButton } from "@/components/add-to-cart-button";
@@ -362,15 +362,17 @@ export default async function BookletPage({
       {relatedBooklets.length > 0 && (
         <section className="quiet-divider px-4 pb-20 pt-12 sm:px-5">
           <div className="mx-auto max-w-6xl">
-            <p className="font-label text-sm uppercase tracking-[0.24em] text-gold">
-              Related Booklets
-            </p>
-            <h2 className="mt-4 font-display text-3xl font-semibold text-parchment">
+            <h2 className="font-display text-3xl font-semibold text-parchment">
               Related Booklets
             </h2>
-            <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {/*
+              Rows, not cards. The full card sets its cover at aspect 4/5, so in one
+              column the image alone is taller than the screen — four of them ran to
+              nearly seven phone screens of footer under a finished chapter.
+            */}
+            <div className="mt-8 grid gap-3 md:grid-cols-2">
               {relatedBooklets.map((relatedBooklet) => (
-                <BookletCard booklet={relatedBooklet} key={relatedBooklet.slug} />
+                <BookletRow booklet={relatedBooklet} key={relatedBooklet.slug} />
               ))}
             </div>
           </div>

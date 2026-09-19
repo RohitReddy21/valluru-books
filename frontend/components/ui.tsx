@@ -170,10 +170,11 @@ export function BookletCard({
         <div className="relative aspect-[4/5] overflow-hidden border-b border-gold/10 bg-ink flex-shrink-0">
           {booklet.coverImage ? (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 alt={booklet.title}
-                className="h-full w-full object-cover opacity-90 transition duration-500 group-hover:scale-[1.03] group-hover:opacity-100"
+                className="object-cover opacity-90 transition duration-500 group-hover:scale-[1.03] group-hover:opacity-100"
+                fill
+                sizes="(min-width: 1024px) 22rem, (min-width: 768px) 45vw, 92vw"
                 src={booklet.coverImage}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/30 to-transparent" />
@@ -337,6 +338,52 @@ export function BackLink({ href, label }: Cta) {
     >
       <ArrowLeft size={15} />
       {label}
+    </Link>
+  );
+}
+
+/**
+ * A related booklet as one compact row rather than a full card.
+ *
+ * The full card sets its cover at aspect 4/5, so in a single-column layout the image
+ * alone is taller than the viewport: four related booklets ran to 4,667px, roughly seven
+ * phone screens of footer after the reader had finished the chapter. A reader who has
+ * reached the end of a booklet needs a legible way on, not four more covers.
+ */
+export function BookletRow({
+  booklet,
+  basePath = "/series"
+}: {
+  booklet: Booklet;
+  basePath?: string;
+}) {
+  return (
+    <Link
+      className="group flex items-center gap-4 rounded-md border border-gold/15 bg-surface/70 p-4 transition hover:border-gold/45 hover:bg-surface"
+      href={`${basePath}/${bookletPublicSlug(booklet)}`}
+    >
+      {booklet.coverImage ? (
+        <span className="relative size-16 shrink-0 overflow-hidden rounded-md border border-gold/10 bg-ink">
+          <Image
+            alt=""
+            className="object-cover"
+            fill
+            sizes="4rem"
+            src={booklet.coverImage}
+          />
+        </span>
+      ) : null}
+      <span className="min-w-0">
+        <span className="block font-label text-xs uppercase tracking-[0.2em] text-muted">
+          {booklet.numberLabel}
+        </span>
+        <span className="mt-1 block font-display text-lg leading-tight text-parchment group-hover:text-gold">
+          {booklet.title}
+        </span>
+        <span className="mt-1 block truncate text-sm italic text-muted/85">
+          {getBookletCardSubtitle(booklet)}
+        </span>
+      </span>
     </Link>
   );
 }

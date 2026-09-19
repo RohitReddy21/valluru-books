@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { ChapterGate } from "@/components/chapter-gate";
+import { ChapterReader } from "@/components/chapter-reader";
 import { isChapterFree, toChapterBlocks, type Booklet } from "@/lib/site-content";
 
 /**
@@ -25,7 +26,8 @@ export function BookletChapters({ booklet }: { booklet: Booklet }) {
 
   return (
     <section className="mt-12 border-t border-gold/15 pt-8">
-      {free.map((chapter) => (
+      <ChapterReader numberLabel={booklet.numberLabel} title={booklet.title}>
+        {free.map((chapter) => (
         <article className="mt-10 first:mt-0" id={chapter.id} key={chapter.id}>
           <h2 className="font-display text-2xl text-parchment sm:text-3xl">
             <span className="mr-3 font-label text-sm uppercase tracking-[0.18em] text-gold/80">
@@ -71,8 +73,9 @@ export function BookletChapters({ booklet }: { booklet: Booklet }) {
               </p>
             )
           )}
-        </article>
-      ))}
+          </article>
+        ))}
+      </ChapterReader>
 
       {nextChapter ? (
         <ChapterGate
