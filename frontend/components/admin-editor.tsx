@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Download, Eye, FileText, ImageIcon, Mail, Package, Plus, RefreshCw, RotateCcw, Save, Trash2, Upload } from "lucide-react";
 import { apiUrl } from "@/lib/api";
-import type { BookSeries, Booklet, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
+import type { BookSeries, Booklet, BookletChapter, Movement, PublishStatus, SiteContent } from "@/lib/site-content";
 import {
   defaultSiteContent,
   getBookletMovementIndex,
   isBookletInMovement,
+  resolveChapterAccess,
   seriesBasePath
 } from "@/lib/site-content";
 import { ImageManagerPanel } from "@/components/image-manager-panel";
@@ -4484,6 +4485,12 @@ function BookletPanel({
           rows={7}
           value={booklet.explores || ""}
         />
+        <FieldGroup title="Chapters">
+          <BookletChaptersEditor
+            chapters={booklet.chapters || []}
+            onChange={(chapters) => updateBooklet(booklet.slug, { chapters })}
+          />
+        </FieldGroup>
         <div className="grid gap-5 md:grid-cols-2">
           <TextField
             label="Read Booklet Button Text"
@@ -5476,5 +5483,131 @@ function FieldGroup({
       </div>
       {children}
     </section>
+  );
+}
+
+/**
+ * Chapter editing for a booklet.
+ *
+ * Chapters arrive from the extraction script rather than being typed here, so this is
+ * built for correcting what the extractor got wrong — a title that was really a
+ * pull-quote, front matter it failed to recognise — not for authoring from scratch.
+ *
+ * Access is shown resolved rather than per-chapter, because the depth rule counts body
+ * chapters only: marking something as front matter hands its free slot to the next real
+ * chapter, and the editor should show that happening.
+ */
+function BookletChaptersEditor({
+  chapters,
+  onChange
+}: {
+  chapters: BookletChapter[];
+  onChange: (chapters: BookletChapter[]) => void;
+}) {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  if (!chapters.length) {
+    return (
+      <p className="text-base leading-7 text-muted">
+        No chapters yet. Extract them with{" "}
+        <code className="text-gold">backend/scripts/extract-booklet-chapters.mjs</code>, review
+        the JSON, then import it with{" "}
+        <code className="text-gold">backend/scripts/import-booklet-chapters.mjs</code>.
+      </p>
+    );
+  }
+
+  const resolved = resolveChapterAccess(chapters);
+  const freeWords = resolved
+    .filter((chapter) => chapter.free && !chapter.frontMatter)
+    .reduce((total, chapter) => total + chapter.paragraphs.join(" ").split(/\s+/).length, 0);
+
+  function patchChapter(id: string, patch: Partial<BookletChapter>) {
+    onChange(chapters.map((chapter) => (chapter.id === id ? { ...chapter, ...patch } : chapter)));
+  }
+
+  return (
+    <div className="grid gap-3">
+      <p className="text-base leading-7 text-muted">
+        {chapters.length} chapters · {freeWords.toLocaleString()} words of real writing before
+        the gate. Front matter stays readable but does not use up one of the three free
+        chapters.
+      </p>
+
+      {resolved.map((chapter) => {
+        const words = chapter.paragraphs.join(" ").split(/\s+/).length;
+        const isOpen = openId === chapter.id;
+
+        return (
+          <div className="rounded-md border border-gold/15 bg-ink/40" key={chapter.id}>
+            <button
+              className="flex w-full items-center gap-3 px-4 py-3 text-left"
+              onClick={() => setOpenId(isOpen ? null : chapter.id)}
+              type="button"
+            >
+              <span className="font-label text-xs uppercase tracking-[0.18em] text-muted">
+                {chapter.number}
+              </span>
+              <span className="flex-1 truncate text-base text-parchment">{chapter.title}</span>
+              <span className="font-label text-xs uppercase tracking-[0.16em] text-muted">
+                {words}w
+              </span>
+              <span
+                className={`font-label text-xs uppercase tracking-[0.16em] ${
+                  chapter.frontMatter ? "text-muted" : chapter.free ? "text-gold" : "text-muted/70"
+                }`}
+              >
+                {chapter.frontMatter ? "front matter" : chapter.free ? "free" : "gated"}
+              </span>
+            </button>
+
+            {isOpen ? (
+              <div className="grid gap-4 border-t border-gold/10 px-4 py-4">
+                <TextField
+                  label="Title"
+                  onChange={(value) => patchChapter(chapter.id, { title: value })}
+                  value={chapter.title}
+                />
+                <div className="flex flex-wrap gap-5">
+                  <label className="flex items-center gap-2 font-label text-sm uppercase tracking-[0.16em] text-muted">
+                    <input
+                      checked={Boolean(chapter.frontMatter)}
+                      onChange={(event) =>
+                        patchChapter(chapter.id, { frontMatter: event.target.checked || undefined })
+                      }
+                      type="checkbox"
+                    />
+                    Front matter
+                  </label>
+                  <label className="flex items-center gap-2 font-label text-sm uppercase tracking-[0.16em] text-muted">
+                    <input
+                      checked={chapter.free === true}
+                      onChange={(event) =>
+                        patchChapter(chapter.id, { free: event.target.checked ? true : undefined })
+                      }
+                      type="checkbox"
+                    />
+                    Always free
+                  </label>
+                </div>
+                <TextAreaField
+                  label="Paragraphs (blank line between each)"
+                  onChange={(value) =>
+                    patchChapter(chapter.id, {
+                      paragraphs: value
+                        .split(/\n\s*\n/)
+                        .map((paragraph) => paragraph.trim())
+                        .filter(Boolean)
+                    })
+                  }
+                  rows={14}
+                  value={chapter.paragraphs.join("\n\n")}
+                />
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
   );
 }
