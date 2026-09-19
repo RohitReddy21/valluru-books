@@ -2,18 +2,15 @@
 
 import { Mail } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
+import { ChapterArticle, type ReadableChapter } from "@/components/chapter-body";
+import { ChapterReader } from "@/components/chapter-reader";
 import { trackEmailSubscription } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api";
 
-type GatedChapter = {
-  id: string;
-  number: number;
-  title: string;
-  paragraphs: string[];
-};
-
 type Props = {
   bookletSlug: string;
+  bookletTitle: string;
+  bookletNumberLabel?: string;
   nextChapter: { number: number; title: string; teaser: string };
   remainingCount: number;
 };
@@ -21,9 +18,15 @@ type Props = {
 /** The API sleeps on Render's free tier; fail to the gate rather than spin. */
 const CHAPTERS_FETCH_TIMEOUT_MS = 4000;
 
-export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props) {
+export function ChapterGate({
+  bookletSlug,
+  bookletTitle,
+  bookletNumberLabel,
+  nextChapter,
+  remainingCount
+}: Props) {
   const emailId = useId();
-  const [chapters, setChapters] = useState<GatedChapter[] | null>(null);
+  const [chapters, setChapters] = useState<ReadableChapter[] | null>(null);
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
 
@@ -51,7 +54,7 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
 
       const payload = (await response.json()) as {
         hasAccess?: boolean;
-        chapters?: GatedChapter[];
+        chapters?: ReadableChapter[];
       };
 
       if (!payload?.hasAccess) {
@@ -115,27 +118,16 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
   }
 
   if (chapters?.length) {
+    // A subscriber gets the same reader as everyone else, rather than the rest of the
+    // booklet dropped onto the page as raw paragraphs below the free chapters.
     return (
-      <>
-        {chapters.map((chapter) => (
-          <article className="mt-10" id={chapter.id} key={chapter.id}>
-            <h2 className="font-display text-2xl text-parchment sm:text-3xl">
-              <span className="mr-3 font-label text-sm uppercase tracking-[0.18em] text-gold/80">
-                {chapter.number}
-              </span>
-              {chapter.title}
-            </h2>
-            {chapter.paragraphs.map((paragraph, index) => (
-              <p
-                className="mt-5 text-lg leading-8 text-parchment/82"
-                key={`${chapter.id}-${index}`}
-              >
-                {paragraph}
-              </p>
-            ))}
-          </article>
-        ))}
-      </>
+      <div className="mt-10">
+        <ChapterReader numberLabel={bookletNumberLabel} title={bookletTitle}>
+          {chapters.map((chapter) => (
+            <ChapterArticle chapter={chapter} key={chapter.id} />
+          ))}
+        </ChapterReader>
+      </div>
     );
   }
 

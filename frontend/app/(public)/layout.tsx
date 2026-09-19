@@ -1,5 +1,11 @@
 import type { Metadata, Viewport } from "next";
-import { Cormorant_Garamond, Crimson_Pro, Playfair_Display } from "next/font/google";
+import {
+  Cormorant_Garamond,
+  Crimson_Pro,
+  Noto_Serif,
+  Noto_Serif_Telugu,
+  Playfair_Display
+} from "next/font/google";
 import Script from "next/script";
 import "../globals.css";
 import { getSiteContent } from "@/lib/content-store";
@@ -25,6 +31,27 @@ const cormorant = Cormorant_Garamond({
   variable: "--font-label",
   display: "swap",
   weight: ["500", "600", "700"]
+});
+
+/**
+ * What the booklets themselves are set in. Only the reader uses them, so they are not
+ * preloaded: a reader who never opens a booklet should not pay for two more families,
+ * and the Telugu face in particular is a large download.
+ */
+const notoSerif = Noto_Serif({
+  subsets: ["latin"],
+  variable: "--font-page",
+  display: "swap",
+  weight: ["400", "600"],
+  preload: false
+});
+
+const notoSerifTelugu = Noto_Serif_Telugu({
+  subsets: ["telugu"],
+  variable: "--font-page-telugu",
+  display: "swap",
+  weight: ["400", "600"],
+  preload: false
 });
 
 export const metadata: Metadata = {
@@ -83,7 +110,7 @@ export default async function RootLayout({
 
   return (
     <html
-      className={`${playfair.variable} ${crimson.variable} ${cormorant.variable}`}
+      className={`${playfair.variable} ${crimson.variable} ${cormorant.variable} ${notoSerif.variable} ${notoSerifTelugu.variable}`}
       lang="en"
     >
       <head>

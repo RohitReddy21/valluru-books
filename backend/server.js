@@ -3366,7 +3366,9 @@ app.get("/api/booklets/:slug/chapters", async (request, response, next) => {
         number: chapter.number,
         title: chapter.title,
         free: chapter.free,
-        paragraphs: Array.isArray(chapter.paragraphs) ? chapter.paragraphs : []
+        paragraphs: Array.isArray(chapter.paragraphs) ? chapter.paragraphs : [],
+        // The plates are withheld with the prose, so they are released with it too.
+        images: Array.isArray(chapter.images) ? chapter.images : []
       }))
     });
   } catch (error) {

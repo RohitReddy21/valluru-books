@@ -111,7 +111,7 @@ export type BookletChapter = {
  * disconnected sentences. Grouping consecutive short lines back into a verse block keeps
  * them reading as the stanza they are.
  */
-export type ChapterBlock = { kind: "prose" | "verse"; lines: string[] };
+export type ChapterBlock = { kind: "prose" | "verse" | "label"; lines: string[] };
 
 /** Longer than this and a line is prose, however it was broken in the PDF. */
 const VERSE_LINE_MAX = 70;
@@ -120,10 +120,72 @@ function looksLikeVerseLine(line: string) {
   return line.length <= VERSE_LINE_MAX && !/[.!?]["')\]]?$/.test(line);
 }
 
+/**
+ * The booklets set their section headers — MEANING, the Telugu భావము, AUTHOR'S CONTEXT —
+ * in letterspaced gold caps above the passage they introduce. Letterspacing in a PDF is
+ * literal space between the glyphs, so the extractor reads "M E A N I N G" and runs it
+ * straight into the sentence that follows.
+ *
+ * Only these known headers are lifted out. Any run of spaced capitals would also catch an
+ * emphasised word mid-sentence, and a wrong guess here rewrites the author's prose.
+ */
+const SECTION_LABELS = new Map([
+  ["MEANING", "Meaning"],
+  ["AUTHORSCONTEXT", "Author's Context"],
+  ["AUTHORSNOTE", "Author's Note"],
+  ["CONTEXT", "Context"],
+  ["REFLECTION", "Reflection"],
+  ["PRACTICE", "Practice"],
+  ["భావము", "భావము"]
+]);
+
+/**
+ * A fragment of a letterspaced header. Usually a single letter, but the extractor joins a
+ * pair now and then — "A U T H O R ' SC O N T E X T" — so two are allowed as well.
+ */
+const LABEL_FRAGMENT = /^(?:[A-Z]{1,2}[’']?|[’']|[ఀ-౿]{1,4})$/;
+/** No header in these booklets is longer than this many fragments. */
+const LABEL_MAX_FRAGMENTS = 18;
+
+/** Splits a leading section header off a paragraph, or returns null if there is none. */
+function splitSectionLabel(line: string): { label: string; rest: string } | null {
+  const fragments = line.split(/\s+/);
+  let match: { taken: number; label: string } | null = null;
+
+  // Letterspacing means the header arrives one letter at a time, and the sentence that
+  // follows it starts with a capital of its own, so where the header ends can only be
+  // decided by which prefix spells a header this series actually uses. Longest wins.
+  for (let taken = 1; taken <= Math.min(fragments.length, LABEL_MAX_FRAGMENTS); taken += 1) {
+    if (!LABEL_FRAGMENT.test(fragments[taken - 1])) {
+      break;
+    }
+
+    const key = fragments.slice(0, taken).join("").replace(/[’']/g, "").toUpperCase();
+    const label = SECTION_LABELS.get(key);
+
+    if (label) {
+      match = { taken, label };
+    }
+  }
+
+  return match ? { label: match.label, rest: fragments.slice(match.taken).join(" ").trim() } : null;
+}
+
 export function toChapterBlocks(paragraphs: string[]): ChapterBlock[] {
   const blocks: ChapterBlock[] = [];
 
-  for (const line of paragraphs) {
+  for (const paragraph of paragraphs) {
+    const section = splitSectionLabel(paragraph);
+    const line = section ? section.rest : paragraph;
+
+    if (section) {
+      blocks.push({ kind: "label", lines: [section.label] });
+
+      if (!line) {
+        continue;
+      }
+    }
+
     const kind = looksLikeVerseLine(line) ? "verse" : "prose";
     const last = blocks[blocks.length - 1];
 

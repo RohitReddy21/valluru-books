@@ -348,15 +348,102 @@ and all 18 booklets. Build clean, zero warnings; `tsc` clean; 9 backend tests pa
 > If a route handler 404s against a locally started `next start`, restart the server before
 > debugging the route — a stale instance 404s every root-level handler while pages still serve.
 
+> **A running `next start` writes its ISR revalidations back into `.next/server/app`.** If it
+> is still up when you rebuild, every page it has served since is overwritten with the *old*
+> markup, and the fresh build serves stale HTML for those routes and only those routes —
+> which reads exactly like a change that did not take. Stop the server before building. Note
+> that killing the Bash task does not always kill the node process: check the port is free
+> (`Get-NetTCPConnection -LocalPort 3000`) rather than assuming.
+
+> **After changing content in the database, `rm -rf frontend/.next/cache/fetch-cache` before
+> building.** `getSiteContent` fetches with `revalidate: 300`, and Next persists that response
+> across builds, so a build inside the five-minute window prerenders the *old* content with no
+> warning. Verified the hard way: a chapter title fixed in Mongo, confirmed correct through
+> `/api/content`, and still wrong in the built page.
+
+### What the extractors learned from the real PDFs
+
+Each of these was a silent defect — nothing errored, the output just was not the booklet.
+
+- **Spaces are not always in the text.** Several booklets embed fonts whose space glyph
+  pdf.js cannot map, so a line arrives as items with no spaces and the spacing expressed
+  purely as position. Joining them gave `Grieffirstarrivesasinvasion.` on about a hundred
+  lines. `joinLineParts` measures the gap between items and puts the spaces back; it
+  recovered 4,600 words the old join had welded together.
+- **A running head whose tail changes never repeats.** "The Inward Fire Series | Booklet
+  Nine · 3 · Notes" varies by chapter, so whole-line furniture matching missed it and left
+  it in the prose. `furnitureStem` matches on the part before the first divider.
+- **A contents page is a page of chapter openings.** "12A. Brindavan and the Failure of
+  Optimization" is a chapter opening wherever it is printed. What separates the listing
+  from the book is density, so a page carrying four or more openings is a contents page,
+  and the short-chapter exemption applies only where an opening stands alone on its page.
+- **A cover page is all heading and no chapter.** Merging heading-sized lines by size
+  alone titled booklet nine's first chapter "Bhakti, Self-Laughter, Māyā, and the Child's
+  Surrender Sasidhar Valluru Nine I N W A R D F I R E AMMA'S S E R I E S LAP". The merge
+  now requires the next line to sit one leading below, and the import gives the first
+  chapter the booklet's own title rather than trusting typography at all.
+- **`g_`-prefixed images live in `commonObjs`, not `page.objs`.** Asking the page for one
+  waits out the timeout and returns nothing, which is how every reused plate was being
+  dropped — booklet eleven yielded three images in an hour instead of four in seconds.
+  And because a reused image is usually decoration, the extractor now counts the pages
+  each image object appears on and treats anything on a quarter of them as furniture.
+
+### ⚠ The plates have no home in production
+
+313 plates, 36MB, sit in `frontend/public/booklet-plates/`, which `.gitignore` excludes —
+so they exist locally and nowhere else, while the import writes `/booklet-plates/...` into
+the content. **Deploy as things stand and every plate 404s.** Three ways out, and the
+choice is the owner's because each costs something different:
+
+1. Commit them. Simplest, works on Vercel unchanged, 36MB in git forever.
+2. Upload to Supabase and pass that URL as `--image-base`. No repo weight, but the bucket
+   is public, so a gated chapter's artwork becomes reachable by anyone with the URL — the
+   same posture the booklet PDFs are already in, which the review lists as a problem.
+3. Serve them from the backend behind `hasBookletAccess`, like the PDFs. Correct, and the
+   most work.
+
 ### Still to do in Phase 3
 
-- Run the extraction on the real PDFs and have someone who knows the writing read a
-  booklet through before import. Needs the sandbox.
+- Have someone who knows the writing read a booklet through. Two known weak spots: the
+  Telugu booklets carry 9–19 encoding-damaged characters each (a PDF font problem, not a
+  parsing one), and booklet eight's stotram resolves to eight sections where the stanza
+  boundaries are probably finer.
 - Admin editor fields for chapter text (`admin-editor.tsx` — 5.4k lines, budget for it).
   The **Reel Posting Schedule** group is in; chapter editing is not.
-- **Interior illustrations — still undecided.** Built text-only for now, which is the
-  reversible default: the illustrated PDF stays the subscriber reward. Largest variable
-  in this phase.
+- **Interior illustrations — decided: the plates are carried into the chapters.** Extracted
+  with `extract-booklet-images.mjs` as the embedded raster objects rather than page
+  renders, so the text stays text. A plate goes to the first chapter that opens at or
+  after it, because these booklets set an illustration on its own page *facing* a chapter
+  opening — matching on containment finds almost nothing. Plates on a gated chapter are
+  redacted with its prose and released with it.
+
+### The printed page, measured from the PDFs
+
+The reader overlay reproduces the booklet rather than restyling it, and every value below
+was read out of the PDFs with pdf.js rather than guessed. Re-measure before changing one.
+
+| | |
+|---|---|
+| Page | 432 × 648pt (6 × 9in), text column x 61 → 369pt — margins 14%, measure 71% |
+| Paper | `#f7f0e4` |
+| Body | Noto Serif 10.5pt, ink `#2a2118`, leading 13.9pt (**1.35** — the reader sets 1.45, the one deliberate departure) |
+| Telugu | Noto Serif Telugu 10.7pt, same ink |
+| Chapter opening | Noto Serif Bold 24pt (2.3 × body), ink `#22180d` |
+| Section header | Noto Serif Bold 11.1pt, gold `#a17a3e`, letterspaced caps |
+| Running foot | Noto Serif 8.9pt, `#8d7a62` |
+
+Two consequences worth knowing:
+
+- **The site's three faces carry no Telugu.** Playfair, Crimson and Cormorant have no
+  Telugu coverage, so the verse booklets fall back to whatever the browser has. The reader
+  lists Noto Serif Telugu second in its stack; font fallback is per glyph, so Latin takes
+  Noto Serif and Telugu takes the Telugu face out of one family. Both load with
+  `preload: false` — a reader who never opens a booklet should not pay for them.
+- **The chapters render once and are shown twice**, dark on the page and on paper in the
+  reader, from one tree a portal moves. So the chapter markup names no colour and no face:
+  `.reading-surface` / `.reading-surface-paper` in `globals.css` declare them and the
+  markup reads them through `var(--reading-*)`. Do not put a colour back into
+  `chapter-body.tsx`.
 - `BookletReader` (the PDF modal) and `BookletChapters` currently both render on the
   booklet page. Once real chapters exist, decide which is the primary reading surface.
 - `generate-sitemap.js` hardcodes its booklet list, so it can drift from the content in

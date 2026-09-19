@@ -111,3 +111,26 @@ a {
     transform: translateY(0);
   }
 }
+
+/*
+ * The free chapters are rendered once and shown twice: dark on the booklet page, and on
+ * cream paper inside the reader, where a portal moves the same React tree. Their colours
+ * and faces therefore cannot be written into the chapter markup — each surface declares
+ * them here and the markup reads them.
+ */
+.reading-surface {
+  --reading-display: var(--font-display), Georgia, serif;
+  --reading-head: #e8e0d4;
+  --reading-ink: rgba(232, 224, 212, 0.82);
+  --reading-label: #c4a96b;
+  --reading-rule: rgba(196, 169, 107, 0.22);
+}
+
+/* The printed booklet, sampled from the PDFs. See components/chapter-reader.tsx. */
+.reading-surface-paper {
+  --reading-display: var(--font-page), var(--font-page-telugu), "Noto Serif", Georgia, serif;
+  --reading-head: #22180d;
+  --reading-ink: #2a2118;
+  --reading-label: #a17a3e;
+  --reading-rule: #ddd0b8;
+}

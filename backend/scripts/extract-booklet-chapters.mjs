@@ -61,6 +61,15 @@ const ROMAN_OR_NUMBER = /^(?:[ivxlcdm]+|\d{1,2})[.)]?$/i;
  */
 const NUMBERED_HEADING = /^\d{1,2}\.\s+\S/;
 const MAX_HEADING_CHARS = 90;
+/**
+ * This many chapter openings on one page means the page is the contents, not the book.
+ */
+const CONTENTS_HEADINGS_MIN = 4;
+/**
+ * How far below a heading its own wrapped line may sit, as a multiple of the type size.
+ * A wrapped line is one leading down; anything further is a separate piece of setting.
+ */
+const HEADING_WRAP_GAP = 1.8;
 
 /**
  * Sections that are apparatus rather than writing. Marked free but excluded from the
@@ -112,6 +121,54 @@ function normalizeForComparison(text) {
   return text.replace(/\d+/g, "#").replace(/\s+/g, " ").trim().toLowerCase();
 }
 
+/** Shortest a running-head stem may be before it is trusted as furniture. */
+const FURNITURE_STEM_MIN = 10;
+
+/**
+ * The part of a running head that stays the same from page to page.
+ *
+ * Several booklets set their foot as "The Inward Fire Series | Booklet Nine · 3 · Notes":
+ * the series and booklet hold still but the chapter name changes, so the whole line never
+ * repeats and matching on it alone leaves the foot sitting in the prose. The text before
+ * the first divider does repeat.
+ */
+function furnitureStem(text) {
+  const [stem] = normalizeForComparison(text).split(/\s*[|·•—]\s*/);
+  return stem && stem.length >= FURNITURE_STEM_MIN ? stem : "";
+}
+
+/**
+ * A horizontal gap wider than this share of the type size is a word space.
+ *
+ * Several of these booklets embed fonts whose space glyph pdf.js cannot map, so a line
+ * arrives as a run of items with no spaces anywhere and the spacing expressed purely as
+ * position. Concatenating those items gives "Grieffirstarrivesasinvasion." — which is
+ * what the first version of this did, on about a hundred lines across the series. Inside
+ * a word the gap is nil, so measuring it separates the two cases.
+ */
+const WORD_SPACE_GAP_RATIO = 0.18;
+
+/** Joins one line's items, restoring the spaces the font did not carry. */
+function joinLineParts(parts, typeSize) {
+  let line = "";
+
+  for (const [index, part] of parts.entries()) {
+    if (index) {
+      const previous = parts[index - 1];
+      const gap = part.x - (previous.x + previous.width);
+      const spaced = /\s$/.test(line) || /^\s/.test(part.str);
+
+      if (!spaced && gap > typeSize * WORD_SPACE_GAP_RATIO) {
+        line += " ";
+      }
+    }
+
+    line += part.str;
+  }
+
+  return line.replace(/\s+/g, " ").trim();
+}
+
 /** Groups a page's text items into lines, keyed on their baseline. */
 function toLines(textContent, pageHeight) {
   const buckets = new Map();
@@ -127,7 +184,7 @@ function toLines(textContent, pageHeight) {
     const bucket = buckets.get(key) || { y, height: 0, parts: [] };
 
     bucket.height = Math.max(bucket.height, height);
-    bucket.parts.push({ x: item.transform[4], str: item.str });
+    bucket.parts.push({ x: item.transform[4], width: item.width || 0, str: item.str });
     buckets.set(key, bucket);
   }
 
@@ -136,12 +193,7 @@ function toLines(textContent, pageHeight) {
       y: bucket.y,
       height: bucket.height,
       // Within a line, items can arrive out of order.
-      text: bucket.parts
-        .sort((left, right) => left.x - right.x)
-        .map((part) => part.str)
-        .join("")
-        .replace(/\s+/g, " ")
-        .trim(),
+      text: joinLineParts(bucket.parts.sort((left, right) => left.x - right.x), bucket.height),
       topBand: bucket.y > pageHeight * (1 - FURNITURE_BAND),
       bottomBand: bucket.y < pageHeight * FURNITURE_BAND
     }))
@@ -160,11 +212,11 @@ function findFurniture(pages) {
         continue;
       }
 
-      const key = normalizeForComparison(line.text);
-
-      if (key && !seen.has(key)) {
-        seen.add(key);
-        counts.set(key, (counts.get(key) || 0) + 1);
+      for (const key of [normalizeForComparison(line.text), furnitureStem(line.text)]) {
+        if (key && !seen.has(key)) {
+          seen.add(key);
+          counts.set(key, (counts.get(key) || 0) + 1);
+        }
       }
     }
   }
@@ -174,6 +226,26 @@ function findFurniture(pages) {
   return new Set(
     [...counts.entries()].filter(([, count]) => count >= threshold).map(([key]) => key)
   );
+}
+
+/**
+ * Whether a line is page furniture rather than prose.
+ *
+ * The stem is only trusted at the head and foot of the page. A sentence in the body may
+ * legitimately open with the words a running head starts with; the same words printed in
+ * the margin band on most pages of the booklet cannot be anything but the running head.
+ */
+function isFurniture(line, furniture) {
+  if (furniture.has(normalizeForComparison(line.text))) {
+    return true;
+  }
+
+  if (!line.topBand && !line.bottomBand) {
+    return false;
+  }
+
+  const stem = furnitureStem(line.text);
+  return Boolean(stem) && furniture.has(stem);
 }
 
 /**
@@ -255,7 +327,7 @@ async function extract(file, options) {
   }
 
   const furniture = findFurniture(pages);
-  const body = pages.flat().filter((line) => !furniture.has(normalizeForComparison(line.text)));
+  const body = pages.flat().filter((line) => !isFurniture(line, furniture));
   const bodyHeight = median(body.map((line) => line.height));
 
   const gaps = [];
@@ -272,21 +344,56 @@ async function extract(file, options) {
   const chapters = [];
   let pending = null;
 
+  /**
+   * Pages that are a table of contents rather than writing.
+   *
+   * A contents page is a column of numbered lines, and every one of them looks exactly
+   * like a chapter opening — "12A. Brindavan and the Failure of Optimization" is a
+   * chapter opening wherever it appears. What separates the listing from the book is
+   * density: a chapter opens once on a page, a contents page carries a dozen.
+   */
+  const openingsByPage = new Map();
+
+  for (const [pageIndex, lines] of pages.entries()) {
+    openingsByPage.set(
+      pageIndex + 1,
+      lines.filter((line) => !isFurniture(line, furniture) && isStrongHeading(line.text)).length
+    );
+  }
+
   // Page spans are tracked so the illustrations can be placed later: a plate belongs to
   // whichever chapter was running on the page it was printed on.
   for (const [pageIndex, lines] of pages.entries()) {
     const pageNumber = pageIndex + 1;
 
     for (const line of lines) {
-      if (furniture.has(normalizeForComparison(line.text))) {
+      if (isFurniture(line, furniture)) {
         continue;
       }
 
-      if (isHeading(line, bodyHeight)) {
-        // A heading that wrapped onto a second line is still one heading. Without this,
-        // the tail line starts a new chapter and steals the body that follows it.
-        if (pending && !pending.lines.length) {
+      if (isHeading(line, bodyHeight) && openingsByPage.get(pageNumber) < CONTENTS_HEADINGS_MIN) {
+        /**
+         * A heading that wrapped onto a second line is still one heading. Without this,
+         * the tail line starts a new chapter and steals the body that follows it.
+         *
+         * A wrapped line sits directly under the one before it, which is what separates
+         * it from the rest of a cover page — a cover is nothing but heading-sized lines,
+         * set apart down the page, and merging them on size alone gave booklet nine a
+         * chapter called "Bhakti, Self-Laughter, Māyā, and the Child's Surrender Sasidhar
+         * Valluru Nine I N W A R D F I R E AMMA'S S E R I E S LAP".
+         */
+        const wrapped =
+          pending &&
+          !pending.lines.length &&
+          // Baselines are measured per page, so they are only comparable within one.
+          pending.startPage === pageNumber &&
+          pending.headY - line.y <= Math.max(pending.headHeight, line.height) * HEADING_WRAP_GAP;
+
+        if (wrapped) {
           pending.title = `${pending.title} ${line.text}`.trim();
+          pending.headY = line.y;
+          pending.headHeight = line.height;
+          pending.endPage = pageNumber;
           continue;
         }
 
@@ -294,7 +401,14 @@ async function extract(file, options) {
           chapters.push(pending);
         }
 
-        pending = { title: line.text, lines: [], startPage: pageNumber, endPage: pageNumber };
+        pending = {
+          title: line.text,
+          lines: [],
+          startPage: pageNumber,
+          endPage: pageNumber,
+          headY: line.y,
+          headHeight: line.height
+        };
         continue;
       }
 
@@ -329,10 +443,22 @@ async function extract(file, options) {
   let pullQuotes = 0;
 
   for (const section of sections) {
-    // A numbered opening stays a chapter even when short — booklet six's chapters are a
-    // verse and its commentary, barely over a hundred words each, and folding them by
-    // length collapsed the whole booklet into one.
-    if (built.length && !isStrongHeading(section.title) && wordsIn(section) < MIN_CHAPTER_WORDS) {
+    /**
+     * A numbered opening stays a chapter even when short — booklet six's chapters are a
+     * verse and its commentary, barely over a hundred words each, and folding them by
+     * length collapsed the whole booklet into one.
+     *
+     * But only when it opens its page alone. A chapter opens once on a page; where
+     * several openings share one, they are a list of chapters rather than chapters, and
+     * the exemption would carry a contents page into the book a line at a time.
+     */
+    const opensAlone = (openingsByPage.get(section.startPage) || 1) <= 1;
+
+    if (
+      built.length &&
+      !(isStrongHeading(section.title) && opensAlone) &&
+      wordsIn(section) < MIN_CHAPTER_WORDS
+    ) {
       const previous = built[built.length - 1];
       previous.paragraphs.push(section.title, ...section.paragraphs);
       // A folded pull-quote extends the chapter it belongs to, so its pages come too.

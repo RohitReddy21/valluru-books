@@ -20,6 +20,7 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const { MongoClient } = require("mongodb");
+const { preserveRedactedChapters, preserveRedactedPdfs } = require("../src/content-chapters.js");
 
 /** Databases this script must never write to, whatever the flags say. */
 const PROTECTED_DATABASES = new Set(["valluru_books"]);
@@ -251,13 +252,20 @@ for (const series of [content.series]) {
     const plates = platesFor(data.slug, options);
     const platesByChapter = assignPlates(plates, data.chapters);
 
-    booklet.chapters = data.chapters.map((chapter) => {
+    booklet.chapters = data.chapters.map((chapter, index) => {
       const images = platesByChapter.get(chapter.id) || [];
 
       return {
         id: chapter.id,
         number: chapter.number,
-        title: chapter.title,
+        /**
+         * A booklet's first section is its cover, and a cover has no chapter title —
+         * only the title, the subtitle, the series name and the author, all set large
+         * and apart. Whatever the extractor makes of that typography is a guess, and it
+         * guessed "Nine I N W A R D F I R E AMMA'S S E R I E S LAP" for booklet nine.
+         * The booklet's own title is the thing that page is actually announcing.
+         */
+        title: index === 0 ? booklet.title : chapter.title,
         paragraphs: chapter.paragraphs,
         ...(chapter.frontMatter ? { frontMatter: true } : {}),
         ...(images.length ? { images } : {})
@@ -302,12 +310,26 @@ const client = new MongoClient(process.env.MONGODB_URI);
 try {
   await client.connect();
   const db = client.db(options.db);
+  const stored = await db.collection("content").findOne({ key: "site-content" });
+
+  /**
+   * The obvious source for --source is a saved /api/content, and that payload is
+   * redacted: gated chapters arrive empty and every booklet's PDF URL has been replaced
+   * by the gated route. Writing it back would erase the Supabase URLs from the database,
+   * and a second redaction pass would leave nothing to restore them from.
+   *
+   * This is the same restore the admin save path performs, for the same reason. The
+   * script writes directly to MongoDB, so it has to do it for itself.
+   */
+  const merged = stored?.content
+    ? preserveRedactedChapters(preserveRedactedPdfs(content, stored.content), stored.content)
+    : content;
 
   // Same key and shape saveSiteContent uses, so the backend reads this without changes.
   await db.collection("content").updateOne(
     { key: "site-content" },
     {
-      $set: { content, updatedAt: new Date() },
+      $set: { content: merged, updatedAt: new Date() },
       $setOnInsert: { key: "site-content", createdAt: new Date() }
     },
     { upsert: true }

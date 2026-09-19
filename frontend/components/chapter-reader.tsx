@@ -11,6 +11,13 @@ import { createPortal } from "react-dom";
  * page into an endless scroll before anything else on it could be reached. Clipped here,
  * they end at a readable height with the rest a click away.
  *
+ * Opened, the overlay is the printed page rather than the website: cream paper, Noto
+ * Serif, the booklet's own measure and margins. Every value comes from the PDFs — page
+ * 432x648pt with its text column running 61pt to 369pt, body set at 10.5pt in #2a2118 on
+ * #f7f0e4, chapter openings at 24pt, section headers at 11.1pt in #a17a3e. The one
+ * departure is leading: the books set 1.35, which is right for print and tight on a
+ * screen, so this sets 1.45.
+ *
  * The chapters stay a single React tree that a portal moves into the overlay, rather than
  * being rendered twice. That matters for more than weight: they are server-rendered, and
  * putting the writing in the page HTML is the entire point of the chapter migration. A
@@ -56,31 +63,45 @@ export function ChapterReader({
       <div
         aria-label={`Reading ${title}`}
         aria-modal="true"
-        className="fixed inset-0 z-[120] flex items-center justify-center bg-ink/92 p-3 backdrop-blur-md sm:p-6"
+        className="fixed inset-0 z-[120] flex flex-col bg-ink/92 backdrop-blur-md"
         role="dialog"
       >
-        <div className="flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-md border border-gold/20 bg-[#11100e] shadow-quiet">
-          <div className="flex items-center justify-between gap-4 border-b border-gold/15 bg-surface px-4 py-3 sm:px-6">
-            <div className="min-w-0">
-              {numberLabel ? (
-                <p className="font-label text-xs uppercase tracking-[0.24em] text-gold">
-                  Reading {numberLabel}
-                </p>
-              ) : null}
-              <h2 className="truncate font-display text-lg text-parchment sm:text-2xl">{title}</h2>
-            </div>
-            <button
-              aria-label="Close reader"
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-md border border-gold/25 text-parchment transition hover:border-gold hover:text-gold"
-              onClick={() => setOpen(false)}
-              type="button"
-            >
-              <X size={18} />
-            </button>
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-gold/15 bg-surface px-4 py-3 sm:px-6">
+          <div className="min-w-0">
+            {numberLabel ? (
+              <p className="font-label text-xs uppercase tracking-[0.24em] text-gold">
+                Reading {numberLabel}
+              </p>
+            ) : null}
+            <h2 className="truncate font-display text-lg text-parchment sm:text-2xl">{title}</h2>
           </div>
+          <button
+            aria-label="Close reader"
+            className="inline-flex size-10 shrink-0 items-center justify-center rounded-md border border-gold/25 text-parchment transition hover:border-gold hover:text-gold"
+            onClick={() => setOpen(false)}
+            type="button"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(circle_at_top,rgba(196,169,107,0.1),transparent_24rem),#0c0b09] px-4 py-8 sm:px-10">
-            <div className="mx-auto max-w-2xl">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-0 py-0 sm:px-6 sm:py-8">
+          {/*
+            The paper itself, 46rem wide for the booklet's 432pt page. The measure is set
+            on the column rather than as page padding, because a percentage padding
+            resolves against the scroll container's width rather than the paper's and so
+            does not hold the ratio. 32.5rem of 46rem is the 71% the printed page sets; on
+            a phone the padding takes over, since 14% of a 375px screen leaves too little
+            to read in.
+          */}
+          <div className="reading-surface reading-surface-paper mx-auto w-full max-w-[46rem] bg-page-paper px-6 py-12 font-page text-[1.0625rem] leading-[1.45] text-page-ink shadow-quiet sm:px-10 sm:py-20 sm:text-[1.09rem]">
+            <div className="mx-auto w-full max-w-[32.5rem]">
+              {children}
+              <p className="mt-16 border-t border-page-rule pt-5 text-center text-[0.82em] text-page-muted">
+                {numberLabel ? `${numberLabel} · ` : ""}
+                {title}
+              </p>
+            </div>
           </div>
         </div>
       </div>,
@@ -90,7 +111,7 @@ export function ChapterReader({
 
   return (
     <div>
-      <div className="relative max-h-[60vh] overflow-hidden">
+      <div className="reading-surface relative max-h-[60vh] overflow-hidden text-lg leading-[1.6]">
         {children}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-ink" />
       </div>
