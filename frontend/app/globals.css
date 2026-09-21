@@ -141,3 +141,63 @@ a {
   --reading-panel: rgba(34, 24, 13, 0.045);
   --reading-field: #fffaf0;
 }
+
+/*
+ * The reader's pages.
+ *
+ * Content flows through CSS multi-column: one column is one page, and scrolling the
+ * container sideways by exactly one column pitch turns one page. The gap between columns
+ * is the two facing margins, so half of it falls either side of every page — which is why
+ * the element's own inline padding is half a gutter and no more.
+ *
+ * Sizes come from --page-w, set by the reader from the space it has and held at the
+ * booklet's 432:648. Type included: 10.5pt on a 310pt measure is 3.39% of it, so the page
+ * scales as one piece rather than as a layout with text dropped into it.
+ */
+.book-flow {
+  height: 100%;
+  column-width: var(--page-measure);
+  column-gap: var(--page-gutter);
+  column-fill: auto;
+  padding-inline: calc(var(--page-gutter) / 2);
+  padding-block: var(--page-margin-block);
+  font-size: var(--page-font);
+}
+
+/* A plate is printed on a page, not split across two, and never taller than one. */
+.book-flow figure {
+  break-inside: avoid;
+}
+
+.book-flow figure img {
+  max-height: calc(var(--page-h) - var(--page-margin-block) * 2 - 3em);
+  width: auto;
+  margin-inline: auto;
+}
+
+/* Nor is a chapter opening left stranded at the foot of a page. */
+.book-flow h2 {
+  break-after: avoid;
+  break-inside: avoid;
+}
+
+.book-flow article {
+  break-before: column;
+}
+
+.book-flow article:first-child {
+  break-before: auto;
+}
+
+/*
+ * The book turns by its own controls, so it does not carry a scrollbar. Hiding it is not
+ * only cosmetic: a horizontal scrollbar eats about fifteen pixels of the page's height,
+ * which pushed the sheet off the booklet's 432:648.
+ */
+.book-scroller {
+  scrollbar-width: none;
+}
+
+.book-scroller::-webkit-scrollbar {
+  display: none;
+}

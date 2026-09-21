@@ -464,6 +464,44 @@ Two consequences worth knowing:
   button of their own, so three controls saying Read sat within a few hundred pixels
   while only one of them opened the booklet you were looking at; the card is the link now.
 
+### The reader is a paginated book with a bookmark
+
+The download buttons are removed for now (the PDF route and its access rules are intact;
+only the UI is gone — restore `pdfLabel` on `ChapterGate` when downloads return).
+
+`chapter-reader.tsx` paginates with **CSS multi-column**: content flows through columns,
+one column is one page, and turning a page sets `scrollLeft` by exactly one page pitch.
+The sheet holds the booklet's 432:648 and every measure inside it is a ratio of that
+(text column 71%, margins 14%). Two pages show side by side with a fold when the window is
+wide enough for two, one on a phone. Arrow keys / PageUp / PageDown turn pages.
+
+Type is deliberately **larger than print proportion** (16–20px): 10.5pt on a 310pt measure
+is ~12px on a laptop-sized sheet, unreadable at arm's length. The page keeps its shape; the
+type is set for the screen, as an e-reader does.
+
+**The bookmark is a fraction (0–1) of the way through, not a page number** (`lib/bookmark.ts`),
+because page count depends on window size — the same booklet is 62 pages on a laptop and
+79 on a phone, so a saved "page 30" means nothing across devices. Four traps found building it:
+
+- **The book's length is not known at open.** Plates and the two serif faces load after
+  first paint and change how much fits per page: the count read at open said 17 pages, the
+  settled book runs to 68. A `ResizeObserver` does not catch it (in a multi-column box the
+  element's own width never changes — only `scrollWidth` grows), so the reader polls
+  `scrollWidth` until it stops moving, for a minimum number of ticks (a brief false
+  stability right after open stranded a bookmarked reader on page 1).
+- **Do not save a bookmark until the book has settled**, and only on the reader's own turns.
+  Restoring the bookmark scrolls, the scroll handler saved, and the first restore lands on
+  page 1 while the length is still wrong — it overwrote the bookmark it was restoring.
+- **`scrollTo({behavior:'smooth'})` did nothing** on this element in the test browser, while
+  the page counter beneath updated — a dead button that looked healthy. Turn by assignment.
+- **`Math.floor` on the resume position landed two pages early**; the saved value sits on a
+  spread boundary and a float a hair under it floors to the spread before. Use `Math.round`.
+
+Also fixed on the way: booklet thirteen sets its running head as `12 THE INWARD FIRE SERIES
+| BOOKLET THIRTEEN` on one page and `... THIRTEEN 13` on the next, so the folio moving side
+counted one head as two and neither reached the 40% furniture threshold — 33 paragraphs of
+running head in the prose. `normalizeForComparison` now drops the folio from either end.
+
 ### ⚠ Anything that proves access must carry the token, not just the cookie
 
 The subscriber cookie is a **third-party cookie in production** — the API is on another

@@ -118,7 +118,24 @@ function median(values) {
 
 function normalizeForComparison(text) {
   // Page numbers differ per page, so blank digits out before comparing furniture.
-  return text.replace(/\d+/g, "#").replace(/\s+/g, " ").trim().toLowerCase();
+  return (
+    text
+      .replace(/\d+/g, "#")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase()
+      /**
+       * And the folio changes sides.
+       *
+       * Booklet thirteen sets "12 THE INWARD FIRE SERIES | BOOKLET THIRTEEN" on one page
+       * and "THE INWARD FIRE SERIES | BOOKLET THIRTEEN 13" on the next, so the one
+       * running head counted as two — eighteen pages and fifteen, neither reaching the
+       * forty per cent that marks furniture, and the foot ran into the prose on all
+       * thirty-three. Dropping the folio from either end makes them the same head.
+       */
+      .replace(/^#\s*/, "")
+      .replace(/\s*#$/, "")
+  );
 }
 
 /** Shortest a running-head stem may be before it is trusted as furniture. */

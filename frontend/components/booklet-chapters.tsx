@@ -1,7 +1,7 @@
 import { ChapterGate } from "@/components/chapter-gate";
 import { ChapterArticle } from "@/components/chapter-body";
 import { ChapterReader } from "@/components/chapter-reader";
-import { getBookletDownloadButtonText, isChapterFree, type Booklet } from "@/lib/site-content";
+import { isChapterFree, type Booklet } from "@/lib/site-content";
 
 /**
  * The booklet's one reading surface.
@@ -24,7 +24,6 @@ export function BookletChapters({ booklet }: { booklet: Booklet }) {
     return null;
   }
 
-  const downloadLabel = getBookletDownloadButtonText(booklet);
 
   return (
     <section className="mt-12 border-t border-gold/15 pt-8">
@@ -35,6 +34,7 @@ export function BookletChapters({ booklet }: { booklet: Booklet }) {
         // stays a server component and the chapters are not serialised to the client on
         // top of being rendered into the HTML.
         reports={{ slug: booklet.slug, title: booklet.title }}
+        slug={booklet.slug}
         title={booklet.title}
       >
         {free.map((chapter) => (
@@ -44,9 +44,6 @@ export function BookletChapters({ booklet }: { booklet: Booklet }) {
         {nextChapter ? (
           <ChapterGate
             bookletSlug={booklet.slug}
-            // Offered inside the reader once the API says this reader may have it, never
-            // as a button on the page that answers 401.
-            pdfLabel={booklet.pdf ? downloadLabel : undefined}
             nextChapter={{
               number: nextChapter.number,
               title: nextChapter.title,

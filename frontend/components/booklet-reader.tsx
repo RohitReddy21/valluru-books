@@ -1,14 +1,11 @@
 "use client";
 
-import { BookOpen, Download } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PdfBookModal } from "@/components/pdf-book-modal";
 import { trackEmailSubscription } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api";
-import {
-  getBookletDownloadButtonText,
-  type Booklet
-} from "@/lib/site-content";
+import { type Booklet } from "@/lib/site-content";
 
 const globalStorageKey = "valluru_global_subscribed";
 const subscriberInfoKey = "valluru_subscriber_info";
@@ -51,7 +48,6 @@ export function BookletReader({ booklet }: Props) {
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">(
     "idle"
   );
-  const downloadButtonText = getBookletDownloadButtonText(booklet);
 
   // The subscriber cookie is what normally proves access, but it is a third-party cookie
   // to this origin and some browsers drop it. The token rides along in the URL so readers
@@ -201,17 +197,6 @@ export function BookletReader({ booklet }: Props) {
             <BookOpen size={17} />
             Read Booklet
           </button>
-          {booklet.downloadButtonText ? (
-            <a
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-gold/35 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
-              href={pdfUrl}
-              rel="noreferrer"
-              target="_blank"
-            >
-              <Download size={17} />
-              {downloadButtonText}
-            </a>
-          ) : null}
         </div>
 
         {/* Show name/email input when we cannot attach a subscriber to the read yet. */}
