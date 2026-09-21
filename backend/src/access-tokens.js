@@ -166,8 +166,11 @@ const FREE_BOOKLET_SLUGS = new Set(["booklet-one"]);
  * readers who subscribed before this gate existed hold a per-booklet cookie or an access
  * token instead, and must not be locked out of a booklet they already gave an email for.
  */
-function hasBookletAccess(request, slug) {
-  if (FREE_BOOKLET_SLUGS.has(slug)) {
+function hasBookletAccess(request, slug, { freeSample = true } = {}) {
+  // The chapter gate passes freeSample: false. Booklet one is a free sample for the PDF, but
+  // its chapters are gated at the 3/4 boundary like every other booklet's, so the free
+  // sample cannot be what unlocks them.
+  if (freeSample && FREE_BOOKLET_SLUGS.has(slug)) {
     return true;
   }
 

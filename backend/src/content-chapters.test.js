@@ -186,3 +186,57 @@ test("a genuinely new PDF URL still saves", () => {
 
   assert.equal(preserveRedactedPdfs(edited, stored).series.booklets[0].pdf, "https://x/new.pdf");
 });
+
+function access(titles) {
+  return resolveChapterAccess(
+    titles.map((entry, index) =>
+      typeof entry === "string"
+        ? { number: index + 1, title: entry, paragraphs: ["x"] }
+        : { number: index + 1, paragraphs: ["x"], ...entry }
+    )
+  ).map((chapter) => `${chapter.free ? "free" : "gated"}: ${chapter.title}`);
+}
+
+test("the gate sits after chapter 3 as the booklet numbers it, whatever leads in", () => {
+  assert.deepEqual(
+    access([
+      { title: "The Sacred Interval", frontMatter: true },
+      { title: "Author's Note", frontMatter: true },
+      "Opening: Why These Four First",
+      "1. The Core Problem",
+      "2. The Gita",
+      "3. Rama and Jabali",
+      "4. Tripura Rahasya",
+      "Epilogue: The Next Door"
+    ]),
+    [
+      "free: The Sacred Interval",
+      "free: Author's Note",
+      "free: Opening: Why These Four First",
+      "free: 1. The Core Problem",
+      "free: 2. The Gita",
+      "free: 3. Rama and Jabali",
+      "gated: 4. Tripura Rahasya",
+      "gated: Epilogue: The Next Door"
+    ]
+  );
+});
+
+test("CHAPTER-labelled titles and a piece that follows chapter 3 both stay free", () => {
+  assert.deepEqual(access(["Between the Cry", "CHAPTER 1 A", "CHAPTER 2 B", "CHAPTER 3 C", "CHAPTER 4 D"]), [
+    "free: Between the Cry",
+    "free: CHAPTER 1 A",
+    "free: CHAPTER 2 B",
+    "free: CHAPTER 3 C",
+    "gated: CHAPTER 4 D"
+  ]);
+  // "3. Notes" belongs to chapter 3.
+  assert.deepEqual(access(["1. A", "2. B", "3. C", "3. Notes", "4. D"]).slice(3), [
+    "free: 3. Notes",
+    "gated: 4. D"
+  ]);
+});
+
+test("a booklet with no numbered titles falls back to counting body chapters", () => {
+  assert.deepEqual(access(["A", "B", "C", "D"]), ["free: A", "free: B", "free: C", "gated: D"]);
+});

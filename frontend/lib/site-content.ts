@@ -111,7 +111,15 @@ export type BookletChapter = {
  * disconnected sentences. Grouping consecutive short lines back into a verse block keeps
  * them reading as the stanza they are.
  */
-export type ChapterBlock = { kind: "prose" | "verse" | "label"; lines: string[] };
+export type ChapterBlock = { kind: "prose" | "verse" | "label" | "table"; lines: string[] };
+
+/**
+ * A table is stored as one paragraph so the admin editor and the API keep working on plain
+ * strings: this marker, then one row per line with the cells split by " | ". The first row
+ * is the header.
+ */
+export const TABLE_MARKER = "[[table]]";
+export const TABLE_CELL_SEPARATOR = " | ";
 
 /** Longer than this and a line is prose, however it was broken in the PDF. */
 const VERSE_LINE_MAX = 70;
@@ -175,6 +183,19 @@ export function toChapterBlocks(paragraphs: string[]): ChapterBlock[] {
   const blocks: ChapterBlock[] = [];
 
   for (const paragraph of paragraphs) {
+    if (paragraph.startsWith(TABLE_MARKER)) {
+      const rows = paragraph
+        .slice(TABLE_MARKER.length)
+        .split("\n")
+        .map((row) => row.trim())
+        .filter(Boolean);
+
+      if (rows.length) {
+        blocks.push({ kind: "table", lines: rows });
+        continue;
+      }
+    }
+
     const section = splitSectionLabel(paragraph);
     const line = section ? section.rest : paragraph;
 
@@ -219,31 +240,57 @@ export type BookletChapterImage = {
 export const FREE_CHAPTER_COUNT = 3;
 
 /**
- * Resolves which chapters are free, counting only the body — front matter is free but
- * does not spend one of the three.
+ * The number a chapter carries in its own title: "1. The Core Problem", "CHAPTER 3 When
+ * the Fixer…", "Stanza 2". Null for the unnumbered pieces — Opening, Epilogue, The Gist.
+ */
+const TITLE_LABEL = /^(?:(?:chapter|stanza|movement|canto)\s+)?(\d{1,2})[A-Z]?(?=[\s.:)\-–—]|$)/i;
+
+export function titleLabel(title: string | undefined) {
+  const match = String(title ?? "").trim().match(TITLE_LABEL);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Resolves which chapters are free. The gate sits after chapter 3 as the booklet numbers
+ * it, so a reader gets everything up to the end of "3." however many unnumbered pages
+ * lead in: the title page, the Author's Note, the Opening. None of those spends one of
+ * the three, and an unnumbered piece stays with the numbered chapter it follows.
+ *
+ * A booklet whose titles carry no numbers at all falls back to counting body chapters.
  *
  * `backend/src/content-chapters.js` carries the same rule, because the server decides
  * what prose to send and the page decides what to render. They must agree.
  */
-export function resolveChapterAccess<T extends Pick<BookletChapter, "free" | "frontMatter">>(
-  chapters: T[],
-  freeCount = FREE_CHAPTER_COUNT
-): Array<T & { free: boolean }> {
+export function resolveChapterAccess<
+  T extends Pick<BookletChapter, "free" | "frontMatter"> & { title?: string }
+>(chapters: T[], freeCount = FREE_CHAPTER_COUNT): Array<T & { free: boolean }> {
+  const numbered = chapters.some(
+    (chapter) => !chapter.frontMatter && titleLabel(chapter.title) !== null
+  );
+
   let bodyChaptersSoFar = 0;
+  // The last numbered chapter passed; null while still in the lead-in.
+  let currentLabel: number | null = null;
 
   return chapters.map((chapter) => {
     const frontMatter = Boolean(chapter.frontMatter);
+    const label = frontMatter ? null : titleLabel(chapter.title);
 
     if (!frontMatter) {
       bodyChaptersSoFar += 1;
     }
 
+    if (label !== null) {
+      currentLabel = label;
+    }
+
+    const byDepth = numbered
+      ? currentLabel === null || currentLabel <= freeCount
+      : bodyChaptersSoFar <= freeCount;
+
     return {
       ...chapter,
-      free:
-        typeof chapter.free === "boolean"
-          ? chapter.free
-          : frontMatter || bodyChaptersSoFar <= freeCount
+      free: typeof chapter.free === "boolean" ? chapter.free : frontMatter || byDepth
     };
   });
 }
@@ -296,6 +343,11 @@ export type BookletReaderTheme = {
   accent?: string;
   /** Page width over page height, from the PDF. */
   aspect?: number;
+  /**
+   * The cover art already carries the title, series and author, so the reader lays no
+   * plate of its own over it. Illustration-only covers leave this off.
+   */
+  coverTitled?: boolean;
 };
 
 export type Booklet = {
@@ -878,9 +930,7 @@ export const defaultSiteContent: SiteContent = {
       "Read slowly. Return when needed."
     ]
   },
-  // The Inward Mirror ships as a draft: the series is hidden from the public site,
-  // the nav, and the footer until `status` is set to "published" from /admin.
-  // The copy below is placeholder scaffolding meant to be replaced from the admin editor.
+  // The copy below mirrors the published series, so a fresh database shows real text.
   inwardMirror: {
     routeSegment: "inward-mirror",
     status: "published",
@@ -889,38 +939,25 @@ export const defaultSiteContent: SiteContent = {
     eyebrow: "The Inward Mirror · Sasidhar Valluru",
     title: "The Inward Mirror",
     subtitle:
-      "A second series of booklets. Replace this subtitle from the admin editor before publishing.",
+      "Booklets journey from the question of who we are to the freedom of simply being.",
     heroImage: "/inward-mirror-hero.svg",
     opening: [
-      "The Inward Mirror is the second series. Replace this opening paragraph from the admin editor.",
-      "Each booklet in this series asks one inward question and stays with it. Replace this paragraph from the admin editor."
+      "The Inward Mirror turns the search for meaning inward. Across seven booklets, the seeker, the guru, the actor, the lover, and the devotee are each brought into examination—until the one who is searching becomes part of the question.",
+      "Drawing from Aṣṭāvakra, Janaka, Śaṅkara, Ramana, Kṛṣṇa, Hanuman, Mīrā, and others, the series explores identity, realization, action, devotion, surrender, and līlā—not as abstract ideas, but as movements of lived consciousness."
     ],
-    readingOrderNote:
-      "Read them in sequence first. Replace this reading-order note from the admin editor.",
+    readingOrderNote: "",
     bookletsHeading: "The Inward Mirror Booklets",
     bookletsIntro: "Explore every booklet in the reading order.",
-    booklets: [
-      {
-        slug: "mirror-booklet-one",
-        numberLabel: "Booklet One",
-        title: "New Booklet",
-        subtitle: "Subtitle",
-        description:
-          "Placeholder booklet. Edit the title, subtitle, and description from the admin editor, attach a PDF, then set the status to published.",
-        tag: "Coming Soon",
-        status: "published"
-      }
-    ],
+    booklets: [],
     closing: [
-      "Replace this closing paragraph from the admin editor.",
       "Read slowly. Return when needed."
     ],
     homeSection: {
       eyebrow: "A Second Series",
       title: "The Inward Mirror",
       body: [
-        "Replace this home page paragraph from the admin editor. It introduces The Inward Mirror to readers arriving on the home page.",
-        "Replace this second paragraph from the admin editor."
+        "The Inward Mirror turns the search for meaning inward. Across seven booklets, the seeker, the guru, the actor, the lover, and the devotee are each brought into examination—until the one who is searching becomes part of the question.",
+        "Drawing from Aṣṭāvakra, Janaka, Śaṅkara, Ramana, Kṛṣṇa, Hanuman, Mīrā, and others, the series explores identity, realization, action, devotion, surrender, and līlā—not as abstract ideas, but as movements of lived consciousness."
       ],
       ctaLabel: "Enter The Inward Mirror"
     },
@@ -1093,32 +1130,45 @@ export function getBookletDownloadButtonText(booklet: Booklet) {
 }
 
 export function getBookletFaqs(booklet: Booklet): BookletFaq[] {
+  const sameText = (left: string, right: string) =>
+    left.replace(/\s+/g, " ").trim().toLowerCase() === right.replace(/\s+/g, " ").trim().toLowerCase();
+
+  // An answer that only restates the subtitle tells the reader nothing the heading has
+  // not, and the same text is published as FAQ schema, so it is dropped rather than shown.
+  const informative = (item: BookletFaq) =>
+    !booklet.subtitle || !sameText(item.answer || "", booklet.subtitle);
+
   const customFaqs = (booklet.faqs || []).filter(
-    (item) => (item.question || "").trim() && (item.answer || "").trim()
+    (item) => (item.question || "").trim() && (item.answer || "").trim() && informative(item)
   );
 
   if (customFaqs.length) {
     return customFaqs;
   }
 
-  return [
+  const fallback: BookletFaq[] = [
     {
       question: `What is ${booklet.title} about?`,
       answer: getBookletDetailIntro(booklet)
-    },
-    {
-      question: "Who is this booklet for?",
-      answer:
-        booklet.readerPositioning ||
-        booklet.subtitle ||
-        "It is written for readers seeking a contemplative, literary approach to dharma, grief, language, surrender, and the inner life."
-    },
-    {
-      question: "How should this booklet be read?",
-      answer:
-        "Read it slowly, as a reflective text rather than a rushed manual. Return to key passages, sit with the questions it raises, and let the language do inward work over time."
     }
   ];
+
+  // Written per booklet in the admin editor as "reader positioning". Without it there is
+  // no honest answer to give, so the question is not asked.
+  if (booklet.readerPositioning?.trim()) {
+    fallback.push({
+      question: "Who is this booklet for?",
+      answer: booklet.readerPositioning
+    });
+  }
+
+  fallback.push({
+    question: "How should this booklet be read?",
+    answer:
+      "Read it slowly, as a reflective text rather than a rushed manual. Return to key passages, sit with the questions it raises, and let the language do inward work over time."
+  });
+
+  return fallback;
 }
 
 export function getBookletMovementIndex(booklet: Booklet, fallbackIndex = 0) {

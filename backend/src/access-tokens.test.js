@@ -78,6 +78,16 @@ test("the free booklet needs no credentials", () => {
   assert.equal(hasBookletAccess(request(), "booklet-one"), true);
 });
 
+test("the free sample does not unlock a booklet's chapters", () => {
+  assert.equal(hasBookletAccess(request(), "booklet-one", { freeSample: false }), false);
+  const token = createSubscriberToken({ email: "reader@example.com", name: "R" });
+
+  assert.equal(
+    hasBookletAccess(request({ cookie: `valluru_subscriber=${token}` }), "booklet-one", { freeSample: false }),
+    true
+  );
+});
+
 test("a gated booklet is refused without credentials", () => {
   assert.equal(hasBookletAccess(request(), "booklet-two"), false);
 });

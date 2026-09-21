@@ -1,7 +1,7 @@
 import { ChapterGate } from "@/components/chapter-gate";
 import { ChapterArticle } from "@/components/chapter-body";
 import { ChapterReader } from "@/components/chapter-reader";
-import { isChapterFree, isTitlePageChapter, type Booklet } from "@/lib/site-content";
+import { isChapterFree, isTitlePageChapter, titleLabel, type Booklet } from "@/lib/site-content";
 
 /**
  * The booklet's one reading surface.
@@ -26,6 +26,13 @@ export function BookletChapters({
   const free = chapters.filter((chapter) => isChapterFree(chapter) && chapter.paragraphs.length);
   const gated = chapters.filter((chapter) => !isChapterFree(chapter));
   const nextChapter = gated[0];
+  // "N more chapters" counts what the booklet numbers as chapters, so it reads as the
+  // total less the free three. The Epilogue and a "3. Notes" beside its chapter are parts
+  // of the book, not further chapters; a booklet with no numbered titles counts them all.
+  const numberedRemaining = new Set(
+    gated.map((chapter) => titleLabel(chapter.title)).filter((label) => label !== null)
+  ).size;
+  const remainingCount = numberedRemaining || gated.length;
 
   if (!free.length) {
     return null;
@@ -73,7 +80,7 @@ export function BookletChapters({
               title: nextChapter.title,
               teaser: nextChapter.teaser ?? ""
             }}
-            remainingCount={gated.length}
+            remainingCount={remainingCount}
           />
         ) : null}
       </ChapterReader>

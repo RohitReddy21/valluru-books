@@ -24,10 +24,23 @@ function isChapterFree(chapter) {
 }
 
 /**
- * Resolves which chapters are free, counting only the body. Front matter — title page,
- * Author's Note, Contents — is always readable but never spends one of the three, or a
- * booklet with three pages of front matter would gate the reader before a word of the
- * writing.
+ * The number a chapter carries in its own title: "1. The Core Problem", "CHAPTER 3 When
+ * the Fixer…", "Stanza 2". Null for the unnumbered pieces — Opening, Epilogue, The Gist.
+ */
+const TITLE_LABEL = /^(?:(?:chapter|stanza|movement|canto)\s+)?(\d{1,2})[A-Z]?(?=[\s.:)\-–—]|$)/i;
+
+function titleLabel(title) {
+  const match = String(title ?? "").trim().match(TITLE_LABEL);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Resolves which chapters are free. The gate sits after chapter 3 as the booklet numbers
+ * it, so a reader gets everything up to the end of "3." however many unnumbered pages
+ * lead in: the title page, the Author's Note, the Opening. None of those spends one of
+ * the three, and an unnumbered piece stays with the numbered chapter it follows.
+ *
+ * A booklet whose titles carry no numbers at all falls back to counting body chapters.
  *
  * `resolveChapterAccess` in frontend/lib/site-content.ts carries the same rule. The
  * server decides what prose to send and the page decides what to render, so if these two
@@ -38,21 +51,33 @@ function resolveChapterAccess(chapters, freeCount = FREE_CHAPTER_COUNT) {
     return [];
   }
 
+  const numbered = chapters.some(
+    (chapter) => !chapter?.frontMatter && titleLabel(chapter?.title) !== null
+  );
+
   let bodyChaptersSoFar = 0;
+  // The last numbered chapter passed; null while still in the lead-in.
+  let currentLabel = null;
 
   return chapters.map((chapter) => {
     const frontMatter = Boolean(chapter?.frontMatter);
+    const label = frontMatter ? null : titleLabel(chapter?.title);
 
     if (!frontMatter) {
       bodyChaptersSoFar += 1;
     }
 
+    if (label !== null) {
+      currentLabel = label;
+    }
+
+    const byDepth = numbered
+      ? currentLabel === null || currentLabel <= freeCount
+      : bodyChaptersSoFar <= freeCount;
+
     return {
       ...chapter,
-      free:
-        typeof chapter?.free === "boolean"
-          ? chapter.free
-          : frontMatter || bodyChaptersSoFar <= freeCount
+      free: typeof chapter?.free === "boolean" ? chapter.free : frontMatter || byDepth
     };
   });
 }
@@ -315,5 +340,6 @@ module.exports = {
   preserveRedactedPdfs,
   redactBookletPdfs,
   redactGatedChapters,
-  resolveChapterAccess
+  resolveChapterAccess,
+  titleLabel
 };

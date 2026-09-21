@@ -460,7 +460,8 @@ function emailShell({ preheader, eyebrow, title, content, footer }) {
 }
 
 function buildSubscriberEmail({ name, bookletTitle }) {
-  const safeName = escapeHtml(name);
+  // Sign-up asks for an email only, so most subscribers have no name to greet.
+  const safeName = escapeHtml(name || "reader");
   const safeBookletTitle = bookletTitle ? escapeHtml(bookletTitle) : "";
   const siteUrl = getPublicSiteUrl();
   const seriesUrl = `${siteUrl}/series`;
@@ -483,7 +484,7 @@ function buildSubscriberEmail({ name, bookletTitle }) {
     html: emailShell({
       preheader: "Your subscription to The Inward Fire Letter is confirmed.",
       eyebrow: "The Inward Fire Letter",
-      title: `Welcome, ${name}`,
+      title: name ? `Welcome, ${name}` : "Welcome",
       content: `
         <p style="margin:0 0 20px;font-family:'Cormorant Garamond',Georgia,'Times New Roman',serif;font-size:20px;line-height:34px;color:#453d32;">
           Dear ${safeName},
@@ -548,8 +549,10 @@ function subscriptionSourceLabel(source) {
   return "Newsletter form";
 }
 
-function buildOwnerEmail({ name, email, source, bookletTitle, subscribedAt, isNewSubscriber }) {
+function buildOwnerEmail({ name: givenName, email, source, bookletTitle, subscribedAt, isNewSubscriber }) {
   const siteUrl = getPublicSiteUrl();
+  // Sign-up asks for an email only; the address stands in for a name.
+  const name = givenName || email;
   const safeName = escapeHtml(name);
   const safeEmail = escapeHtml(email);
   const safeSource = escapeHtml(subscriptionSourceLabel(source));
@@ -1963,12 +1966,12 @@ app.post("/api/track-unlock", async (request, response, next) => {
     );
 
     // If we have name and email, update subscribers
-    if (name && email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       const subscribedAt = new Date();
       const subscriberUpdate = {
         $set: {
           email,
-          name,
+          ...(name ? { name } : {}),
           lastSource: source,
           lastBookletSlug: bookletSlug || null,
           lastBookletTitle: bookletTitle,
@@ -3381,7 +3384,7 @@ app.get("/api/booklets/:slug/chapters", async (request, response, next) => {
     }
 
     const chapters = Array.isArray(booklet.chapters) ? booklet.chapters : [];
-    const hasAccess = hasBookletAccess(request, slug);
+    const hasAccess = hasBookletAccess(request, slug, { freeSample: false });
     const resolved = resolveChapterAccess(chapters);
     const visible = resolved.filter((chapter) => hasAccess || chapter.free);
 
