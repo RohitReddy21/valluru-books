@@ -57,6 +57,41 @@ export async function trackBookletUnlock(
 }
 
 /**
+ * Gets a reader who subscribed before the gate existed back in.
+ *
+ * Those readers hold a flag and their email in localStorage and nothing the server can
+ * verify: no signed cookie, no token. The server knows the address, though, so asking it
+ * about that address returns a token when it is a subscriber's. Resolves true when a
+ * token was stored and the chapters are worth asking for again.
+ */
+export async function recoverAccess(booklet: { slug: string; title?: string }) {
+  const email = readStoredSubscriberInfo()?.email?.trim();
+
+  if (!email) {
+    return false;
+  }
+
+  try {
+    const response = await fetch(apiUrl("/api/track-unlock"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ bookletSlug: booklet.slug, bookletTitle: booklet.title || "", email })
+    });
+    const payload = (await response.json().catch(() => null)) as { accessToken?: string } | null;
+
+    if (!response.ok || !payload?.accessToken) {
+      return false;
+    }
+
+    storeAccessToken(booklet.slug, payload.accessToken);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * The per-booklet access token /api/subscribe hands back.
  *
  * The subscriber cookie is the primary proof of access, but it is a third-party cookie to

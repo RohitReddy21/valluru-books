@@ -5,7 +5,7 @@ import { useCallback, useEffect, useId, useState } from "react";
 import { ChapterArticle, splitChapterTitle, type ReadableChapter } from "@/components/chapter-body";
 import { trackEmailSubscription } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api";
-import { readAccessToken, storeAccessToken } from "@/lib/subscriber";
+import { readAccessToken, recoverAccess, storeAccessToken } from "@/lib/subscriber";
 
 type Props = {
   bookletSlug: string;
@@ -90,7 +90,13 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
     let cancelled = false;
 
     void (async () => {
-      const unlocked = await fetchChapters();
+      let unlocked = await fetchChapters();
+
+      // A subscriber from before the gate: known to the server by email, holding nothing
+      // that proves it. Ask once, then ask for the chapters again.
+      if (!unlocked && (await recoverAccess({ slug: bookletSlug }))) {
+        unlocked = await fetchChapters();
+      }
 
       if (!cancelled && unlocked) {
         setChapters(unlocked);
@@ -100,7 +106,7 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
     return () => {
       cancelled = true;
     };
-  }, [fetchChapters]);
+  }, [bookletSlug, fetchChapters]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
