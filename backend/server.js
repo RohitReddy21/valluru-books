@@ -155,7 +155,13 @@ async function getDb() {
 
   if (!clientPromise) {
     const client = new MongoClient(process.env.MONGODB_URI);
-    clientPromise = client.connect();
+    // A rejected promise must not be kept. It was, so one failed connection at start-up —
+    // an Atlas allowlist miss, a cold network on a free instance — left every later
+    // request failing until the process restarted.
+    clientPromise = client.connect().catch((error) => {
+      clientPromise = null;
+      throw error;
+    });
   }
 
   const client = await clientPromise;
@@ -1089,6 +1095,30 @@ async function streamRemoteFile(url, response, headers = {}) {
   }
 }
 
+let lastMongoWarningAt = 0;
+
+/**
+ * Says why the site is serving its built-in content.
+ *
+ * A failed database connection used to be swallowed here, so a bad connection string, a
+ * blocked network and an empty database all looked identical — a healthy service that
+ * quietly served default content. The driver's message names the failure (an allowlist
+ * timeout, bad auth, an invalid scheme) and does not include the connection string.
+ * Throttled, because every page request lands here.
+ */
+function warnMongoUnavailable(error) {
+  const now = Date.now();
+
+  if (now - lastMongoWarningAt < 60_000) {
+    return;
+  }
+
+  lastMongoWarningAt = now;
+  console.error(
+    `[mongo] unavailable, serving default content: ${error?.name || "Error"}: ${String(error?.message || error).slice(0, 300)}`
+  );
+}
+
 async function getSiteContent() {
   if (!hasMongoConfig()) {
     return null;
@@ -1676,8 +1706,9 @@ app.get("/api/content", async (request, response, next) => {
     let content = null;
     try {
       content = await getSiteContent();
-    } catch {
+    } catch (error) {
       hasMongo = false;
+      warnMongoUnavailable(error);
     }
 
     if (!hasMongo || !content) {
