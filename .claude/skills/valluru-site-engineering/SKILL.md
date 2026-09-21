@@ -637,6 +637,98 @@ Why this is light, not heavy: each booklet is ~4,000 words, three free chapters 
 words ≈ 8–12KB gzipped — less than one PNG background the page already loads. It renders
 with the page, needs no JavaScript, and removes the canvas renderer from the free path.
 
+## Sandbox review round (2026-09-21)
+
+The owner reviewed the sandbox and sent an action list. What it changed, and what to know
+before touching any of it again.
+
+### The gate is "after chapter 3 as the booklet numbers it"
+
+`resolveChapterAccess` (frontend `lib/site-content.ts` and backend
+`src/content-chapters.js` — keep them identical) frees everything up to the end of the
+chapter *titled* "3.", "CHAPTER 3" or "STANZA 3". Front matter, the Opening and any other
+unnumbered lead-in are free and do not spend one of the three; an unnumbered piece stays
+with the numbered chapter it follows ("3. Notes" is chapter 3's); the Epilogue and The Gist
+after it are gated. A booklet with no numbered titles falls back to counting body chapters.
+The old rule counted the Opening as a body chapter, so readers got Opening + 1 + 2.
+
+The gate's "N more chapters" is the number of *numbered* chapters left (distinct labels),
+so it is the booklet's total less the free three: booklet one says 12 of 15.
+
+**Booklet one is a free sample for the PDF only.** `hasBookletAccess(request, slug, { freeSample: false })`
+is what `/api/booklets/:slug/chapters` uses, so booklet one's chapters gate like every
+other booklet's. The PDF endpoint still lets booklet one through — a known bypass of the
+gate for that one booklet; decide before treating the gate as watertight.
+
+### Sign-up is email only
+
+No Name field anywhere (newsletter, pop-up, ads, booklet reader). The API never required
+one; it now leaves a stored name alone when none is sent, and the emails no longer say
+"Dear ,".
+
+### Extraction damage is repaired by rule, in one place
+
+`backend/scripts/lib/clean-chapters.mjs`, run by `import-booklet-chapters.mjs` and by
+`clean-booklet-text.mjs` (`--dry-run` prints the log). It removes running heads that landed
+mid-paragraph ("Booklet Ten WHEN THE CHESSBOARD BURNS …"), the "End of Booklet N" mark, a
+section heading (EPILOGUE, THE GIST, AUTHOR'S NOTE) run onto the end of the paragraph before
+it — and names the next chapter with it — and the contents list left at the foot of the
+Author's Note; folds lines the extractor took for chapters (a heading that is really the
+middle of a sentence, a pull-quote, a repeated "CHAPTER 14") back into the prose; repairs
+"Re- alignment", "RāvaṇaBrahma", and puts hyphens back in words the book itself hyphenates
+elsewhere ("selfowned" beside "self-owned"). It is idempotent, and `nonduality` is left
+alone because the Mirror booklets write it solid throughout.
+
+Traps: a JS regex range `Ā-Ž` includes lowercase ā, ī, ū — list capitals explicitly. And a
+Python heredoc turns `` into a backspace, silently disabling the regex; check with
+`grep -c $''`.
+
+**Tables** are stored as one paragraph — `[[table]]` then one row per line, cells split by
+" | " — and rendered by `ChapterBody`. Booklet one's yoga table is written out by hand in
+`TABLES` because flattened cells cannot be recovered by rule. Look at the PDF page before
+adding another.
+
+**Not fixed:** booklets 6–9 (Telugu verse, two columns) are still scrambled — interleaved
+columns, wrapped titles truncated, chapters 12A–E folded into 11, Telugu glyph damage — and
+booklet 7 lost its first two poems. That needs layout-aware re-extraction, not patches.
+Several booklets (3, 4, 5, 13–19) have paragraphs of 2,000–3,000 characters where the PDF
+has many short ones: the paragraph-gap threshold in `extract-booklet-chapters.mjs` is too
+loose for their spacing.
+
+### `NEXT_PUBLIC_SANDBOX=1`
+
+`lib/site-env.ts`. Set on the sandbox Vercel project only. It adds `noindex` (meta and
+`X-Robots-Tag`), serves a disallow-all `robots.txt` (`app/robots.ts` replaced the static
+file), and leaves out the GTM, GA4 and Pixel tags so a test sign-up cannot reach the live
+analytics. **Unset is the live site.** When testing tracking locally, block the collect
+endpoints in Playwright (`analytics.google.com`, `doubleclick.net`, `facebook.com/tr`,
+`google.com/ccm|rmkt`) — the tags fire real hits at the real property.
+
+### The API sleeping must not change the site
+
+Render's free tier sleeps after 15 idle minutes. `getSiteContent` used to turn any failure
+into *placeholder content*, which Next treats as a successful render — so the next
+regeneration replaced the good page with a degraded one for five minutes (`/inward-mirror`
+lost its booklets, booklet text vanished). Now a failure at request time returns the last
+real content this instance saw or throws, and Next keeps the last generated page; the
+backend marks its own fallback with `X-Content-Source: fallback`. During a *build* it waits
+up to 90s for the API and falls back to placeholders only if it never answers. A forced
+revalidation (`expire: 0`, an admin save) leaves no stale copy, so with the API down that
+one path can still 500 on a cold instance. Inward Mirror booklet pages are prebuilt
+(`generateStaticParams`) so they have a page to keep.
+
+### Readers who subscribed before the gate
+
+They hold a flag and an email in localStorage and nothing verifiable. `/api/track-unlock`
+returns an access token when the email is already a subscriber, and `ChapterGate` calls it
+once (`recoverAccess`) before showing the form.
+
+### Sitemap
+
+`app/sitemap.ts`, built from the published content (Inward Fire, Inward Mirror, movements).
+The hand-kept `scripts/generate-sitemap.mjs` had drifted — its slugs stopped matching from
+booklet six on — and has been deleted.
+
 ## Phase 4 — durability
 
 - Move the API off Render free tier, or make every public page independent of it at
