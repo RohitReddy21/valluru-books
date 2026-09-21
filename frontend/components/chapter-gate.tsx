@@ -1,8 +1,8 @@
 "use client";
 
-import { Mail } from "lucide-react";
+import { ArrowRight, Loader2, Mail } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
-import { ChapterArticle, type ReadableChapter } from "@/components/chapter-body";
+import { ChapterArticle, splitChapterTitle, type ReadableChapter } from "@/components/chapter-body";
 import { trackEmailSubscription } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api";
 import { readAccessToken, storeAccessToken } from "@/lib/subscriber";
@@ -15,12 +15,15 @@ type Props = {
 
 /** The API sleeps on Render's free tier; fail to the gate rather than spin. */
 const CHAPTERS_FETCH_TIMEOUT_MS = 4000;
+/** After this long a sign-up is probably waiting on a sleeping server, and the reader should be told. */
+const SLOW_SUBMIT_MS = 6000;
 
 export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props) {
   const emailId = useId();
   const [chapters, setChapters] = useState<ReadableChapter[] | null>(null);
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
+  const [slow, setSlow] = useState(false);
 
   /**
    * The server never puts gated prose in the page, so the only way to know whether this
@@ -102,6 +105,8 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("saving");
+    setSlow(false);
+    const slowTimer = window.setTimeout(() => setSlow(true), SLOW_SUBMIT_MS);
 
     try {
       const response = await fetch(apiUrl("/api/subscribe"), {
@@ -116,8 +121,8 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
         return;
       }
 
-      // Kept for the PDF link below, which is a plain navigation and so cannot send an
-      // Authorization header of its own.
+      // Kept so the chapters request can send it: it is what proves access where the
+      // subscriber cookie has been dropped.
       const payload = (await response.json().catch(() => null)) as { accessToken?: string } | null;
       storeAccessToken(bookletSlug, payload?.accessToken || "");
 
@@ -135,6 +140,9 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
       setEmail("");
     } catch {
       setStatus("error");
+    } finally {
+      window.clearTimeout(slowTimer);
+      setSlow(false);
     }
   }
 
@@ -146,72 +154,83 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
         {chapters.map((chapter) => (
           <ChapterArticle chapter={chapter} key={chapter.id} />
         ))}
-
       </>
     );
   }
 
+  const next = splitChapterTitle(nextChapter.title);
+  const more = `${remainingCount} more ${remainingCount === 1 ? "chapter" : "chapters"} to read`;
+
   /*
-   * Every colour here comes from the surface, because the gate now sits where the reading
-   * does: inside the reader, at the foot of the third free chapter, so a reader meets it
-   * by carrying on reading rather than by being sent somewhere. On the page behind it the
-   * same markup is dark. See `.reading-surface` in app/globals.css.
+   * A page of its own where the free reading ends. It used to be a panel inside the column,
+   * where the form collapsed to a sliver and the button hung off the page edge; now it is
+   * the last page of what is free and takes the whole of it.
+   *
+   * Every colour comes from the surface, because the gate is shown on the booklet's paper
+   * inside the reader and dark on the page behind it. See `.reading-surface` in
+   * app/globals.css.
    *
    * valluru-gated is referenced by the Article schema's hasPart cssSelector on the booklet
    * page, which declares this as the withheld portion.
    */
   return (
-    <div className="valluru-gated mt-14">
-      <article aria-hidden="true" className="relative max-h-52 overflow-hidden opacity-70">
-        <h2 className="font-[family-name:var(--reading-display)] text-[1.9em] leading-tight text-[color:var(--reading-head)]">
-          <span className="mr-3 text-[0.55em] uppercase tracking-[0.18em] text-[color:var(--reading-label)]">
-            {nextChapter.number}
-          </span>
-          {nextChapter.title}
-        </h2>
-        {nextChapter.teaser ? (
-          <p className="mt-5 text-[color:var(--reading-ink)]">{nextChapter.teaser}</p>
-        ) : null}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-b from-transparent to-[color:var(--reading-fade)]" />
-      </article>
+    <div className="valluru-gated">
+      <div className="gate-card">
+        <span aria-hidden="true" className="gate-ornament" />
+        <p className="gate-eyebrow">The free reading ends here</p>
+        <h3 className="gate-title">
+          {remainingCount > 0 ? more : "Keep reading"}
+        </h3>
 
-      <div className="rounded-md border border-[color:var(--reading-rule)] bg-[color:var(--reading-panel)] p-6 sm:p-7">
-        <p className="text-[0.78em] font-semibold uppercase tracking-[0.24em] text-[color:var(--reading-label)]">
-          Continue reading
-        </p>
-        <p className="mt-4 text-[color:var(--reading-ink)]">
-          The first three chapters are yours to read. Leave an email and the remaining{" "}
-          {remainingCount === 1 ? "chapter" : `${remainingCount} chapters`} open here, along
-          with the illustrated PDF and a note when the next booklet is ready.
-        </p>
+        <div aria-hidden="true" className="gate-next">
+          <p className="gate-next-kicker">Next{next.kicker ? ` · ${next.kicker}` : ""}</p>
+          <p className="gate-next-title">{next.title}</p>
+          {nextChapter.teaser ? <p className="gate-next-teaser">{nextChapter.teaser}</p> : null}
+        </div>
 
-        <form className="mt-6 flex flex-col gap-3 sm:flex-row" onSubmit={submit}>
+        <form className="gate-form" onSubmit={submit}>
           <label className="sr-only" htmlFor={emailId}>
             Email address
           </label>
-          <input
-            className="min-h-12 w-full rounded-md border border-[color:var(--reading-rule)] bg-[color:var(--reading-field)] px-4 py-3 text-[color:var(--reading-ink)] outline-none transition focus:border-gold/60"
-            id={emailId}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@example.com"
-            required
-            type="email"
-            value={email}
-          />
-          <button
-            className="inline-flex min-h-12 items-center justify-center gap-2 whitespace-nowrap rounded-md border border-[color:var(--reading-label)] px-5 py-3 text-[0.82em] font-semibold uppercase tracking-[0.18em] text-[color:var(--reading-head)] transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={status === "saving"}
-            type="submit"
-          >
-            <Mail size={16} />
-            {status === "saving" ? "Opening" : "Keep reading"}
+          <span className="gate-field">
+            <Mail aria-hidden="true" size={17} />
+            <input
+              autoComplete="email"
+              id={emailId}
+              inputMode="email"
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="your email address"
+              required
+              type="email"
+              value={email}
+            />
+          </span>
+          <button className="gate-button" disabled={status === "saving"} type="submit">
+            {status === "saving" ? (
+              <>
+                <Loader2 aria-hidden="true" className="animate-spin" size={16} />
+                Opening
+              </>
+            ) : (
+              <>
+                Keep reading
+                <ArrowRight aria-hidden="true" size={16} />
+              </>
+            )}
           </button>
         </form>
 
-        <p className="mt-3 min-h-6 text-[0.82em] italic text-[color:var(--reading-ink)] opacity-70">
+        <p
+          aria-live="polite"
+          className="gate-note"
+          data-tone={status === "error" ? "error" : undefined}
+          role={status === "error" ? "alert" : "status"}
+        >
           {status === "error"
             ? "That could not be saved just now. Please try again."
-            : "One email. No sequence, no pitch."}
+            : slow
+              ? "The reading room is waking up. One moment."
+              : `One email. The rest opens here, and you'll hear when the next booklet is ready.`}
         </p>
       </div>
     </div>

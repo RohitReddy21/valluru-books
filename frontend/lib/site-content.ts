@@ -248,6 +248,21 @@ export function resolveChapterAccess<T extends Pick<BookletChapter, "free" | "fr
   });
 }
 
+/**
+ * The sections of a booklet that are its cover and title page rather than its writing.
+ * The reader draws those itself from the booklet's title, subtitle and art, so it hides
+ * these — the text stays in the page, for search engines.
+ */
+export function isTitlePageChapter(
+  chapter: Pick<BookletChapter, "number" | "frontMatter" | "title">,
+  bookletTitle: string
+) {
+  const same = (a: string, b: string) =>
+    a.toLowerCase().replace(/[^a-z0-9]+/g, "") === b.toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+  return Boolean(chapter.frontMatter) && (chapter.number === 1 || same(chapter.title, bookletTitle));
+}
+
 export function isChapterFree(chapter: Pick<BookletChapter, "number" | "free" | "frontMatter">) {
   return chapter.free ?? (Boolean(chapter.frontMatter) || chapter.number <= FREE_CHAPTER_COUNT);
 }
@@ -265,8 +280,28 @@ export function hasReadableChapters(booklet: { chapters?: BookletChapter[] }) {
   );
 }
 
+/**
+ * How a booklet is set in its PDF, measured by backend/scripts/extract-booklet-theme.mjs.
+ *
+ * The booklets are not one design — five body faces, paper from white to a deep cream, four
+ * that are landscape or square — so the reader takes its page from the book it is showing.
+ * Every field is optional and the reader falls back to a default page without them.
+ */
+export type BookletReaderTheme = {
+  /** Which loaded face the body is set in. */
+  face?: "garamond" | "georgia" | "sans" | "noto";
+  paper?: string;
+  ink?: string;
+  /** The gold or copper of the kicker lines and rules. */
+  accent?: string;
+  /** Page width over page height, from the PDF. */
+  aspect?: number;
+};
+
 export type Booklet = {
   slug: string;
+  /** How this booklet is set; see BookletReaderTheme. */
+  reader?: BookletReaderTheme;
   numberLabel: string;
   title: string;
   subtitle: string;

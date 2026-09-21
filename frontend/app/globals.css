@@ -130,30 +130,158 @@ a {
   --reading-field: #0f0e0c;
 }
 
-/* The printed booklet, sampled from the PDFs. See components/chapter-reader.tsx. */
-.reading-surface-paper {
-  --reading-display: var(--font-page), var(--font-page-telugu), "Noto Serif", Georgia, serif;
-  --reading-head: #22180d;
-  --reading-ink: #2a2118;
-  --reading-label: #a17a3e;
-  --reading-rule: #ddd0b8;
-  --reading-fade: #f7f0e4;
-  --reading-panel: rgba(34, 24, 13, 0.045);
-  --reading-field: #fffaf0;
+/* ── Chapters ─────────────────────────────────────────────────────────────────────────
+ * One set of rules for both surfaces. On the dark page they are the clipped preview; in
+ * the book they are set to the booklet's own page. Nothing here names a colour or a face.
+ */
+.rd-chapter {
+  margin-top: 3.5rem;
 }
 
-/*
- * The reader's pages.
+.rd-chapter:first-child {
+  margin-top: 0;
+}
+
+.rd-kicker {
+  font-size: 0.72em;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--reading-label);
+}
+
+.rd-title {
+  margin-top: 0.4em;
+  font-family: var(--reading-display);
+  font-size: 1.85em;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--reading-head);
+}
+
+.rd-p {
+  margin-top: 0.75em;
+  color: var(--reading-ink);
+}
+
+.rd-label {
+  margin-top: 1.7em;
+  font-size: 0.74em;
+  font-weight: 600;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--reading-label);
+}
+
+/* ── The book ─────────────────────────────────────────────────────────────────────────
+ * Content flows through CSS multi-column: one column is one page, and moving the scroller
+ * by one column pitch turns one page. The gap between columns is the two facing margins,
+ * so half of it falls either side of every page — which is why the flow's inline padding
+ * is half a gutter and no more.
  *
- * Content flows through CSS multi-column: one column is one page, and scrolling the
- * container sideways by exactly one column pitch turns one page. The gap between columns
- * is the two facing margins, so half of it falls either side of every page — which is why
- * the element's own inline padding is half a gutter and no more.
- *
- * Sizes come from --page-w, set by the reader from the space it has and held at the
- * booklet's 432:648. Type included: 10.5pt on a 310pt measure is 3.39% of it, so the page
- * scales as one piece rather than as a layout with text dropped into it.
+ * Every size comes from --page-w and --page-h, set by the reader from the space it has and
+ * held at the booklet's own shape, so the page scales as one piece.
  */
+.rd-shell {
+  color: #e8e0d4;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(196, 169, 107, 0.09), transparent 46rem),
+    #0d0c0a;
+}
+
+.rd-shell[data-night] {
+  background: #080706;
+}
+
+.rd-bar {
+  border: 0 solid rgba(196, 169, 107, 0.16);
+  background: rgba(20, 18, 15, 0.94);
+  backdrop-filter: blur(10px);
+}
+
+.rd-bar:first-child {
+  border-bottom-width: 1px;
+}
+
+.rd-stage + .rd-bar {
+  border-top-width: 1px;
+}
+
+.rd-icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  border: 1px solid rgba(196, 169, 107, 0.26);
+  border-radius: 0.5rem;
+  color: #e8e0d4;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+
+.rd-icon-button:hover:not(:disabled) {
+  border-color: #c4a96b;
+  color: #c4a96b;
+  background: rgba(196, 169, 107, 0.07);
+}
+
+.rd-icon-button:disabled {
+  opacity: 0.32;
+}
+
+.rd-icon-button:focus-visible,
+.rd-zone:focus-visible,
+.rd-range:focus-visible {
+  outline: 2px solid #c4a96b;
+  outline-offset: 2px;
+}
+
+.rd-book {
+  /* So the page furniture can ask how wide the page is, which the viewport cannot say. */
+  container-type: inline-size;
+  background: var(--rd-paper, #f7f0e4);
+  color: var(--rd-ink, #2a2118);
+  font-family: var(--reading-display);
+  line-height: 1.55;
+  border-radius: 3px;
+  box-shadow:
+    0 34px 90px var(--rd-shadow, rgba(40, 28, 10, 0.32)),
+    0 0 0 1px rgba(0, 0, 0, 0.3);
+}
+
+/* The book turns by its own controls, so it carries no scrollbar and takes no free scroll. */
+.rd-scroller {
+  overflow: hidden;
+  scrollbar-width: none;
+}
+
+.rd-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.rd-track {
+  position: relative;
+  display: flex;
+  height: 100%;
+}
+
+.rd-front {
+  position: relative;
+  flex: none;
+  width: var(--page-w);
+  height: 100%;
+  overflow: hidden;
+  font-size: var(--page-font);
+}
+
+.rd-flow {
+  flex: none;
+  width: calc(var(--page-w) * var(--page-view, 1));
+}
+
 .book-flow {
   height: 100%;
   column-width: var(--page-measure);
@@ -162,18 +290,74 @@ a {
   padding-inline: calc(var(--page-gutter) / 2);
   padding-block: var(--page-margin-block);
   font-size: var(--page-font);
+  /* A plate opens a chapter, so it shares its page with the heading: nine em is the
+     heading, its wrap, and the space around it. */
+  --plate-cap: calc(var(--page-h) - var(--page-margin-block) * 2 - 9em);
 }
 
-/* A plate is printed on a page, not split across two, and never taller than one. */
+.book-flow .rd-chapter {
+  margin-top: 0;
+  break-before: column;
+}
+
+.book-flow .rd-chapter:first-child,
+.book-flow .rd-chapter[data-cover] + .rd-chapter {
+  break-before: auto;
+}
+
+/* The cover is drawn by the reader; its extracted text stays in the page for search. */
+.book-flow .rd-chapter[data-cover] {
+  display: none;
+}
+
+.book-flow .rd-title {
+  margin-bottom: 1.1em;
+  break-after: avoid;
+  break-inside: avoid;
+}
+
+/* The printed page: justified, hyphenated, paragraphs separated by space rather than indent. */
+.book-flow .rd-p {
+  margin-top: 0.72em;
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  orphans: 3;
+  widows: 3;
+  text-wrap: pretty;
+}
+
+.book-flow .rd-verse {
+  text-align: left;
+  hyphens: manual;
+}
+
 .book-flow figure {
   break-inside: avoid;
 }
 
 /*
+ * The end of the book. The scrollable width of a multi-column box stops at the last text
+ * column's right edge, which leaves out that page's trailing margin — so the browser clamps
+ * the last turn a fraction of a page short. This is as wide as the missing margin, and
+ * zero in height so nothing sees it.
+ *
+ * When the book has an even number of pages it also starts a column of its own, so the
+ * closing spread is a complete pair with a blank last page.
+ */
+.book-flow .rd-end {
+  width: calc(var(--page-measure) + var(--page-gutter) / 2);
+  height: 1px;
+}
+
+.book-flow .rd-end[data-tail] {
+  break-before: column;
+}
+
+/*
  * Plates are fitted, not cropped or stretched: as wide as the column allows, as tall as
- * --plate-cap allows, and always the shape of the file. Width comes from the cap and the
- * plate's own ratio, and the ratio is held by aspect-ratio, so a plate that has not loaded
- * yet already occupies the space it will fill.
+ * --plate-cap allows, and always the shape of the file. The ratio is held by aspect-ratio,
+ * so a plate that has not loaded yet already occupies the space it will fill.
  */
 .plate img {
   display: block;
@@ -183,38 +367,752 @@ a {
   width: min(100%, calc(var(--plate-cap, 42vh) * var(--plate-ratio)));
 }
 
-/*
- * A plate opens a chapter, so it has to share its page with the chapter's heading. A cap
- * of a whole page's height left the heading alone on one page and the plate on the next.
- * Nine em is the heading at its printed size, its wrap, and the space around it.
- */
-.book-flow {
-  --plate-cap: calc(var(--page-h) - var(--page-margin-block) * 2 - 9em);
+/* ── Front pages ──────────────────────────────────────────────────────────────────── */
+.rd-endpaper {
+  background:
+    linear-gradient(90deg, #14120f, #1f1b16 88%, #15130f),
+    #14120f;
 }
 
-/* Nor is a chapter opening left stranded at the foot of a page. */
-.book-flow h2 {
-  break-after: avoid;
+.rd-cover {
+  background: #0d0c0a;
+  color: #eadfc8;
+}
+
+.rd-cover-plate {
+  position: absolute;
+  inset: 7% 8% auto;
+  padding: 1.15em 1em 1.25em;
+  text-align: center;
+  background: rgba(10, 9, 8, 0.74);
+  backdrop-filter: blur(3px);
+}
+
+.rd-cover-series {
+  font-size: calc(var(--page-font) * 0.6);
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: #c9a96b;
+}
+
+.rd-cover-title {
+  margin-top: 0.55em;
+  font-size: calc(var(--page-font) * 1.9);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.rd-cover-sub {
+  margin-top: 0.85em;
+  font-size: calc(var(--page-font) * 0.8);
+  font-style: italic;
+  line-height: 1.35;
+  opacity: 0.88;
+}
+
+.rd-cover-author {
+  margin-top: 0.7em;
+  font-size: calc(var(--page-font) * 0.8);
+  font-style: italic;
+  color: #c9a96b;
+}
+
+.rd-titlepage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 13% 10% 9%;
+  text-align: center;
+  background: var(--rd-paper);
+}
+
+.rd-tp-series {
+  font-size: calc(var(--page-font) * 0.6);
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--rd-accent);
+}
+
+.rd-tp-number {
+  margin-top: 0.45em;
+  font-size: calc(var(--page-font) * 0.72);
+}
+
+.rd-tp-rule {
+  width: 38%;
+  height: 1px;
+  margin: 1.7em 0 2.1em;
+  background: var(--rd-accent);
+}
+
+.rd-tp-title {
+  font-size: calc(var(--page-font) * 1.9);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.rd-tp-sub {
+  margin-top: 1.5em;
+  font-size: calc(var(--page-font) * 0.85);
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--rd-muted);
+}
+
+.rd-tp-author {
+  margin-top: auto;
+  padding-top: 1.4em;
+  font-size: calc(var(--page-font) * 0.85);
+}
+
+.rd-tp-mark {
+  width: 3.6em;
+  height: 3em;
+  margin-top: 1.6em;
+  background: var(--rd-accent);
+  opacity: 0.8;
+  -webkit-mask: url("/valluru-logo.png") center / contain no-repeat;
+  mask: url("/valluru-logo.png") center / contain no-repeat;
+}
+
+.rd-contents {
+  /* The foot sits in the bottom margin; the list must end above it and scroll instead. */
+  padding: var(--page-margin-block) calc(var(--page-gutter) / 2) calc(var(--page-margin-block) * 1.15);
+  overflow-y: auto;
+  background: var(--rd-paper);
+  scrollbar-width: thin;
+}
+
+.rd-toc {
+  margin-top: 1.3em;
+  padding: 0;
+  list-style: none;
+}
+
+.rd-toc-row {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1em;
+  padding: 0.42em 0;
+  text-align: left;
+  font-size: 0.92em;
+  line-height: 1.3;
+  color: var(--rd-ink);
+  border-bottom: 1px solid color-mix(in srgb, var(--rd-ink) 10%, var(--rd-paper));
+}
+
+.rd-contents[data-dense] .rd-toc-row {
+  padding: 0.2em 0;
+  font-size: 0.8em;
+}
+
+.rd-toc-row:hover .rd-toc-title {
+  color: var(--rd-accent);
+}
+
+.rd-toc-page {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--rd-muted);
+}
+
+/* ── Running foot, fold, tap zones ────────────────────────────────────────────────── */
+.rd-feet {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  pointer-events: none;
+}
+
+.rd-foot-frame {
+  position: relative;
+  flex: none;
+  width: var(--page-w);
+  height: 100%;
+}
+
+.rd-foot-title,
+.rd-folio {
+  position: absolute;
+  bottom: calc(var(--page-margin-block) * 0.4);
+  color: var(--rd-muted);
+  font-family: var(--reading-display);
+}
+
+.rd-foot-title {
+  right: 0;
+  left: 0;
+  font-size: calc(var(--page-font) * 0.52);
+  letter-spacing: 0.15em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* A narrow page has no room for the series name beside the folio; the booklet number stays. */
+@container (max-width: 480px) {
+  .rd-foot-series {
+    display: none;
+  }
+}
+
+.rd-folio {
+  font-size: calc(var(--page-font) * 0.62);
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-folio[data-side="left"] {
+  left: calc(var(--page-gutter) / 2);
+}
+
+.rd-folio[data-side="right"] {
+  right: calc(var(--page-gutter) / 2);
+}
+
+.rd-fold {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 3.4rem;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(0, 0, 0, 0.09) 44%,
+    rgba(0, 0, 0, 0.17) 50%,
+    rgba(0, 0, 0, 0.09) 56%,
+    transparent
+  );
+}
+
+.rd-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 14%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.rd-zone-prev {
+  left: 0;
+  cursor: w-resize;
+}
+
+.rd-zone-next {
+  right: 0;
+  cursor: e-resize;
+}
+
+.rd-zone:disabled {
+  pointer-events: none;
+}
+
+.rd-toast {
+  position: absolute;
+  top: 0.9rem;
+  left: 50%;
+  z-index: 4;
+  transform: translateX(-50%);
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(196, 169, 107, 0.32);
+  border-radius: 999px;
+  background: rgba(20, 18, 15, 0.94);
+  font-family: var(--font-label), Georgia, serif;
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #c4a96b;
+  pointer-events: none;
+  animation: rd-toast 0.35s ease-out;
+}
+
+/* ── Progress slider ──────────────────────────────────────────────────────────────── */
+.rd-range {
+  width: 100%;
+  height: 1.25rem;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.rd-range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(to right, #c4a96b var(--pct, 0%), rgba(196, 169, 107, 0.24) var(--pct, 0%));
+}
+
+.rd-range::-moz-range-track {
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(to right, #c4a96b var(--pct, 0%), rgba(196, 169, 107, 0.24) var(--pct, 0%));
+}
+
+.rd-range::-webkit-slider-thumb {
+  width: 15px;
+  height: 15px;
+  margin-top: -6px;
+  border: 2px solid #14120f;
+  border-radius: 50%;
+  background: #c4a96b;
+  box-shadow: 0 0 0 1px #c4a96b;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.rd-range::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border: 2px solid #14120f;
+  border-radius: 50%;
+  background: #c4a96b;
+  box-shadow: 0 0 0 1px #c4a96b;
+}
+
+/* ── Panels ───────────────────────────────────────────────────────────────────────── */
+.rd-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border: 0;
+  background: rgba(0, 0, 0, 0.5);
+  cursor: default;
+}
+
+.rd-drawer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 6;
+  display: flex;
+  width: min(22rem, 88vw);
+  flex-direction: column;
+  border-right: 1px solid rgba(196, 169, 107, 0.22);
+  background: #14120f;
+  animation: rd-slide 0.22s ease-out;
+}
+
+.rd-drawer-list {
+  flex: 1;
+  margin: 0;
+  padding: 0.25rem 0 1.5rem;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.rd-drawer-row {
+  display: flex;
+  width: 100%;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 1.25rem;
+  text-align: left;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  color: #e8e0d4;
+}
+
+.rd-drawer-row:hover {
+  background: rgba(196, 169, 107, 0.08);
+  color: #c4a96b;
+}
+
+.rd-drawer-page {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: #9a9080;
+}
+
+.rd-drawer-resume {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 1rem 0.5rem;
+  padding: 0.65rem 0.9rem;
+  border: 1px solid rgba(196, 169, 107, 0.4);
+  border-radius: 0.5rem;
+  font-size: 0.9rem;
+  color: #c4a96b;
+}
+
+.rd-drawer-resume:hover {
+  background: rgba(196, 169, 107, 0.09);
+}
+
+.rd-popover {
+  position: absolute;
+  top: 3.7rem;
+  right: 0.75rem;
+  z-index: 7;
+  width: min(19rem, calc(100vw - 1.5rem));
+  padding: 1rem 1.1rem 1.05rem;
+  border: 1px solid rgba(196, 169, 107, 0.3);
+  border-radius: 0.75rem;
+  background: #181613;
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.55);
+  animation: rd-pop 0.2s ease-out;
+}
+
+.rd-popover-label {
+  margin: 0 0 0.55rem;
+  font-family: var(--font-label), Georgia, serif;
+  font-size: 0.68rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: #c4a96b;
+}
+
+.rd-stepper {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 1.15rem;
+}
+
+.rd-stepper button {
+  display: grid;
+  place-items: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 1px solid rgba(196, 169, 107, 0.3);
+  border-radius: 0.5rem;
+  color: #e8e0d4;
+}
+
+.rd-stepper button:hover:not(:disabled) {
+  border-color: #c4a96b;
+  color: #c4a96b;
+}
+
+.rd-stepper button:disabled {
+  opacity: 0.3;
+}
+
+.rd-stepper-dots {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rd-stepper-dots i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: rgba(196, 169, 107, 0.22);
+}
+
+.rd-stepper-dots i[data-on] {
+  background: #c4a96b;
+}
+
+.rd-stepper-dots i:nth-child(1) {
+  transform: scale(0.7);
+}
+
+.rd-stepper-dots i:nth-child(3) {
+  transform: scale(1.25);
+}
+
+.rd-stepper-dots i:nth-child(4) {
+  transform: scale(1.5);
+}
+
+.rd-modes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.rd-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.3rem;
+  border: 1px solid rgba(196, 169, 107, 0.22);
+  border-radius: 0.6rem;
+  font-size: 0.78rem;
+  color: #e8e0d4;
+}
+
+.rd-mode[data-on] {
+  border-color: #c4a96b;
+  background: rgba(196, 169, 107, 0.1);
+}
+
+.rd-swatch {
+  width: 1.65rem;
+  height: 1.65rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+}
+
+.rd-popover-note {
+  margin-top: 0.8rem;
+  font-size: 0.76rem;
+  line-height: 1.4;
+  color: #9a9080;
+}
+
+@keyframes rd-slide {
+  from {
+    transform: translateX(-1.5rem);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes rd-toast {
+  from {
+    transform: translate(-50%, -0.4rem);
+    opacity: 0;
+  }
+  to {
+    transform: translate(-50%, 0);
+    opacity: 1;
+  }
+}
+
+@keyframes rd-pop {
+  from {
+    transform: translateY(-0.4rem);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rd-drawer,
+  .rd-toast,
+  .rd-popover {
+    animation: none;
+  }
+}
+
+/* ── The gate ─────────────────────────────────────────────────────────────────────────
+ * The last page of the free reading. It was a panel inside the column, where the form
+ * collapsed to a sliver and the button hung off the page edge; it is a page of its own now.
+ * Colours all come from the surface, so it is dark on the booklet page and on the booklet's
+ * paper inside the book.
+ */
+.valluru-gated {
+  margin-top: 3.5rem;
+}
+
+.gate-card {
+  max-width: 30rem;
+  margin-inline: auto;
+  padding: 1.9rem 1.5rem 1.6rem;
+  text-align: center;
+  border: 1px solid var(--reading-rule);
+  border-radius: 0.75rem;
+}
+
+.gate-ornament {
+  position: relative;
+  display: block;
+  width: 5.5rem;
+  height: 1px;
+  margin: 0 auto 1.3rem;
+  background: linear-gradient(to right, transparent, var(--reading-label), transparent);
+}
+
+.gate-ornament::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  transform: translate(-50%, -50%) rotate(45deg);
+  background: var(--reading-label);
+}
+
+.gate-eyebrow {
+  font-size: 0.68em;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--reading-label);
+}
+
+.gate-title {
+  margin-top: 0.55em;
+  text-wrap: balance;
+  font-family: var(--reading-display);
+  font-size: 1.7em;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--reading-head);
+}
+
+.gate-next {
+  position: relative;
+  max-height: 9.5em;
+  margin: 1.4rem 0 0;
+  padding: 0.95rem 0.1rem 0;
+  overflow: hidden;
+  text-align: left;
+  border-top: 1px solid var(--reading-rule);
+}
+
+.gate-next::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 4em;
+  background: linear-gradient(to bottom, transparent, var(--reading-fade));
+}
+
+.gate-next-kicker {
+  font-size: 0.66em;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--reading-label);
+}
+
+.gate-next-title {
+  margin-top: 0.3em;
+  font-family: var(--reading-display);
+  font-size: 1.12em;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--reading-head);
+}
+
+.gate-next-teaser {
+  margin-top: 0.5em;
+  font-size: 0.92em;
+  color: var(--reading-ink);
+  opacity: 0.78;
+}
+
+.gate-form {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1.2rem;
+}
+
+.gate-field {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0 0.95rem;
+  border: 1px solid var(--reading-rule);
+  border-radius: 0.5rem;
+  background: var(--reading-field);
+  color: var(--reading-label);
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.gate-field:focus-within {
+  border-color: var(--reading-label);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--reading-label) 24%, transparent);
+}
+
+.gate-field input {
+  flex: 1;
+  min-width: 0;
+  height: 3rem;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--reading-ink);
+  font: inherit;
+  font-size: 0.95em;
+}
+
+.gate-field input::placeholder {
+  color: color-mix(in srgb, var(--reading-ink) 48%, transparent);
+}
+
+.gate-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 3rem;
+  border-radius: 0.5rem;
+  background: var(--reading-head);
+  color: var(--reading-fade);
+  font-size: 0.78em;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  transition:
+    background 0.15s,
+    transform 0.1s;
+}
+
+.gate-button:hover:not(:disabled) {
+  background: var(--reading-label);
+}
+
+.gate-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.gate-button:disabled {
+  opacity: 0.72;
+  cursor: progress;
+}
+
+.gate-button:focus-visible {
+  outline: 2px solid var(--reading-label);
+  outline-offset: 2px;
+}
+
+.gate-note {
+  min-height: 2.7em;
+  margin-top: 0.9rem;
+  font-size: 0.8em;
+  font-style: italic;
+  line-height: 1.4;
+  color: var(--reading-ink);
+  opacity: 0.72;
+}
+
+.gate-note[data-tone="error"] {
+  font-style: normal;
+  color: color-mix(in srgb, #c0392b 82%, var(--reading-ink));
+  opacity: 1;
+}
+
+/* In the book the gate is a whole page, centred, with no card of its own to fill. */
+.book-flow .valluru-gated {
+  display: flex;
+  min-height: calc(var(--page-h) - var(--page-margin-block) * 2);
+  margin-top: 0;
+  align-items: center;
+  justify-content: center;
+  break-before: column;
   break-inside: avoid;
 }
 
-.book-flow article {
-  break-before: column;
-}
-
-.book-flow article:first-child {
-  break-before: auto;
-}
-
-/*
- * The book turns by its own controls, so it does not carry a scrollbar. Hiding it is not
- * only cosmetic: a horizontal scrollbar eats about fifteen pixels of the page's height,
- * which pushed the sheet off the booklet's 432:648.
- */
-.book-scroller {
-  scrollbar-width: none;
-}
-
-.book-scroller::-webkit-scrollbar {
-  display: none;
+.book-flow .gate-card {
+  width: 100%;
+  max-width: none;
+  padding: 1.6em 1.1em 1.3em;
 }

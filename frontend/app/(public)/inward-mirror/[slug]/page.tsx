@@ -298,7 +298,7 @@ export default async function InwardMirrorBookletPage({
             </div>
             {/* One way into a booklet; see the Inward Fire page for why. */}
             {hasReadableChapters(booklet) ? (
-              <BookletChapters booklet={booklet} />
+              <BookletChapters booklet={booklet} seriesLabel="The Inward Mirror Series" />
             ) : (
               <BookletReader booklet={booklet} />
             )}

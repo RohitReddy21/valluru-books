@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import {
+  Arimo,
   Cormorant_Garamond,
   Crimson_Pro,
+  EB_Garamond,
+  Gelasio,
   Noto_Serif,
   Noto_Serif_Telugu,
   Playfair_Display
@@ -43,6 +46,40 @@ const notoSerif = Noto_Serif({
   variable: "--font-page",
   display: "swap",
   weight: ["400", "600"],
+  preload: false
+});
+
+/**
+ * The other faces the booklets are set in, so the reader can look like each one. EB
+ * Garamond is booklet thirteen; Gelasio stands in for Georgia, which the Inward Mirror
+ * series is set in and which is not free to serve; Arimo is the metric twin of the Arial
+ * the last eight booklets use. Lazy for the same reason as the two above — a face is
+ * fetched only when a booklet set in it is opened.
+ */
+const ebGaramond = EB_Garamond({
+  subsets: ["latin"],
+  variable: "--font-page-garamond",
+  display: "swap",
+  weight: ["400", "500", "600"],
+  style: ["normal", "italic"],
+  preload: false
+});
+
+const gelasio = Gelasio({
+  subsets: ["latin"],
+  variable: "--font-page-georgia",
+  display: "swap",
+  weight: ["400", "600"],
+  style: ["normal", "italic"],
+  preload: false
+});
+
+const arimo = Arimo({
+  subsets: ["latin"],
+  variable: "--font-page-sans",
+  display: "swap",
+  weight: ["400", "700"],
+  style: ["normal", "italic"],
   preload: false
 });
 
@@ -110,7 +147,7 @@ export default async function RootLayout({
 
   return (
     <html
-      className={`${playfair.variable} ${crimson.variable} ${cormorant.variable} ${notoSerif.variable} ${notoSerifTelugu.variable}`}
+      className={`${playfair.variable} ${crimson.variable} ${cormorant.variable} ${notoSerif.variable} ${notoSerifTelugu.variable} ${ebGaramond.variable} ${gelasio.variable} ${arimo.variable}`}
       lang="en"
     >
       <head>

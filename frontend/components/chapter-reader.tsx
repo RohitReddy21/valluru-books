@@ -1,23 +1,44 @@
 "use client";
 
-import { BookOpen, Bookmark, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  BookOpen,
+  Bookmark as BookmarkIcon,
+  ChevronLeft,
+  ChevronRight,
+  List,
+  Lock,
+  Minus,
+  Plus,
+  Type,
+  X
+} from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { readBookmark, writeBookmark } from "@/lib/bookmark";
+import { splitChapterTitle } from "@/components/chapter-body";
+import { BookCover, ContentsPage, Endpaper, TitlePage, type ContentsEntry } from "@/components/reader-pages";
+import { readBookmark, useBookmark, writeBookmark } from "@/lib/bookmark";
+import {
+  SIZE_STEPS,
+  resolveTheme,
+  themeStyle,
+  useReaderPrefs,
+  type ReaderMode
+} from "@/lib/reader-theme";
+import type { BookletReaderTheme } from "@/lib/site-content";
 import { trackBookletUnlock } from "@/lib/subscriber";
 
-/** The booklets are 432 x 648pt, with their text column running x 61 to 369. */
-const PAGE_RATIO = 432 / 648;
-const MEASURE_RATIO = (369 - 61) / 432;
-/** Head and foot margins, as a share of page height. */
+/** Endpaper, cover, title page, contents: the writing begins on the page after these. */
+const FRONT_PAGES = 4;
+/** The running foot starts at the contents page, as it does in the PDFs. */
+const FIRST_FOOT_PAGE = 3;
+/** The booklets set a 71% measure on a portrait page; a landscape one is set narrower. */
+const PORTRAIT_MEASURE = 0.71;
+const LANDSCAPE_MEASURE = 0.62;
 const MARGIN_BLOCK_RATIO = 0.085;
 /**
- * Type is set larger than the print proportion would give.
- *
- * 10.5pt on a 310pt measure is 3.4% of it, which on a page sized to fit a laptop window
- * comes out at about 12px — correct, and too small to read comfortably on a screen held
- * at arm's length rather than a book held at reading distance. This is the compromise an
- * e-reader makes too: the page keeps its shape, the type is set for the screen.
+ * Type is set larger than print proportion would give. 10.5pt on a 310pt measure is about
+ * 12px on a laptop-sized sheet — right for a book at reading distance, unreadable on a
+ * screen. The page keeps its shape and the type is set for the screen, as an e-reader does.
  */
 const SCREEN_TYPE_RATIO = 0.045;
 const MIN_TYPE_PX = 16;
@@ -25,68 +46,113 @@ const MAX_TYPE_PX = 20;
 /** How often, and for how long at least, the book re-reads its own length. */
 const SETTLE_INTERVAL_MS = 250;
 const MIN_SETTLE_TICKS = 12;
+const WHEEL_COOLDOWN_MS = 420;
+const SWIPE_MIN_PX = 44;
 
-type PageMetrics = { width: number; height: number; perView: number };
+type Metrics = { width: number; height: number; perView: 1 | 2 };
+
+const MODE_LABELS: Array<{ mode: ReaderMode; label: string; swatch: string }> = [
+  { mode: "book", label: "Book", swatch: "linear-gradient(135deg,#f7f0e4 50%,#a17a3e 50%)" },
+  { mode: "sepia", label: "Sepia", swatch: "linear-gradient(135deg,#efe2c6 50%,#8a5a2b 50%)" },
+  { mode: "night", label: "Night", swatch: "linear-gradient(135deg,#171512 50%,#c9a96b 50%)" }
+];
 
 /**
- * Presents the free chapters either clipped on the page or in a reading overlay.
+ * The booklet as a book.
  *
- * Opened, the overlay is the printed booklet rather than the website. It is paginated:
- * content flows through CSS columns, one column is one page, and turning a page scrolls
- * the container by exactly one column pitch. The page holds the booklet's own 432:648 and
- * every measurement inside it is a ratio of that, type included, so the whole page scales
- * as one thing — the values were read out of the PDFs with pdf.js rather than guessed.
+ * Closed, it is the free chapters clipped on the page with one button. Opened, it is the
+ * printed booklet: a cover, a title page, contents, then the writing in pages, in the
+ * booklet's own face and paper, measured from its PDF. Content flows through CSS columns —
+ * one column is one page — and turning a page sets `scrollLeft` by exactly one page pitch.
+ * Wide windows show two pages with a fold; a phone shows one and takes swipes.
  *
- * Where a reader stopped is kept per booklet, so a booklet reopens where it was left.
+ * Where a reader stopped is kept per booklet, so a booklet reopens where it was left and
+ * the button on the page says so.
  *
- * The chapters stay a single React tree that a portal moves into the overlay, rather than
- * being rendered twice. That matters for more than weight: they are server-rendered, and
- * putting the writing in the page HTML is the entire point of the chapter migration. A
- * reader that fetched them on open would hand Google an empty page again.
+ * The chapters stay one React tree that a portal moves into the book, rather than being
+ * rendered twice. That matters for more than weight: they are server-rendered, and putting
+ * the writing in the page HTML is the whole point of the chapter migration. A reader that
+ * fetched them on open would hand Google an empty page again.
  */
 export function ChapterReader({
   title,
+  subtitle,
+  author = "Sasidhar Valluru",
   numberLabel,
+  seriesLabel = "The Inward Fire Series",
   label = "Read the booklet",
   slug,
   reports,
+  theme,
+  coverSrc,
+  contents,
   children
 }: {
   title: string;
+  subtitle?: string;
+  author?: string;
   numberLabel?: string;
+  seriesLabel?: string;
   /** The one button that opens a booklet. There is deliberately no second way in. */
   label?: string;
   /** Identifies the booklet's bookmark. */
   slug: string;
   /** The booklet to record an open against, for the admin's unlock report. */
   reports?: { slug: string; title: string };
+  /** How the booklet is set in its PDF. */
+  theme?: BookletReaderTheme;
+  coverSrc?: string;
+  contents: ContentsEntry[];
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const [page, setPage] = useState({ current: 1, total: 1 });
+  const [page, setPage] = useState({ index: 1, current: 1, total: 1 });
   const [resumedFrom, setResumedFrom] = useState(0);
-  const [metrics, setMetrics] = useState<PageMetrics | null>(null);
-
-  const scrollerRef = useRef<HTMLDivElement | null>(null);
-  const boxRef = useRef<HTMLDivElement | null>(null);
-  const restoredRef = useRef(false);
-  /** Where the bookmark put the reader, so a late re-settle knows not to move them. */
-  const placedAtRef = useRef(-1);
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [panel, setPanel] = useState<"none" | "contents" | "settings">("none");
+  const [chapterPages, setChapterPages] = useState<Record<string, number>>({});
+  const [gatePage, setGatePage] = useState<number | null>(null);
   /**
-   * Whether a scroll means the reader moved.
+   * Whether the book needs a blank last page to end on a complete spread.
    *
-   * Until the book has settled at its real length, every scroll is the reader's own
-   * machinery putting the bookmark back — and saving those wiped the bookmark, because
-   * the first of them lands on page one while the length is still wrong. Only the reader
-   * turning a page writes a bookmark.
+   * Spreads pair even with odd, so the last spread of a book with an even number of pages
+   * starts on its final page and needs one more to scroll to. Without it the browser clamps
+   * the scroll to the previous page, and the closing spread came up half a page out — text
+   * against the fold, the gate card hard against the paper's edge.
    */
-  const savingRef = useRef(false);
+  const [needsTail, setNeedsTail] = useState(false);
 
-  /** One page is one column plus the gutter it shares with the next. */
+  const [prefs, updatePrefs] = useReaderPrefs();
+  const bookmark = useBookmark(slug);
+  const resolved = useMemo(() => resolveTheme(theme, prefs.mode), [theme, prefs.mode]);
+  const styleVars = useMemo(() => themeStyle(resolved), [resolved]);
+
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const flowRef = useRef<HTMLDivElement | null>(null);
+  const boxRef = useRef<HTMLDivElement | null>(null);
+  /** Whether the reader has turned a page since the book opened or last re-laid itself out. */
+  const movedRef = useRef(false);
+  /** Where in the book the reader is, as a share of its length, for re-anchoring. */
+  const fractionRef = useRef(0);
+  const lastWheelRef = useRef(0);
+  const touchRef = useRef<{ x: number; y: number } | null>(null);
+
   const pageWidth = metrics?.width ?? 0;
   const perView = metrics?.perView ?? 1;
   /** A page turn moves the whole spread, which is one page or two. */
   const pitch = pageWidth * perView;
+  /** A single page skips the endpaper, which exists only to seat the cover on the right. */
+  const minLeft = perView === 1 ? pageWidth : 0;
+  const aspect = resolved.aspect;
+
+  /** The book's length in pages, endpaper excluded. */
+  const measureTotal = useCallback(
+    (scroller: HTMLDivElement) =>
+      Math.max(1, Math.round(scroller.scrollWidth / pageWidth) - 1 - (scroller.querySelector(".rd-end[data-tail]") ? 1 : 0)),
+    [pageWidth]
+  );
 
   const syncPage = useCallback(
     (persist = false) => {
@@ -96,49 +162,133 @@ export function ChapterReader({
         return;
       }
 
-      const total = Math.max(1, Math.round(scroller.scrollWidth / pageWidth));
-      const current = Math.min(total, Math.round(scroller.scrollLeft / pageWidth) + 1);
+      const index = Math.round(scroller.scrollLeft / pageWidth);
+      const total = measureTotal(scroller);
+      const current = Math.min(total, Math.max(1, index));
 
-      setPage({ current, total });
+      fractionRef.current = scroller.scrollLeft / Math.max(1, scroller.scrollWidth);
+      setPage((previous) =>
+        previous.index === index && previous.current === current && previous.total === total
+          ? previous
+          : { index, current, total }
+      );
 
-      if (persist && savingRef.current) {
-        writeBookmark(slug, {
-          at: scroller.scrollLeft / Math.max(1, scroller.scrollWidth),
-          page: current
-        });
+      if (persist) {
+        writeBookmark(slug, { at: fractionRef.current, page: current });
       }
     },
-    [pageWidth, slug]
+    [measureTotal, pageWidth, slug]
   );
 
-  /**
-   * Turns a page.
-   *
-   * By assignment rather than scrollTo with smooth behaviour, which does nothing at all on
-   * this element in some browsers — it was leaving the button dead while the page count
-   * beneath it updated, which looked like the reader had broken. A page turn is a discrete
-   * thing in a book anyway; it does not glide.
-   */
-  const turn = useCallback(
-    (direction: 1 | -1) => {
+  /** The page each chapter opens on, read from where it actually landed. */
+  const measureChapters = useCallback(() => {
+    const track = trackRef.current;
+    const flow = flowRef.current;
+
+    if (!track || !flow || !pageWidth) {
+      return;
+    }
+
+    const origin = track.getBoundingClientRect().left;
+    const pages: Record<string, number> = {};
+
+    flow.querySelectorAll<HTMLElement>("article[id]").forEach((article) => {
+      pages[article.id] = Math.floor((article.getBoundingClientRect().left - origin + 1) / pageWidth);
+    });
+
+    const gate = flow.querySelector<HTMLElement>(".valluru-gated");
+    const gateAt = gate ? Math.floor((gate.getBoundingClientRect().left - origin + 1) / pageWidth) : null;
+
+    setChapterPages((previous) =>
+      JSON.stringify(previous) === JSON.stringify(pages) ? previous : pages
+    );
+    setGatePage((previous) => (previous === gateAt ? previous : gateAt));
+  }, [pageWidth]);
+
+  /** Moves to a scroll position, aligned to a spread, and remembers it. Every reader-driven move comes through here. */
+  const moveTo = useCallback(
+    (left: number) => {
       const scroller = scrollerRef.current;
 
       if (!scroller || !pitch) {
         return;
       }
 
-      const furthest = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-      const spread = Math.round(scroller.scrollLeft / pitch) + direction;
+      const furthest = Math.max(minLeft, scroller.scrollWidth - scroller.clientWidth);
+      const aligned = Math.round(left / pitch) * pitch;
 
-      savingRef.current = true;
-      scroller.scrollLeft = Math.min(furthest, Math.max(0, spread * pitch));
+      movedRef.current = true;
+      scroller.scrollLeft = Math.min(furthest, Math.max(minLeft, aligned));
+      // A short fade, not a slide: the page changes at once, so nothing waits on it.
+      scroller.animate?.([{ opacity: 0.35 }, { opacity: 1 }], { duration: 200, easing: "ease-out" });
       syncPage(true);
     },
-    [pitch, syncPage]
+    [minLeft, pitch, syncPage]
   );
 
-  // The page is sized from the space the overlay actually has, so it stays a 432:648 sheet
-  // on any screen and falls back to the full width when the screen is narrower than that.
+  const turn = useCallback(
+    (direction: 1 | -1) => {
+      const scroller = scrollerRef.current;
+
+      if (scroller) {
+        moveTo(scroller.scrollLeft + direction * pitch);
+      }
+    },
+    [moveTo, pitch]
+  );
+
+  /** Goes to a page number; in two-page view the spread that holds it. */
+  const goToPage = useCallback(
+    (folio: number) => {
+      const index = perView === 2 && folio % 2 === 1 ? folio - 1 : folio;
+      moveTo(index * pageWidth);
+    },
+    [moveTo, pageWidth, perView]
+  );
+
+  const goToChapter = useCallback(
+    (id: string) => {
+      const target = chapterPages[id] ?? gatePage;
+
+      if (target != null) {
+        goToPage(target);
+        setPanel("none");
+      }
+    },
+    [chapterPages, gatePage, goToPage]
+  );
+
+  /** Puts the book back at a share of its length, aligned to a spread. */
+  const placeAt = useCallback(
+    (scroller: HTMLDivElement, at: number) => {
+      const spread = Math.round((at * scroller.scrollWidth) / pitch);
+      scroller.scrollLeft = Math.max(minLeft, spread * pitch);
+    },
+    [minLeft, pitch]
+  );
+
+  /** Resets what only holds while the reader is open. */
+  const closeReader = useCallback(() => {
+    movedRef.current = false;
+    setResumedFrom(0);
+    setPanel("none");
+    setOpen(false);
+  }, []);
+
+  /** Text size and paper change how much fits on a page; the reader keeps their place through it. */
+  const changePrefs = useCallback(
+    (patch: Parameters<typeof updatePrefs>[0]) => {
+      // Saved first, then the layout changes and the settle loop puts the reader back at
+      // the same share of the book. Not "moved": the reader turned nothing, the page did.
+      syncPage(true);
+      movedRef.current = false;
+      updatePrefs(patch);
+    },
+    [syncPage, updatePrefs]
+  );
+
+  // The page is sized from the space the book actually has, so it holds the booklet's own
+  // shape on any screen and takes the full width when the screen is narrower than that.
   useLayoutEffect(() => {
     const box = boxRef.current;
 
@@ -148,7 +298,7 @@ export function ChapterReader({
 
     const measure = () => {
       // clientWidth/Height, not the bounding rect: the rect includes the padding that
-      // frames the book, and sizing the page from it made the sheet too wide for 432:648.
+      // frames the book, and sizing the page from it made the sheet the wrong shape.
       const width = box.clientWidth;
       const height = box.clientHeight;
 
@@ -156,11 +306,11 @@ export function ChapterReader({
         return;
       }
 
-      const pageWidth = Math.min(width, height * PAGE_RATIO);
+      const sheet = Math.min(width, height * aspect);
 
       // A book on a wide screen lies open at two pages, which is both what it looks like
       // and what makes a page this narrow worth reading.
-      setMetrics({ width: pageWidth, height, perView: width >= pageWidth * 2 ? 2 : 1 });
+      setMetrics({ width: sheet, height, perView: width >= sheet * 2 ? 2 : 1 });
     };
 
     measure();
@@ -169,45 +319,24 @@ export function ChapterReader({
     observer.observe(box);
 
     return () => observer.disconnect();
-  }, [open]);
+  }, [aspect, open]);
 
-  // Reopening a booklet returns it to the page it was left on.
+  /**
+   * How long the book runs to is not known when it opens, and the reader may change it.
+   *
+   * The two serif faces are fetched on first use and change how much fits on a page, and
+   * so do the text size and the paper. A ResizeObserver cannot catch it — in a multi-column
+   * box the element's own width never changes, only its scrollWidth grows — so the width
+   * is read until it stops moving, for a minimum number of ticks (a brief false stability
+   * right after opening left a bookmarked reader on page one).
+   *
+   * Each time the length changes the reader is put back at the same share of it: at the
+   * bookmark if they have not turned a page yet, otherwise where they are.
+   */
   useLayoutEffect(() => {
     const scroller = scrollerRef.current;
 
-    if (!open || !scroller || !pitch || restoredRef.current) {
-      return;
-    }
-
-    restoredRef.current = true;
-    const bookmark = readBookmark(slug);
-    if (bookmark) {
-      // Rounded, not floored: the saved position sits exactly on a spread boundary, and
-      // a float a hair under it floored to the spread before — reopening a booklet two
-      // pages behind where it was left.
-      const spread = Math.round((bookmark.at * scroller.scrollWidth) / pitch);
-      scroller.scrollLeft = Math.max(0, spread) * pitch;
-      placedAtRef.current = scroller.scrollLeft;
-      setResumedFrom(Math.round(scroller.scrollLeft / pageWidth) + 1);
-    }
-
-    syncPage();
-  }, [open, pageWidth, pitch, slug, syncPage]);
-
-  /**
-   * How long the book runs to is not known when it opens.
-   *
-   * The plates arrive over the network and the two serif faces are fetched on first use,
-   * and both change how much text fits on a page: the count taken at open said seventeen
-   * pages where the settled book runs to sixty-eight. Neither a load event nor a resize
-   * observer catches it — in a multi-column box the element's own width never changes, it
-   * is only the scroll width that grows — so the width is read until it stops moving.
-   *
-   * The bookmark is re-applied against the settled width, unless the reader has already
-   * turned a page, in which case their place is theirs and nothing moves.
-   */
-  useEffect(() => {
-    if (!open || !pageWidth) {
+    if (!open || !scroller || !pageWidth) {
       return;
     }
 
@@ -215,69 +344,88 @@ export function ChapterReader({
     let stableTicks = 0;
     let ticks = 0;
 
-    const timer = window.setInterval(() => {
-      const scroller = scrollerRef.current;
+    const settle = () => {
+      const el = scrollerRef.current;
 
-      if (!scroller) {
-        return;
+      if (!el) {
+        return false;
       }
 
       ticks += 1;
 
-      if (scroller.scrollWidth === previousWidth) {
+      if (el.scrollWidth === previousWidth) {
         stableTicks += 1;
       } else {
-        previousWidth = scroller.scrollWidth;
+        previousWidth = el.scrollWidth;
         stableTicks = 0;
-      }
 
-      const bookmark = readBookmark(slug);
+        const at = movedRef.current ? fractionRef.current : readBookmark(slug)?.at ?? 0;
 
-      if (bookmark && scroller.scrollLeft === placedAtRef.current) {
-        const spread = Math.round((bookmark.at * scroller.scrollWidth) / pitch);
-        scroller.scrollLeft = Math.max(0, spread) * pitch;
-        placedAtRef.current = scroller.scrollLeft;
+        if (at > 0.001) {
+          placeAt(el, at);
 
-        // Set on every re-apply rather than once: the first is taken while the book is
-        // still the wrong length, and announcing "resumed at page 3" for a reader put
-        // back on page 11 is worse than saying nothing.
-        const landedOn = Math.round(scroller.scrollLeft / pageWidth) + 1;
-
-        if (landedOn > 1) {
-          setResumedFrom(landedOn);
+          // Announced from the settled position, not the first guess: the first is taken
+          // while the length is still wrong.
+          if (!movedRef.current) {
+            const landed = Math.round(el.scrollLeft / pageWidth);
+            setResumedFrom(landed > FRONT_PAGES ? landed : 0);
+          }
+        } else if (!movedRef.current) {
+          el.scrollLeft = minLeft;
         }
       }
 
-      syncPage();
+      const contentPages = measureTotal(el);
+      setNeedsTail(perView === 2 && contentPages % 2 === 0);
 
-      // Stability alone is not enough to stop: right after opening, the book is briefly
-      // stable at the wrong length because the reflow the plates force has not happened
-      // yet, and stopping there left a bookmarked reader on page one of seventeen.
-      if (ticks >= MIN_SETTLE_TICKS && stableTicks >= 2) {
-        // The book is where it belongs and as long as it will get: from here a scroll is
-        // the reader's, and worth remembering.
-        savingRef.current = true;
+      measureChapters();
+      syncPage(false);
+
+      return ticks >= MIN_SETTLE_TICKS && stableTicks >= 2;
+    };
+
+    settle();
+
+    const timer = window.setInterval(() => {
+      if (settle()) {
         window.clearInterval(timer);
       }
     }, SETTLE_INTERVAL_MS);
 
-    // However slowly a plate arrives, the book stops re-measuring itself after this.
+    // However slowly a face arrives, the book stops re-measuring itself after this.
     const stop = window.setTimeout(() => window.clearInterval(timer), 8000);
 
     return () => {
       window.clearInterval(timer);
       window.clearTimeout(stop);
     };
-  }, [open, pageWidth, pitch, slug, syncPage]);
+  }, [measureChapters, measureTotal, minLeft, open, pageWidth, perView, pitch, placeAt, prefs.mode, prefs.size, slug, syncPage]);
 
-  /** Closing resets what only holds while the reader is open. */
-  const closeReader = useCallback(() => {
-    restoredRef.current = false;
-    placedAtRef.current = -1;
-    savingRef.current = false;
-    setResumedFrom(0);
-    setOpen(false);
-  }, []);
+  // The gate replaces itself with the rest of the booklet once a subscriber is recognised,
+  // which changes the book's length without any of the above noticing.
+  useEffect(() => {
+    const flow = flowRef.current;
+
+    if (!open || !flow) {
+      return;
+    }
+
+    let frame = 0;
+    const observer = new MutationObserver(() => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        measureChapters();
+        syncPage(false);
+      });
+    });
+
+    observer.observe(flow, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+      window.cancelAnimationFrame(frame);
+    };
+  }, [measureChapters, open, syncPage]);
 
   useEffect(() => {
     if (!open) {
@@ -286,30 +434,65 @@ export function ChapterReader({
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        closeReader();
+        if (panel !== "none") {
+          setPanel("none");
+        } else {
+          closeReader();
+        }
+
+        return;
       }
 
-      if (event.key === "ArrowRight" || event.key === "PageDown") {
+      // Arrow keys belong to the sign-up field while it has focus, not to the page.
+      const target = event.target as HTMLElement | null;
+
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+      }
+
+      const scroller = scrollerRef.current;
+
+      if (event.key === "ArrowRight" || event.key === "PageDown" || (event.key === " " && !event.shiftKey)) {
         event.preventDefault();
         turn(1);
-      }
-
-      if (event.key === "ArrowLeft" || event.key === "PageUp") {
+      } else if (event.key === "ArrowLeft" || event.key === "PageUp" || (event.key === " " && event.shiftKey)) {
         event.preventDefault();
         turn(-1);
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        moveTo(0);
+      } else if (event.key === "End" && scroller) {
+        event.preventDefault();
+        moveTo(scroller.scrollWidth);
       }
     }
 
-    // The page behind must not scroll while the overlay has the reader's attention.
+    // The page behind must not scroll while the book has the reader's attention.
     const previousOverflow = document.body.style.overflow;
+    const previousRoot = document.documentElement.style.overflow;
     document.body.style.overflow = "hidden";
+    // The document element scrolls on its own here (it clips horizontally), so the body
+    // alone left a scrollbar showing behind the book.
+    document.documentElement.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
+    dialogRef.current?.focus();
 
     return () => {
       document.body.style.overflow = previousOverflow;
+      document.documentElement.style.overflow = previousRoot;
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [closeReader, open, turn]);
+  }, [closeReader, moveTo, open, panel, turn]);
 
   // The note that a booklet resumed is a greeting, not a status: it goes after a moment.
   useEffect(() => {
@@ -317,105 +500,351 @@ export function ChapterReader({
       return;
     }
 
-    const timer = window.setTimeout(() => setResumedFrom(0), 4000);
+    const timer = window.setTimeout(() => setResumedFrom(0), 4200);
     return () => window.clearTimeout(timer);
   }, [resumedFrom]);
 
-  const pageStyle = metrics
-    ? ({
-        "--page-w": `${metrics.width}px`,
-        "--page-h": `${metrics.height}px`,
-        "--page-measure": `${metrics.width * MEASURE_RATIO}px`,
-        "--page-gutter": `${metrics.width * (1 - MEASURE_RATIO)}px`,
-        "--page-margin-block": `${metrics.height * MARGIN_BLOCK_RATIO}px`,
-        "--page-font": `${Math.min(MAX_TYPE_PX, Math.max(MIN_TYPE_PX, metrics.width * MEASURE_RATIO * SCREEN_TYPE_RATIO))}px`,
-        width: `${metrics.width * metrics.perView}px`
-      } as React.CSSProperties)
-    : undefined;
+  const pageVars = useMemo(() => {
+    if (!metrics) {
+      return undefined;
+    }
+
+    const measure = metrics.width * (aspect > 1 ? LANDSCAPE_MEASURE : PORTRAIT_MEASURE);
+    const base = Math.min(MAX_TYPE_PX, Math.max(MIN_TYPE_PX, measure * SCREEN_TYPE_RATIO));
+
+    return {
+      ...styleVars,
+      "--page-w": `${metrics.width}px`,
+      "--page-h": `${metrics.height}px`,
+      "--page-measure": `${measure}px`,
+      "--page-gutter": `${metrics.width - measure}px`,
+      "--page-margin-block": `${metrics.height * MARGIN_BLOCK_RATIO}px`,
+      "--page-font": `${base * prefs.size}px`,
+      "--page-view": metrics.perView
+    } as React.CSSProperties;
+  }, [aspect, metrics, prefs.size, styleVars]);
+
+  const entries = useMemo(() => contents.filter((entry) => !entry.hidden), [contents]);
+  const pageOf = useCallback((id: string) => chapterPages[id] ?? null, [chapterPages]);
+  const sizeIndex = Math.max(0, SIZE_STEPS.findIndex((step) => step === prefs.size));
+  const atStart = !metrics || page.index <= (perView === 1 ? 1 : 0);
+  const atEnd = page.index + perView > page.total;
+  const percent = Math.min(
+    100,
+    Math.round((Math.min(page.total, page.index + perView - 1) / page.total) * 100)
+  );
 
   // No mounted guard needed: `open` starts false, so the server and the first client
   // render agree, and it only becomes true from a click, long after hydration.
   if (open && typeof document !== "undefined") {
+    const identity = { title, subtitle, author, seriesLabel, numberLabel };
+
     return createPortal(
       <div
         aria-label={`Reading ${title}`}
         aria-modal="true"
-        className="fixed inset-0 z-[120] flex flex-col bg-ink/92 backdrop-blur-md"
+        className="rd-shell fixed inset-0 z-[120] flex flex-col outline-none"
+        data-night={resolved.night ? "true" : undefined}
+        ref={dialogRef}
         role="dialog"
+        tabIndex={-1}
       >
-        <div className="flex shrink-0 items-center justify-between gap-4 border-b border-gold/15 bg-surface px-4 py-3 sm:px-6">
-          <div className="min-w-0">
-            {numberLabel ? (
-              <p className="font-label text-xs uppercase tracking-[0.24em] text-gold">
-                Reading {numberLabel}
-              </p>
-            ) : null}
-            <h2 className="truncate font-display text-lg text-parchment sm:text-2xl">{title}</h2>
+        {/* ── Top bar ─────────────────────────────────────────────────────────────── */}
+        <div className="rd-bar flex shrink-0 items-center gap-2 px-3 py-2 sm:px-5">
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-label text-[0.68rem] uppercase tracking-[0.26em] text-gold sm:text-xs">
+              {numberLabel ? `${seriesLabel} · ${numberLabel}` : seriesLabel}
+            </p>
+            <h2 className="truncate font-display text-base text-parchment sm:text-xl">{title}</h2>
           </div>
+
           <button
-            aria-label="Close reader"
-            className="inline-flex size-10 shrink-0 items-center justify-center rounded-md border border-gold/25 text-parchment transition hover:border-gold hover:text-gold"
-            onClick={closeReader}
+            aria-expanded={panel === "contents"}
+            aria-label="Contents"
+            className="rd-icon-button"
+            onClick={() => setPanel((current) => (current === "contents" ? "none" : "contents"))}
             type="button"
           >
+            <List size={18} />
+          </button>
+          <button
+            aria-expanded={panel === "settings"}
+            aria-label="Text and paper"
+            className="rd-icon-button"
+            onClick={() => setPanel((current) => (current === "settings" ? "none" : "settings"))}
+            type="button"
+          >
+            <Type size={18} />
+          </button>
+          <button aria-label="Close reader" className="rd-icon-button" onClick={closeReader} type="button">
             <X size={18} />
           </button>
         </div>
 
-        <div className="relative min-h-0 flex-1 px-2 py-3 sm:px-6 sm:py-6">
+        {/* ── The book ────────────────────────────────────────────────────────────── */}
+        <div className="rd-stage relative min-h-0 flex-1 px-2 py-3 sm:px-8 sm:py-6">
           <div className="h-full" ref={boxRef}>
-          <div
-            className="book-scroller reading-surface reading-surface-paper mx-auto h-full overflow-x-auto overflow-y-hidden bg-page-paper font-page leading-[1.45] text-page-ink shadow-quiet"
-            onScroll={() => syncPage(true)}
-            ref={scrollerRef}
-            style={pageStyle}
-          >
-            <div className="book-flow">{children}</div>
-          </div>
-
-          {/* The fold, so two pages side by side read as one open book rather than two. */}
-          {perView === 2 && metrics ? (
             <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-[linear-gradient(to_right,rgba(34,24,13,0)_0%,rgba(34,24,13,0.16)_50%,rgba(34,24,13,0)_100%)]"
-            />
-          ) : null}
+              className="rd-book reading-surface relative mx-auto h-full"
+              onTouchEnd={(event) => {
+                const start = touchRef.current;
+                touchRef.current = null;
 
+                if (!start) {
+                  return;
+                }
+
+                const dx = event.changedTouches[0].clientX - start.x;
+                const dy = event.changedTouches[0].clientY - start.y;
+
+                if (Math.abs(dx) > SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * 1.4) {
+                  turn(dx < 0 ? 1 : -1);
+                }
+              }}
+              onTouchStart={(event) => {
+                touchRef.current = { x: event.touches[0].clientX, y: event.touches[0].clientY };
+              }}
+              onWheel={(event) => {
+                const now = Date.now();
+                const delta = Math.abs(event.deltaY) > Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
+
+                if (Math.abs(delta) < 24 || now - lastWheelRef.current < WHEEL_COOLDOWN_MS) {
+                  return;
+                }
+
+                lastWheelRef.current = now;
+                turn(delta > 0 ? 1 : -1);
+              }}
+              style={{ ...pageVars, width: metrics ? `${metrics.width * perView}px` : undefined }}
+            >
+              <div className="rd-scroller book-scroller h-full" onScroll={() => syncPage(false)} ref={scrollerRef}>
+                <div className="rd-track" ref={trackRef}>
+                  <Endpaper />
+                  <BookCover {...identity} src={coverSrc} />
+                  <TitlePage {...identity} />
+                  <ContentsPage entries={entries} onJump={goToChapter} pageOf={pageOf} title={title} />
+                  <div className="book-flow rd-flow" ref={flowRef}>
+                    {children}
+                    <div aria-hidden="true" className="rd-end" data-tail={needsTail ? "true" : undefined} />
+                  </div>
+                </div>
+              </div>
+
+              {/* The running foot: series and booklet in the middle, the folio at the outer corner. */}
+              <div aria-hidden="true" className="rd-feet">
+                {Array.from({ length: perView }, (_, frame) => {
+                  const index = page.index + frame;
+                  const visible = index >= FIRST_FOOT_PAGE && index <= page.total;
+
+                  return (
+                    <div className="rd-foot-frame" key={frame}>
+                      {visible ? (
+                        <>
+                          <span className="rd-folio" data-side={index % 2 === 0 ? "left" : "right"}>
+                            {index}
+                          </span>
+                          <span className="rd-foot-title">
+                            <span className="rd-foot-series">
+                              {seriesLabel}
+                              {numberLabel ? " | " : ""}
+                            </span>
+                            {numberLabel}
+                          </span>
+                        </>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {perView === 2 ? <div aria-hidden="true" className="rd-fold" /> : null}
+
+              <button
+                aria-label="Previous page"
+                className="rd-zone rd-zone-prev"
+                disabled={atStart}
+                onClick={() => turn(-1)}
+                tabIndex={-1}
+                type="button"
+              />
+              <button
+                aria-label="Next page"
+                className="rd-zone rd-zone-next"
+                disabled={atEnd}
+                onClick={() => turn(1)}
+                tabIndex={-1}
+                type="button"
+              />
+            </div>
+
+            {resumedFrom > 0 ? (
+              <p className="rd-toast" role="status">
+                <BookmarkIcon className="mr-2 inline" size={13} />
+                Resumed at page {resumedFrom}
+              </p>
+            ) : null}
           </div>
-
-          {resumedFrom > 1 ? (
-            <p className="pointer-events-none absolute inset-x-0 top-5 mx-auto w-fit rounded-md border border-gold/25 bg-surface/95 px-4 py-2 font-label text-xs uppercase tracking-[0.2em] text-gold">
-              <Bookmark className="mr-2 inline" size={13} />
-              Resumed at page {resumedFrom}
-            </p>
-          ) : null}
         </div>
 
-        <div className="flex shrink-0 items-center justify-center gap-4 border-t border-gold/15 bg-surface px-4 py-3">
+        {/* ── Foot bar: turn, scrub, progress ─────────────────────────────────────── */}
+        <div className="rd-bar flex shrink-0 items-center gap-3 px-3 py-2.5 sm:gap-5 sm:px-6">
           <button
             aria-label="Previous page"
-            className="inline-flex size-11 items-center justify-center rounded-md border border-gold/25 text-parchment transition hover:border-gold hover:text-gold disabled:opacity-35"
-            disabled={page.current <= 1}
+            className="rd-icon-button"
+            disabled={atStart}
             onClick={() => turn(-1)}
             type="button"
           >
             <ChevronLeft size={18} />
           </button>
-          <p className="min-w-44 text-center font-label text-xs uppercase tracking-[0.2em] text-muted">
-            {perView === 2 && page.current < page.total
-              ? `Pages ${page.current}–${page.current + 1} of ${page.total}`
-              : `Page ${page.current} of ${page.total}`}
-          </p>
+
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <input
+              aria-label="Go to page"
+              className="rd-range"
+              max={page.total}
+              min={1}
+              onChange={(event) => goToPage(Number(event.target.value))}
+              style={
+                {
+                  "--pct": `${page.total > 1 ? ((page.current - 1) / (page.total - 1)) * 100 : 0}%`
+                } as React.CSSProperties
+              }
+              type="range"
+              value={page.current}
+            />
+            <p
+              aria-live="polite"
+              className="text-center font-label text-[0.68rem] uppercase tracking-[0.2em] text-muted sm:text-xs"
+              role="status"
+            >
+              {perView === 2 && page.index >= 1 && page.index + 1 <= page.total
+                ? `Pages ${Math.max(1, page.index)}–${page.index + 1} of ${page.total}`
+                : `Page ${page.current} of ${page.total}`}
+              <span className="mx-2 opacity-50">·</span>
+              {percent}%
+            </p>
+          </div>
+
           <button
             aria-label="Next page"
-            className="inline-flex size-11 items-center justify-center rounded-md border border-gold/25 text-parchment transition hover:border-gold hover:text-gold disabled:opacity-35"
-            disabled={page.current + perView > page.total}
+            className="rd-icon-button"
+            disabled={atEnd}
             onClick={() => turn(1)}
             type="button"
           >
             <ChevronRight size={18} />
           </button>
         </div>
+
+        {/* ── Panels ──────────────────────────────────────────────────────────────── */}
+        {panel !== "none" ? (
+          <button
+            aria-label="Close panel"
+            className="rd-scrim"
+            onClick={() => setPanel("none")}
+            tabIndex={-1}
+            type="button"
+          />
+        ) : null}
+
+        {panel === "contents" ? (
+          <aside aria-label="Contents" className="rd-drawer">
+            <div className="flex items-center justify-between px-5 pb-3 pt-5">
+              <h3 className="font-label text-xs uppercase tracking-[0.26em] text-gold">Contents</h3>
+              <button
+                aria-label="Close contents"
+                className="rd-icon-button"
+                onClick={() => setPanel("none")}
+                type="button"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {bookmark ? (
+              <button
+                className="rd-drawer-resume"
+                onClick={() => {
+                  const total = scrollerRef.current?.scrollWidth ?? 0;
+                  goToPage(Math.max(1, Math.round((bookmark.at * total) / Math.max(1, pageWidth))));
+                  setPanel("none");
+                }}
+                type="button"
+              >
+                <BookmarkIcon size={14} />
+                <span>Your place · page {bookmark.page}</span>
+              </button>
+            ) : null}
+
+            <ol className="rd-drawer-list">
+              {entries.map((entry) => {
+                const at = chapterPages[entry.id];
+
+                return (
+                  <li key={entry.id}>
+                    <button className="rd-drawer-row" onClick={() => goToChapter(entry.id)} type="button">
+                      <span className="rd-drawer-title">{splitChapterTitle(entry.title).title}</span>
+                      <span className="rd-drawer-page">
+                        {entry.free ? at ?? "" : <Lock aria-label="Opens with your email" size={12} />}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          </aside>
+        ) : null}
+
+        {panel === "settings" ? (
+          <div aria-label="Text and paper" className="rd-popover" role="dialog">
+            <p className="rd-popover-label">Text size</p>
+            <div className="rd-stepper">
+              <button
+                aria-label="Smaller text"
+                disabled={sizeIndex === 0}
+                onClick={() => changePrefs({ size: SIZE_STEPS[Math.max(0, sizeIndex - 1)] })}
+                type="button"
+              >
+                <Minus size={15} />
+              </button>
+              <span aria-hidden="true" className="rd-stepper-dots">
+                {SIZE_STEPS.map((step, index) => (
+                  <i data-on={index <= sizeIndex ? "true" : undefined} key={step} />
+                ))}
+              </span>
+              <button
+                aria-label="Larger text"
+                disabled={sizeIndex === SIZE_STEPS.length - 1}
+                onClick={() =>
+                  changePrefs({ size: SIZE_STEPS[Math.min(SIZE_STEPS.length - 1, sizeIndex + 1)] })
+                }
+                type="button"
+              >
+                <Plus size={15} />
+              </button>
+            </div>
+
+            <p className="rd-popover-label">Paper</p>
+            <div className="rd-modes" role="radiogroup">
+              {MODE_LABELS.map((option) => (
+                <button
+                  aria-checked={prefs.mode === option.mode}
+                  className="rd-mode"
+                  data-on={prefs.mode === option.mode ? "true" : undefined}
+                  key={option.mode}
+                  onClick={() => changePrefs({ mode: option.mode })}
+                  role="radio"
+                  type="button"
+                >
+                  <span aria-hidden="true" className="rd-swatch" style={{ background: option.swatch }} />
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            <p className="rd-popover-note">Book shows the page as it was printed.</p>
+          </div>
+        ) : null}
       </div>,
       document.body
     );
@@ -430,15 +859,12 @@ export function ChapterReader({
         through the button and fully interactive there, so nothing is lost — and the text
         is still in the HTML, which is what the crawler reads.
       */}
-      <div
-        className="reading-surface relative max-h-[60vh] overflow-hidden text-lg leading-[1.6]"
-        inert
-      >
+      <div className="reading-surface relative max-h-[60vh] overflow-hidden text-lg leading-[1.6]" inert>
         {children}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-ink" />
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3">
         <button
           className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-gold/60 px-6 py-3 font-label text-sm uppercase tracking-[0.2em] text-parchment transition hover:border-gold hover:text-gold"
           onClick={() => {
@@ -450,9 +876,15 @@ export function ChapterReader({
           }}
           type="button"
         >
-          <BookOpen size={17} />
-          {label}
+          {bookmark ? <BookmarkIcon size={17} /> : <BookOpen size={17} />}
+          {bookmark ? "Continue reading" : label}
         </button>
+
+        {bookmark ? (
+          <p className="text-base text-muted">
+            You stopped at page {bookmark.page}, {Math.round(bookmark.at * 100)}% through.
+          </p>
+        ) : null}
       </div>
     </div>
   );

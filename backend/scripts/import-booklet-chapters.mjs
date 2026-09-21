@@ -164,6 +164,23 @@ async function findBranding(imagesDir) {
   }
 }
 
+/**
+ * Whether an image is mostly transparent, which is what a logo is and an illustration is not.
+ *
+ * Counting appearances across booklets catches a mark that repeats, but booklet thirteen
+ * carries its own gold tint of it, which appears once and slipped through — a large
+ * "THE VALLURU" under a chapter heading as if it were the artwork. The plates are opaque
+ * paintings; a mark is a shape on nothing. The alpha channel says so directly.
+ */
+const TRANSPARENT_ALPHA_MEAN = 170;
+
+async function isMostlyTransparent(file) {
+  const { channels } = await sharp(file).ensureAlpha().stats();
+  const alpha = channels[3]?.mean;
+
+  return typeof alpha === "number" && alpha < TRANSPARENT_ALPHA_MEAN;
+}
+
 /** The same picture at another width or encoding must hash the same, hence the shrink. */
 async function pictureKey(file) {
   const pixels = await sharp(file).resize(48, 48, { fit: "fill" }).greyscale().raw().toBuffer();
@@ -187,7 +204,9 @@ async function platesFor(slug, options) {
   const kept = [];
 
   for (const plate of manifest.plates || []) {
-    if (brandingHashes.has(await pictureKey(path.join(options.images, slug, plate.file)))) {
+    const file = path.join(options.images, slug, plate.file);
+
+    if (brandingHashes.has(await pictureKey(file)) || (await isMostlyTransparent(file))) {
       continue;
     }
 
@@ -235,6 +254,84 @@ function assignPlates(plates, chapters) {
   return byChapter;
 }
 
+/**
+ * The Inward Mirror PDFs open differently from Inward Fire's, and the extractor reads the
+ * difference as one long chapter.
+ *
+ * Under a single "Movement 2" heading come the movement's name, a "Written by" colophon,
+ * the author's note, the contents list, an art-direction caption ("IM-02-H01 · Interior
+ * plate") and only then the essay, which begins at a paragraph reading just "Opening".
+ * Left alone the reader showed all of it as the first chapter, contents list included, and
+ * that chapter used up one of the three free ones.
+ *
+ * Split at "Opening": what comes before is front matter (free, and not counted), what
+ * comes after is chapter one. The contents paragraph goes — the reader builds its own — as
+ * do the colophon line and the caption, which were never the author's prose.
+ */
+const PLATE_CAPTION = /^IM-\d+-[A-Z0-9]+\s*[·.\-]\s*Interior plate$/i;
+
+function tidyMirrorChapters(chapters) {
+  const tidied = [];
+
+  for (const chapter of chapters) {
+    const paragraphs = chapter.paragraphs.filter((paragraph) => !PLATE_CAPTION.test(paragraph.trim()));
+    const isCover = Boolean(chapter.frontMatter) && chapter.number === 1;
+    const isMovement = /^movement\s+\d+/i.test(chapter.title);
+
+    if ((!isCover && !isMovement) || !paragraphs.some((paragraph) => /^opening$/i.test(paragraph.trim()))) {
+      tidied.push({ ...chapter, paragraphs });
+      continue;
+    }
+
+    // In three of the booklets the cover chapter runs straight on into the movement's
+    // opening — the essay is inside the section the reader hides as the cover. Split off
+    // what precedes the "Movement N" line and keep it as the cover.
+    let rest = paragraphs;
+
+    if (isCover) {
+      const marker = paragraphs.findIndex(
+        (paragraph) => /^movement\s+\d+/i.test(paragraph.trim()) && paragraph.trim().split(/\s+/).length <= 3
+      );
+
+      if (marker >= 0) {
+        tidied.push({ ...chapter, paragraphs: paragraphs.slice(0, marker) });
+        rest = paragraphs.slice(marker + 1);
+      }
+    }
+
+    const opening = rest.findIndex((paragraph) => /^opening$/i.test(paragraph.trim()));
+    const front = rest
+      .slice(0, opening)
+      .filter(
+        (paragraph) =>
+          !/^contents\b/i.test(paragraph) &&
+          !/^written by\b/i.test(paragraph) &&
+          // The list is split at a page break in some booklets, so its second half does not
+          // start with the word. Three or more "4. Title" items in one paragraph is a
+          // contents list; prose does not number things that densely.
+          (paragraph.match(/(?:^|\s)\d{1,2}\.\s+\S/g) || []).length < 3
+      );
+    // The movement's name is the line before the colophon and reads as a stray title.
+    const authorsNote = front.filter((paragraph, index) => !(index === 0 && paragraph.split(/\s+/).length <= 6));
+
+    if (authorsNote.length) {
+      tidied.push({ ...chapter, title: "Author's Note", frontMatter: true, paragraphs: authorsNote });
+    }
+
+    tidied.push({
+      ...chapter,
+      title: "Opening",
+      frontMatter: false,
+      // The section runs pages 3-7 and the essay starts near its end, after the note, the
+      // contents and the interior plate — late enough that the plate faces it.
+      startPage: Math.max(chapter.startPage || 0, (chapter.endPage || chapter.startPage || 0) - 1),
+      paragraphs: rest.slice(opening + 1)
+    });
+  }
+
+  return tidied.map((chapter, index) => ({ ...chapter, number: index + 1, id: `chapter-${index + 1}` }));
+}
+
 const options = parseArgs(process.argv.slice(2));
 
 if (PROTECTED_DATABASES.has(options.db)) {
@@ -251,6 +348,9 @@ if (!options.source) {
 
 const sourcePayload = JSON.parse(await readFile(options.source, "utf8"));
 const content = sourcePayload.content ?? sourcePayload;
+
+/** How each booklet is set, from extract-booklet-theme.mjs. Optional: without it the reader uses its default page. */
+const themes = options.themes ? JSON.parse(await readFile(options.themes, "utf8")) : {};
 
 if (options.images) {
   await findBranding(options.images);
@@ -317,10 +417,24 @@ for (const [series, allowNumberFallback] of [
 
     used.add(data.slug);
 
-    const plates = await platesFor(data.slug, options);
-    const platesByChapter = assignPlates(plates, data.chapters);
+    const theme = themes[data.slug];
 
-    booklet.chapters = data.chapters.map((chapter, index) => {
+    if (theme) {
+      booklet.reader = {
+        face: theme.face,
+        paper: theme.paper,
+        ink: theme.ink,
+        accent: theme.accent,
+        aspect: theme.aspect
+      };
+    }
+
+    const plates = await platesFor(data.slug, options);
+    // Inward Mirror sections are restructured; Inward Fire's extract as they are.
+    const chapters = allowNumberFallback ? data.chapters : tidyMirrorChapters(data.chapters);
+    const platesByChapter = assignPlates(plates, chapters);
+
+    booklet.chapters = chapters.map((chapter, index) => {
       const images = platesByChapter.get(chapter.id) || [];
 
       return {
@@ -335,18 +449,23 @@ for (const [series, allowNumberFallback] of [
          */
         title: index === 0 ? booklet.title : chapter.title,
         paragraphs: chapter.paragraphs,
-        ...(chapter.frontMatter ? { frontMatter: true } : {}),
+        // A section whose title is the booklet's own is the printed title page — the PDF
+        // sets it as a heading, so the extractor reads it as a chapter, and it was using
+        // up one of the three free chapters.
+        ...(chapter.frontMatter || titleKey(chapter.title) === titleKey(booklet.title)
+          ? { frontMatter: true }
+          : {}),
         ...(images.length ? { images } : {})
       };
     });
 
-    const words = data.chapters.reduce(
+    const words = chapters.reduce(
       (total, chapter) => total + chapter.paragraphs.join(" ").split(/\s+/).length,
       0
     );
 
     console.log(
-      `  ${String(booklet.numberLabel || booklet.slug).padEnd(30)} ${String(data.chapters.length).padStart(3)} chapters, ${String(words).padStart(6)} words`
+      `  ${String(booklet.numberLabel || booklet.slug).padEnd(30)} ${String(chapters.length).padStart(3)} chapters, ${String(words).padStart(6)} words`
     );
     matched += 1;
   }

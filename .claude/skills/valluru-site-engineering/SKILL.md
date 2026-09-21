@@ -502,6 +502,72 @@ Also fixed on the way: booklet thirteen sets its running head as `12 THE INWARD 
 counted one head as two and neither reached the 40% furniture threshold — 33 paragraphs of
 running head in the prose. `normalizeForComparison` now drops the folio from either end.
 
+### The reader takes each booklet's own design
+
+The booklets are **not one design**, and a single cream page could never be "like the PDF".
+Measured with `backend/scripts/extract-booklet-theme.mjs` (paper sampled from pixels of
+*body-text pages*, face/ink/accent from the operator list, page shape from the viewport):
+EB Garamond (13), Georgia (the whole Mirror series), Arial (14–22), Noto/DejaVu Serif
+(the rest); paper from white (1–8) to `#f4ebd7`; four landscape or square. Stored on each
+booklet as `booklet.reader = {face, paper, ink, accent, aspect}` by the import
+(`--themes themes.json`). `lib/reader-theme.ts` validates every value (six hex digits or it
+is ignored — the data is admin-editable and lands in inline styles), guards ink contrast,
+and maps `face` to a loaded font: EB Garamond, Gelasio (Georgia's metric twin, since
+Georgia is not free to serve), Arimo (Arial's), Noto Serif. All load `preload:false`.
+
+Traps in the measuring: reading paper from "the first fill on a page" gave **black** for
+booklets whose paper is cream (that fill is a full-bleed cover); sampling by page number
+gave black for 17 and 18 because they alternate full-page plates with text. Sample pixels of
+pages with ≥25 text items. Confirm against a rendered page (`@napi-rs/canvas` is in
+`node_modules`) — booklet one really is white paper, and my earlier guess of `#fbf8f1` was wrong.
+
+**The reader is a book**, drawn from how the PDFs open: end-paper | cover (full-bleed art,
+title plate) | title page (gold series line, rule, caps title, italic subtitle, author, logo
+as a CSS mask in the accent colour) | contents (live page numbers, lock on gated) | the
+writing. The end-paper exists so the cover sits on the right and even pages are left, as
+in print; a single page skips it. The extracted "front matter" chapter (cover text run
+together) stays in the HTML for search but is `display:none` in the book
+(`isTitlePageChapter`). Running foot: series | booklet in the middle, folio on the outer
+corner; on a narrow page (`@container`) only the booklet number.
+
+- **The last spread must align.** A multi-column box's scrollable width stops at the last
+  text column's right edge, *omitting that page's trailing margin*, so the final turn
+  clamped a fraction of a page short — the closing spread came up half a page out. `.rd-end`
+  is as wide as the missing margin; when the page count is even it also forces a column of
+  its own so the last spread is a complete pair.
+- **Arrow keys belong to the sign-up field** while it has focus; the key handler ignores
+  input/textarea/select.
+- **`html` scrolls on its own** (`overflow-x:hidden` on it stops `body` overflow
+  propagating), so lock both, or a scrollbar shows behind the book.
+- Persist a bookmark only in `moveTo` (the reader's own turns) — never from the scroll
+  handler, or the settle loop's repositioning overwrites it.
+- Text size / paper change the length of the book. `changePrefs` saves the place, clears
+  `movedRef`, and the settle loop puts the reader back at the same share of it.
+- **Do not trust a plausible count.** Every one of these looked fine in numbers and was wrong
+  on the page; open the reader and look. The in-app Browser pane returns *stale* screenshots
+  of an emulated viewport (DOM correct, image frozen) — use the Playwright browser for
+  visual checks, at the real size.
+
+The gate is a page of its own now (`.valluru-gated` in the book: `break-before:column`,
+centred), not a panel in the column, where the form collapsed to a sliver and the button hung
+off the edge. Copy no longer mentions the PDF (downloads are removed). A slow sign-up (Render
+free tier waking) says so after six seconds. The on-page button reads **Continue reading**
+with "You stopped at page N, X% through" once a bookmark exists (`useBookmark`,
+`useSyncExternalStore` so it hydrates to what the server sent).
+
+Extraction/import lessons from the same pass:
+
+- **Logos slip past a per-book test.** Count-across-booklets missed the gold tint that
+  booklet 13 carries alone. Transparency is the direct test: logos are transparent PNGs,
+  artwork is opaque — drop plates whose mean alpha < 170 (`isMostlyTransparent`).
+- **A section titled like the booklet is its title page**, not a chapter (it consumed a
+  free chapter in booklet 13). The import marks it front matter.
+- **Inward Mirror PDFs** put note, contents, caption and essay under one heading and, in
+  three booklets, inside the cover chapter. `tidyMirrorChapters` splits at "Opening" into
+  Author's Note (front matter) + Opening, and drops the `IM-0x-H01 · Interior plate`
+  captions, the "Written by" line and the contents list (including its second half, split
+  at a page break — three or more `N. Title` items in one paragraph).
+
 ### The Inward Mirror is on the same reader
 
 The seven Inward Mirror booklets (`IM_B01…B07`, ~2,000 words and 15–17 pages each) now go
