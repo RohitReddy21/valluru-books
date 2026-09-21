@@ -1,5 +1,6 @@
 import { Lock } from "lucide-react";
 import Image from "next/image";
+import { useLayoutEffect, useRef } from "react";
 import { splitChapterTitle } from "@/components/chapter-body";
 
 /**
@@ -73,15 +74,42 @@ export function ContentsPage({
   title,
   entries,
   pageOf,
-  onJump
+  onJump,
+  fit
 }: {
+  /** Anything that changes the page's size or type; the list is fitted again when it does. */
+  fit: unknown;
   title: string;
   entries: ContentsEntry[];
   pageOf: (id: string) => number | null;
   onJump: (id: string) => void;
 }) {
+  const ref = useRef<HTMLElement>(null);
+
+  // A contents page is one page, as in the PDFs. Rather than let a long list scroll inside
+  // the leaf, shrink the list until it sits above the running foot.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) {
+      return;
+    }
+
+    const settle = () => {
+      let scale = 1;
+      el.style.setProperty("--toc-scale", "1");
+      while (el.scrollHeight > el.clientHeight + 1 && scale > 0.5) {
+        scale = Math.round((scale - 0.04) * 100) / 100;
+        el.style.setProperty("--toc-scale", String(scale));
+      }
+    };
+
+    settle();
+    // Faces arrive after the first paint and change the wrapping.
+    void document.fonts?.ready.then(settle);
+  }, [fit, entries]);
+
   return (
-    <section aria-label="Contents" className="rd-front rd-contents" data-dense={entries.length > 11 ? "true" : undefined}>
+    <section aria-label="Contents" className="rd-front rd-contents" ref={ref} data-dense={entries.length > 11 ? "true" : undefined}>
       <p className="rd-kicker">Contents</p>
       <h2 className="rd-title">{title}</h2>
       <ol className="rd-toc">

@@ -622,7 +622,7 @@ export function ChapterReader({
                   <Endpaper />
                   <BookCover {...identity} src={coverSrc} />
                   <TitlePage {...identity} />
-                  <ContentsPage entries={entries} onJump={goToChapter} pageOf={pageOf} title={title} />
+                  <ContentsPage entries={entries} fit={pageVars} onJump={goToChapter} pageOf={pageOf} title={title} />
                   <div className="book-flow rd-flow" ref={flowRef}>
                     {children}
                     <div aria-hidden="true" className="rd-end" data-tail={needsTail ? "true" : undefined} />
