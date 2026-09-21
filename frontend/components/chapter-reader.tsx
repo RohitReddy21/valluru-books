@@ -13,6 +13,7 @@ import {
   X
 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { createPortal } from "react-dom";
 import { splitChapterTitle } from "@/components/chapter-body";
 import { BookCover, ContentsPage, Endpaper, TitlePage, type ContentsEntry } from "@/components/reader-pages";
@@ -850,8 +851,70 @@ export function ChapterReader({
     );
   }
 
+  const start = () => {
+    setOpen(true);
+
+    if (reports) {
+      void trackBookletUnlock(reports);
+    }
+  };
+
+  const readButton = (
+    <button
+      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-gold/60 px-6 py-3 font-label text-sm uppercase tracking-[0.2em] text-parchment transition hover:border-gold hover:text-gold"
+      onClick={start}
+      type="button"
+    >
+      {bookmark ? <BookmarkIcon size={17} /> : <BookOpen size={17} />}
+      {bookmark ? "Continue reading" : label}
+    </button>
+  );
+
+  const bookmarkNote = bookmark ? (
+    <p className="mt-4 text-base text-muted">
+      You stopped at page {bookmark.page}, {Math.round(bookmark.at * 100)}% through.
+    </p>
+  ) : null;
+
   return (
     <div>
+      {coverSrc ? (
+        /*
+          The cover, at the size of a book on a table rather than a thumbnail. Clicking it
+          opens the same reader as the button, which stays the one control for assistive
+          technology, so the cover itself is left out of the tab order.
+        */
+        <div className="mt-10 grid items-center gap-8 sm:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] sm:gap-10">
+          <div
+            aria-hidden="true"
+            className="relative mx-auto w-full max-w-[20rem] cursor-pointer overflow-hidden rounded-[3px] shadow-[0_30px_70px_rgba(0,0,0,0.55),0_0_0_1px_rgba(196,169,107,0.22)]"
+            onClick={start}
+            style={{ aspectRatio: String(aspect) }}
+          >
+            <Image
+              alt=""
+              className="object-cover"
+              fill
+              priority
+              sizes="(min-width: 640px) 20rem, 80vw"
+              src={coverSrc}
+            />
+            {/* The spine: a soft shadow down the left edge, as on a hardback. */}
+            <div className="pointer-events-none absolute inset-y-0 left-0 w-[7%] bg-gradient-to-r from-black/45 via-white/10 to-transparent" />
+          </div>
+          <div className="text-center sm:text-left">
+            {numberLabel ? (
+              <p className="font-label text-xs uppercase tracking-[0.24em] text-gold">{numberLabel}</p>
+            ) : null}
+            <p className="mt-3 text-lg leading-8 text-parchment/80">
+              Opens as a book: turn the pages, set the type and paper, and pick up where you stopped.
+            </p>
+            <div className="mt-6">{readButton}</div>
+            {bookmarkNote}
+          </div>
+        </div>
+      ) : null}
+
       {/*
         Inert because this is a clipped preview, not the reading: the sign-up form at the
         foot of the chapters sits below the clip line, and without this a keyboard reader
@@ -859,33 +922,24 @@ export function ChapterReader({
         through the button and fully interactive there, so nothing is lost — and the text
         is still in the HTML, which is what the crawler reads.
       */}
-      <div className="reading-surface relative max-h-[60vh] overflow-hidden text-lg leading-[1.6]" inert>
+      <div
+        className={`reading-surface relative overflow-hidden text-lg leading-[1.6] ${coverSrc ? "mt-12 max-h-[32vh]" : "max-h-[60vh]"}`}
+        inert
+      >
         {children}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-ink" />
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3">
-        <button
-          className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-gold/60 px-6 py-3 font-label text-sm uppercase tracking-[0.2em] text-parchment transition hover:border-gold hover:text-gold"
-          onClick={() => {
-            setOpen(true);
-
-            if (reports) {
-              void trackBookletUnlock(reports);
-            }
-          }}
-          type="button"
-        >
-          {bookmark ? <BookmarkIcon size={17} /> : <BookOpen size={17} />}
-          {bookmark ? "Continue reading" : label}
-        </button>
-
-        {bookmark ? (
-          <p className="text-base text-muted">
-            You stopped at page {bookmark.page}, {Math.round(bookmark.at * 100)}% through.
-          </p>
-        ) : null}
-      </div>
+      {coverSrc ? null : (
+        <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3">
+          {readButton}
+          {bookmark ? (
+            <p className="text-base text-muted">
+              You stopped at page {bookmark.page}, {Math.round(bookmark.at * 100)}% through.
+            </p>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }
