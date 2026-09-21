@@ -12,6 +12,7 @@ import {
 import Script from "next/script";
 import "../globals.css";
 import { getSiteContent } from "@/lib/content-store";
+import { isSandbox } from "@/lib/site-env";
 import { MetaPixel } from "@/components/meta-pixel";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
@@ -127,10 +128,9 @@ export const metadata: Metadata = {
       "Booklets on dharma, grief, language, and surrender. For the seeker who still needs an inward anchor.",
     images: ["https://www.thevalluru.org/og/default.jpg"]
   },
-  robots: "index, follow",
-  alternates: {
-    canonical: "https://www.thevalluru.org"
-  }
+  // A review copy must not compete with the live site in search results.
+  robots: isSandbox ? "noindex, nofollow" : "index, follow",
+  alternates: isSandbox ? undefined : { canonical: "https://www.thevalluru.org" }
 };
 
 export const viewport: Viewport = {
@@ -151,8 +151,12 @@ export default async function RootLayout({
       lang="en"
     >
       <head>
-        <link href="https://www.googletagmanager.com" rel="preconnect" />
-        <link href="https://connect.facebook.net" rel="preconnect" />
+        {isSandbox ? null : (
+          <>
+            <link href="https://www.googletagmanager.com" rel="preconnect" />
+            <link href="https://connect.facebook.net" rel="preconnect" />
+          </>
+        )}
 
         {/* Organization Schema */}
         <script
@@ -190,44 +194,49 @@ export default async function RootLayout({
         />
 
         {/* Google Site Verification */}
-        <meta name="google-site-verification" content="GTM-K6F4DJ54" />
+        {isSandbox ? null : <meta name="google-site-verification" content="GTM-K6F4DJ54" />}
       </head>
       <body>
-        {/* Google Tag Manager (noscript) */}
-        <noscript>
-          <iframe
-            src="https://www.googletagmanager.com/ns.html?id=GTM-K6F4DJ54"
-            height="0"
-            width="0"
-            style={{ display: "none", visibility: "hidden" }}
-          />
-        </noscript>
-        <MetaPixel />
+        {/* The live GTM container, GA4 property and Meta Pixel stay off the sandbox. */}
+        {isSandbox ? null : (
+          <>
+            {/* Google Tag Manager (noscript) */}
+            <noscript>
+              <iframe
+                src="https://www.googletagmanager.com/ns.html?id=GTM-K6F4DJ54"
+                height="0"
+                width="0"
+                style={{ display: "none", visibility: "hidden" }}
+              />
+            </noscript>
+            <MetaPixel />
 
-        {/* Google Tag Manager */}
-        <Script id="gtm" strategy="afterInteractive">
-          {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+            {/* Google Tag Manager */}
+            <Script id="gtm" strategy="afterInteractive">
+              {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
 j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-K6F4DJ54');`}
-        </Script>
+            </Script>
 
-        {/*
-          GA4 also runs through the GTM container above. If G-HYV3VRYR06 is configured
-          there, this standalone tag double-counts and should be deleted — that check
-          needs the container, not the code.
-        */}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-HYV3VRYR06"
-          strategy="afterInteractive"
-        />
-        <Script id="ga4-config" strategy="afterInteractive">
-          {`window.dataLayer = window.dataLayer || [];
+            {/*
+              GA4 also runs through the GTM container above. If G-HYV3VRYR06 is configured
+              there, this standalone tag double-counts and should be deleted — that check
+              needs the container, not the code.
+            */}
+            <Script
+              src="https://www.googletagmanager.com/gtag/js?id=G-HYV3VRYR06"
+              strategy="afterInteractive"
+            />
+            <Script id="ga4-config" strategy="afterInteractive">
+              {`window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
 gtag('config', 'G-HYV3VRYR06', { page_path: window.location.pathname });`}
-        </Script>
+            </Script>
+          </>
+        )}
 
         <SiteNav nav={content.nav} />
         {children}

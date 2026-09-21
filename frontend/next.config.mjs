@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const sandbox = process.env.NEXT_PUBLIC_SANDBOX === "1";
+
 const nextConfig = {
   images: {
     remotePatterns: [
@@ -31,7 +33,9 @@ const nextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           // SAMEORIGIN rather than DENY: the booklet reader frames /pdfjs itself.
-          { key: "X-Frame-Options", value: "SAMEORIGIN" }
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          // Also covers what has no <head> to carry a robots tag: PDFs, images, JSON.
+          ...(sandbox ? [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] : [])
         ]
       }
     ];
