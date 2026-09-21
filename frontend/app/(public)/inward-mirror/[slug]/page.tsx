@@ -24,6 +24,18 @@ import { getSiteContent } from "@/lib/content-store";
 
 export const revalidate = 300;
 
+/**
+ * Prebuilt, so a booklet page is a cached page that survives a sleeping backend rather
+ * than one rendered on demand — which has nothing to fall back to when the API is down.
+ */
+export async function generateStaticParams() {
+  const content = await getSiteContent();
+
+  return content.inwardMirror.booklets
+    .filter((booklet) => isPublished(booklet.status))
+    .map((booklet) => ({ slug: bookletPublicSlug(booklet) }));
+}
+
 export async function generateMetadata({
   params
 }: {

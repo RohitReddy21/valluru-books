@@ -25,7 +25,13 @@ export async function GET(
   { params }: { params: Promise<{ code: string }> }
 ) {
   const { code } = await params;
-  const content = await getSiteContent();
+  // A campaign link must land somewhere while the API wakes up, not answer with an error.
+  const content = await getSiteContent().catch(() => null);
+
+  if (!content) {
+    return NextResponse.redirect(new URL("/series", request.url), 307);
+  }
+
   // The Inward Fire series is code-owned at /series; only Inward Mirror carries a
   // configurable routeSegment.
   const seriesPath = "/series";

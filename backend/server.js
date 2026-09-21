@@ -1716,6 +1716,10 @@ app.get("/api/content", async (request, response, next) => {
 
     if (!hasMongo || !content) {
       debugLog("[api/content] Local dev mode - MongoDB not available, returning default content");
+      // Says so out loud: the frontend caches whatever this returns for five minutes, and it
+      // must be able to tell placeholder content from the real thing and keep the last good
+      // page instead of replacing it.
+      response.set("X-Content-Source", "fallback");
       // Return default fallback content
       return response.json({
         content: {
@@ -1915,12 +1919,19 @@ app.post("/api/track-unlock", async (request, response, next) => {
     // Check if we have a subscriber with this email to get name/email
     let subscriberName = name || null;
     let subscriberEmail = email || null;
+    // Set when the email belongs to someone already subscribed: it is how a reader who
+    // subscribed before the gate existed, and holds nothing but a browser flag, gets in.
+    let recoveredAccessToken;
     
     if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       const existingSubscriber = await db.collection("subscribers").findOne({ email });
       if (existingSubscriber) {
         subscriberName = subscriberName || existingSubscriber.name;
         subscriberEmail = existingSubscriber.email;
+
+        if (bookletSlug) {
+          recoveredAccessToken = createAccessToken(bookletSlug);
+        }
         setSubscriberCookie(response, request, {
           email: subscriberEmail,
           name: subscriberName || existingSubscriber.name || ""
@@ -1993,7 +2004,7 @@ app.post("/api/track-unlock", async (request, response, next) => {
       setSubscriberCookie(response, request, { email, name });
     }
 
-    response.json({ ok: true });
+    response.json({ ok: true, ...(recoveredAccessToken ? { accessToken: recoveredAccessToken } : {}) });
   } catch (error) {
     next(error);
   }

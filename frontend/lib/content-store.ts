@@ -624,34 +624,94 @@ function normalizeContent(content?: Partial<SiteContent> | null): SiteContent {
 export const CONTENT_REVALIDATE_SECONDS = 300;
 export const CONTENT_CACHE_TAG = "site-content";
 
-// The API runs on Render's free tier and sleeps when idle. Without a ceiling, the first
-// request after a quiet period blocks the page on a cold start.
-const CONTENT_FETCH_TIMEOUT_MS = 6000;
+/**
+ * While a page is being built, a sleeping free-tier backend is worth waiting for: a build
+ * that gives up after six seconds bakes placeholder content into every page. At request
+ * time the ceiling stays short, so a cold start never holds a visitor.
+ */
+const BUILDING = process.env.NEXT_PHASE === "phase-production-build";
+const CONTENT_FETCH_TIMEOUT_MS = BUILDING ? 90_000 : 6000;
+
+/** Once the backend has failed a whole build wait, the rest of the build stops waiting. */
+let backendUnreachableDuringBuild = false;
+
+/**
+ * The last real content this server instance received. A forced revalidation (an admin
+ * save) expires the cached copy outright, and if the API is unreachable at that moment
+ * there is no page left to keep; a warm instance can still answer from this.
+ */
+let lastGoodContent: SiteContent | null = null;
+
+class ContentUnavailableError extends Error {
+  constructor(reason: string) {
+    super(`Site content unavailable (${reason}); keeping the last generated page.`);
+    this.name = "ContentUnavailableError";
+  }
+}
+
+/**
+ * The backend could not give real content.
+ *
+ * At request time this answers from the last real content this instance saw, and throws if
+ * it has seen none. Next.js treats a failed regeneration as "keep serving the page you
+ * have and try again on the next request", which is what a visitor wants while the API
+ * wakes up. Returning the placeholder content instead is a *successful* render, so
+ * it replaces the good page and is served for the next five minutes: with Render sleeping
+ * after fifteen idle minutes, the site kept losing its booklets. During the build there is
+ * no earlier page to keep, so the placeholders are the right answer there.
+ */
+function contentUnavailable(reason: string): SiteContent {
+  if (BUILDING) {
+    backendUnreachableDuringBuild = true;
+    return normalizeContent(null);
+  }
+
+  if (lastGoodContent) {
+    return lastGoodContent;
+  }
+
+  throw new ContentUnavailableError(reason);
+}
 
 /**
  * `cache` dedupes this across one render pass, so the layout and the page share a single
  * fetch instead of making the same call twice.
  */
 export const getSiteContent = cache(async function getSiteContent(): Promise<SiteContent> {
+  if (BUILDING && backendUnreachableDuringBuild) {
+    return normalizeContent(null);
+  }
+
   try {
     const response = await fetch(apiUrl("/api/content"), {
       next: { revalidate: CONTENT_REVALIDATE_SECONDS, tags: [CONTENT_CACHE_TAG] },
       signal: AbortSignal.timeout(CONTENT_FETCH_TIMEOUT_MS)
     });
 
+    // Normalize the defaults too, so an unreachable backend renders the same nav,
+    // footer, and series visibility rules as a healthy one.
     if (!response.ok) {
-      // Normalize the defaults too, so an unreachable backend renders the same nav,
-      // footer, and series visibility rules as a healthy one.
-      return normalizeContent(null);
+      return contentUnavailable(`HTTP ${response.status}`);
+    }
+
+    // The backend answers 200 with placeholder content when it cannot reach its database.
+    if (response.headers.get("x-content-source") === "fallback") {
+      return contentUnavailable("backend is serving fallback content");
     }
 
     const payload = (await response.json()) as {
       content?: Partial<SiteContent> | null;
     };
 
-    return normalizeContent(payload.content);
-  } catch {
-    return normalizeContent(null);
+    lastGoodContent = normalizeContent(payload.content);
+
+    return lastGoodContent;
+  } catch (error) {
+    if (error instanceof ContentUnavailableError) {
+      throw error;
+    }
+
+    return contentUnavailable(error instanceof Error ? error.message : "request failed");
   }
 });
 
