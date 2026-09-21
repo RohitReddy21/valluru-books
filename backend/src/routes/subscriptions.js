@@ -87,7 +87,8 @@ function registerSubscriptionRoutes(
       const subscriberUpdate = {
         $set: {
           email,
-          name,
+          // Sign-up is email only: never blank out a name a subscriber gave earlier.
+          ...(name ? { name } : {}),
           lastSource: source,
           lastBookletSlug: bookletSlug || null,
           lastBookletTitle: bookletTitle,
@@ -113,7 +114,7 @@ function registerSubscriptionRoutes(
           {
             $set: {
               email,
-              name,
+              ...(name ? { name } : {}),
               bookletSlug,
               bookletTitle,
               source,

@@ -39,7 +39,6 @@ export function BookletReader({ booklet }: Props) {
     typeof window !== "undefined"
       ? window.localStorage.getItem(accessStorageKey) || ""
       : "";
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [hasAccess, setHasAccess] = useState(false);
   const [accessToken, setAccessToken] = useState(storedAccessToken);
@@ -93,25 +92,25 @@ export function BookletReader({ booklet }: Props) {
     let readerInfo: { name?: string; email?: string } | undefined;
     const storedSubscriberInfo = readStoredSubscriberInfo();
     const needsSubscriberInfo = !isFree && !storedSubscriberInfo?.email;
-    const subscriberName = (needsSubscriberInfo ? name : storedSubscriberInfo?.name || name).trim();
+    const subscriberName = (storedSubscriberInfo?.name || "").trim();
     const subscriberEmail = (needsSubscriberInfo ? email : storedSubscriberInfo?.email || email).trim();
     const shouldSubscribe =
       !isFree &&
       (window.localStorage.getItem(globalStorageKey) !== "subscribed" || needsSubscriberInfo);
 
-    if (needsSubscriberInfo && (!subscriberName || !subscriberEmail)) {
+    if (needsSubscriberInfo && !subscriberEmail) {
       setStatus("error");
       return;
     }
     
     if (shouldSubscribe) {
-      if (subscriberName && subscriberEmail) {
+      if (subscriberEmail) {
         const response = await fetch(apiUrl("/api/subscribe"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-            name: subscriberName,
+            ...(subscriberName ? { name: subscriberName } : {}),
             email: subscriberEmail,
             source: "booklet-reader",
             bookletSlug: booklet.slug,
@@ -199,19 +198,9 @@ export function BookletReader({ booklet }: Props) {
           </button>
         </div>
 
-        {/* Show name/email input when we cannot attach a subscriber to the read yet. */}
+        {/* Ask for an email when we cannot attach a subscriber to the read yet. */}
         {shouldShowSubscriberFields && (
           <div className="mt-6 space-y-3">
-            <label className="sr-only" htmlFor={`name-${booklet.slug}`}>
-              Name
-            </label>
-            <input
-              id={`name-${booklet.slug}`}
-              className="min-h-12 w-full rounded-md border border-gold/20 bg-ink px-4 py-3 text-lg text-parchment outline-none transition placeholder:text-muted/70 focus:border-gold/60"
-              onChange={(event) => setName(event.target.value)}
-              placeholder="Your name"
-              value={name}
-            />
             <label className="sr-only" htmlFor={`email-${booklet.slug}`}>
               Email
             </label>
@@ -228,7 +217,7 @@ export function BookletReader({ booklet }: Props) {
 
         <p className="mt-3 text-base italic text-muted">
           {status === "error"
-            ? "Please enter your name and email before reading."
+            ? "Please enter your email before reading."
             : "You'll receive quiet updates when new content is added."}
         </p>
       </div>

@@ -6,7 +6,6 @@ import { trackEmailSubscription } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api";
 
 export function NewsletterForm({ microcopy }: { microcopy: string }) {
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">(
     "idle"
@@ -20,12 +19,11 @@ export function NewsletterForm({ microcopy }: { microcopy: string }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
-      body: JSON.stringify({ name, email })
+      body: JSON.stringify({ email })
     });
 
     if (response.ok) {
       trackEmailSubscription();
-      setName("");
       setEmail("");
       setStatus("success");
     } else {
@@ -35,19 +33,7 @@ export function NewsletterForm({ microcopy }: { microcopy: string }) {
 
   return (
     <form className="mt-8" onSubmit={submit}>
-      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
-        <label className="sr-only" htmlFor="newsletter-name">
-          Name
-        </label>
-        <input
-          className="min-h-12 rounded-md border border-gold/20 bg-surface px-4 py-3 text-lg text-parchment outline-none transition placeholder:text-muted/70 focus:border-gold/60"
-          id="newsletter-name"
-          onChange={(event) => setName(event.target.value)}
-          placeholder="Your name"
-          required
-          type="text"
-          value={name}
-        />
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
         <label className="sr-only" htmlFor="newsletter-email">
           Email address
         </label>

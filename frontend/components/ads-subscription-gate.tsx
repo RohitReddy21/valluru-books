@@ -12,7 +12,6 @@ export function AdsSubscriptionGate({ children }: { children: ReactNode }) {
   const titleId = useId();
   const descriptionId = useId();
   const [hasAccess, setHasAccess] = useState(false);
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">(
     "idle"
@@ -40,7 +39,6 @@ export function AdsSubscriptionGate({ children }: { children: ReactNode }) {
         credentials: "include",
         body: JSON.stringify({
           source: "ads-landing",
-          name,
           email
         })
       });
@@ -52,13 +50,11 @@ export function AdsSubscriptionGate({ children }: { children: ReactNode }) {
 
       trackEmailSubscription();
       setStatus("success");
-      // Save subscriber info before clearing name/email
-      const subscriberName = name;
+      // Save subscriber info before clearing the email
       const subscriberEmail = email;
-      setName("");
       setEmail("");
       window.localStorage.setItem(storageKey, "subscribed");
-      window.localStorage.setItem(subscriberInfoKey, JSON.stringify({ name: subscriberName, email: subscriberEmail }));
+      window.localStorage.setItem(subscriberInfoKey, JSON.stringify({ email: subscriberEmail }));
       setHasAccess(true);
     } catch {
       setStatus("error");
@@ -95,19 +91,6 @@ export function AdsSubscriptionGate({ children }: { children: ReactNode }) {
             </p>
 
             <form className="mt-7 space-y-3" onSubmit={submit}>
-              <label className="sr-only" htmlFor="ads-subscription-name">
-                Name
-              </label>
-              <input
-                className="min-h-12 w-full rounded-md border border-gold/20 bg-ink px-4 py-3 text-lg text-parchment outline-none transition placeholder:text-muted/70 focus:border-gold/60"
-                id="ads-subscription-name"
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Your name"
-                required
-                type="text"
-                value={name}
-              />
-
               <label className="sr-only" htmlFor="ads-subscription-email">
                 Email address
               </label>
