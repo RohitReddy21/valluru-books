@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
 import { BookletChapters } from "@/components/booklet-chapters";
 import { BookletReader } from "@/components/booklet-reader";
 import { ReflectionForm } from "@/components/reflection-form";
-import { BackLink, BookletRow, HeroBackground, PageShell, PrimaryLink } from "@/components/ui";
+import { BackLink, BookletRow, HeroBackground, PageShell } from "@/components/ui";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { FaqAccordion } from "@/components/faq-accordion";
 // import { AddToCartButton } from "@/components/add-to-cart-button";
@@ -328,10 +329,17 @@ export default async function BookletPage({
               <h2 className="font-label text-sm uppercase tracking-[0.23em] text-muted">
                 Previous / Next
               </h2>
+              {/*
+                The whole card is the link. It used to carry a "Read" button of its own,
+                which put three controls saying Read within a few hundred pixels of each
+                other — this booklet's reader, its PDF, and two neighbours — when only one
+                of them opened the booklet you were looking at.
+              */}
               <div className="mt-5 grid gap-4">
                 {navigationBooklets.map((navigationItem) => (
-                  <div
-                    className="rounded-md border border-gold/15 bg-surface/70 p-5"
+                  <Link
+                    className="block rounded-md border border-gold/15 bg-surface/70 p-5 transition hover:border-gold/45"
+                    href={`/series/${bookletPublicSlug(navigationItem.booklet)}`}
                     key={`${navigationItem.label}-${navigationItem.booklet.slug}`}
                   >
                     <p className="font-label text-xs uppercase tracking-[0.2em] text-gold">
@@ -340,15 +348,7 @@ export default async function BookletPage({
                     <h3 className="mt-3 font-display text-xl text-parchment">
                       {navigationItem.booklet.title}
                     </h3>
-                    <div className="mt-4">
-                      <PrimaryLink
-                        cta={{
-                          label: "Read",
-                          href: `/series/${bookletPublicSlug(navigationItem.booklet)}`
-                        }}
-                      />
-                    </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </aside>

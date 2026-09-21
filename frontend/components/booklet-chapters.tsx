@@ -1,8 +1,6 @@
-import { Download } from "lucide-react";
 import { ChapterGate } from "@/components/chapter-gate";
 import { ChapterArticle } from "@/components/chapter-body";
 import { ChapterReader } from "@/components/chapter-reader";
-import { apiUrl } from "@/lib/api";
 import { getBookletDownloadButtonText, isChapterFree, type Booklet } from "@/lib/site-content";
 
 /**
@@ -37,19 +35,6 @@ export function BookletChapters({ booklet }: { booklet: Booklet }) {
         // stays a server component and the chapters are not serialised to the client on
         // top of being rendered into the HTML.
         reports={{ slug: booklet.slug, title: booklet.title }}
-        secondaryAction={
-          booklet.pdf && downloadLabel ? (
-            <a
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-gold/30 px-5 py-3 font-label text-sm uppercase tracking-[0.18em] text-muted transition hover:border-gold hover:text-gold"
-              href={apiUrl(`/api/booklets/${booklet.slug}/pdf`)}
-              rel="noreferrer"
-              target="_blank"
-            >
-              <Download size={17} />
-              {downloadLabel}
-            </a>
-          ) : null
-        }
         title={booklet.title}
       >
         {free.map((chapter) => (
@@ -59,6 +44,9 @@ export function BookletChapters({ booklet }: { booklet: Booklet }) {
         {nextChapter ? (
           <ChapterGate
             bookletSlug={booklet.slug}
+            // Offered inside the reader once the API says this reader may have it, never
+            // as a button on the page that answers 401.
+            pdfLabel={booklet.pdf ? downloadLabel : undefined}
             nextChapter={{
               number: nextChapter.number,
               title: nextChapter.title,

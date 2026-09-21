@@ -28,7 +28,6 @@ export function ChapterReader({
   title,
   numberLabel,
   label = "Read the booklet",
-  secondaryAction,
   reports,
   children
 }: {
@@ -36,8 +35,6 @@ export function ChapterReader({
   numberLabel?: string;
   /** The one button that opens a booklet. There is deliberately no second way in. */
   label?: string;
-  /** Sits beside the button — the PDF download, which is a different thing to reading. */
-  secondaryAction?: React.ReactNode;
   /** The booklet to record an open against, for the admin's unlock report. */
   reports?: { slug: string; title: string };
   children: React.ReactNode;
@@ -136,7 +133,7 @@ export function ChapterReader({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-ink" />
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-3">
+      <div className="mt-6">
         <button
           className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-gold/60 px-6 py-3 font-label text-sm uppercase tracking-[0.2em] text-parchment transition hover:border-gold hover:text-gold"
           onClick={() => {
@@ -151,7 +148,6 @@ export function ChapterReader({
           <BookOpen size={17} />
           {label}
         </button>
-        {secondaryAction}
       </div>
     </div>
   );

@@ -55,3 +55,38 @@ export async function trackBookletUnlock(
     // A read that cannot be reported is still a read. Never block opening the booklet.
   }
 }
+
+/**
+ * The per-booklet access token /api/subscribe hands back.
+ *
+ * The subscriber cookie is the primary proof of access, but it is a third-party cookie to
+ * this origin in production and some browsers drop it. The token is the fallback, and it
+ * rides in the URL because an Authorization header is not something a link can carry.
+ */
+function accessTokenKey(slug: string) {
+  return `valluru_access_token_${slug}`;
+}
+
+export function readAccessToken(slug: string) {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  try {
+    return window.localStorage.getItem(accessTokenKey(slug)) || "";
+  } catch {
+    return "";
+  }
+}
+
+export function storeAccessToken(slug: string, token: string) {
+  if (typeof window === "undefined" || !token) {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(accessTokenKey(slug), token);
+  } catch {
+    // A reader whose browser refuses storage still has the cookie to fall back on.
+  }
+}

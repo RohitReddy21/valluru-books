@@ -455,6 +455,28 @@ Two consequences worth knowing:
   The clipped on-page preview is `inert`: the sign-up form sits below the clip line, and
   without it a keyboard reader tabs into a field they cannot see. Unlock tracking moved
   from the PDF button to `ChapterReader`'s open, via `lib/subscriber.ts`.
+
+  A later sweep of all 22 detail pages found the tidy-up had left two things wrong. The
+  PDF sat on the page as a **Download** button that answered **401 to every reader who
+  had not subscribed** — which is every reader arriving. It is now offered inside the
+  reader, after the last unlocked chapter, which is the only place the answer to "may
+  this reader have it?" is known. And the previous/next cards each carried a **Read**
+  button of their own, so three controls saying Read sat within a few hundred pixels
+  while only one of them opened the booklet you were looking at; the card is the link now.
+
+### ⚠ Anything that proves access must carry the token, not just the cookie
+
+The subscriber cookie is a **third-party cookie in production** — the API is on another
+domain — so Safari and Firefox drop it by default. Phase 2 gave the PDF link a `?token=`
+fallback for exactly this, but `ChapterGate`'s chapter fetch was left on the cookie alone,
+and a subscriber whose cookie was dropped was told they had no access at all: the free
+chapters and the sign-up form, with their subscription invisible. Reproduced in the
+browser with a valid token in hand.
+
+`hasBookletAccess` accepts a `?token=` query parameter, a bearer header or the cookie.
+**Every request that asks whether this reader may have something must send the token**,
+which `readAccessToken(slug)` in `lib/subscriber.ts` returns. `/api/subscribe` hands the
+token back in its response; store it with `storeAccessToken`.
 - `generate-sitemap.js` hardcodes its booklet list, so it can drift from the content in
   MongoDB. Worth driving from content when something else touches it.
 

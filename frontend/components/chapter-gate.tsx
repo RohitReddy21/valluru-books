@@ -1,13 +1,16 @@
 "use client";
 
-import { Mail } from "lucide-react";
+import { Download, Mail } from "lucide-react";
 import { useCallback, useEffect, useId, useState } from "react";
 import { ChapterArticle, type ReadableChapter } from "@/components/chapter-body";
 import { trackEmailSubscription } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api";
+import { readAccessToken, storeAccessToken } from "@/lib/subscriber";
 
 type Props = {
   bookletSlug: string;
+  /** Label for the PDF, shown only once this reader is allowed it. */
+  pdfLabel?: string;
   nextChapter: { number: number; title: string; teaser: string };
   remainingCount: number;
 };
@@ -15,7 +18,7 @@ type Props = {
 /** The API sleeps on Render's free tier; fail to the gate rather than spin. */
 const CHAPTERS_FETCH_TIMEOUT_MS = 4000;
 
-export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props) {
+export function ChapterGate({ bookletSlug, pdfLabel, nextChapter, remainingCount }: Props) {
   const emailId = useId();
   const [chapters, setChapters] = useState<ReadableChapter[] | null>(null);
   const [email, setEmail] = useState("");
@@ -31,8 +34,21 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
    */
   const fetchChapters = useCallback(async () => {
     try {
+      /**
+       * The token goes with the request, not only the cookie.
+       *
+       * In production the API is on another domain, so the subscriber cookie is a
+       * third-party cookie that Safari and Firefox drop by default — and a subscriber
+       * whose cookie is dropped was being told they had no access at all. The PDF link
+       * has carried this token since Phase 2 for exactly the same reason.
+       */
+      const token = readAccessToken(bookletSlug);
       const response = await fetch(
-        apiUrl(`/api/booklets/${encodeURIComponent(bookletSlug)}/chapters`),
+        apiUrl(
+          `/api/booklets/${encodeURIComponent(bookletSlug)}/chapters${
+            token ? `?token=${encodeURIComponent(token)}` : ""
+          }`
+        ),
         {
           credentials: "include",
           signal: AbortSignal.timeout(CHAPTERS_FETCH_TIMEOUT_MS)
@@ -91,6 +107,11 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
         return;
       }
 
+      // Kept for the PDF link below, which is a plain navigation and so cannot send an
+      // Authorization header of its own.
+      const payload = (await response.json().catch(() => null)) as { accessToken?: string } | null;
+      storeAccessToken(bookletSlug, payload?.accessToken || "");
+
       trackEmailSubscription();
 
       const unlocked = await fetchChapters();
@@ -109,6 +130,14 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
   }
 
   if (chapters?.length) {
+    // Read here rather than at the top of the component: this branch only ever renders on
+    // the client, after the API has confirmed access, so there is no server render to
+    // disagree with.
+    const token = readAccessToken(bookletSlug);
+    const pdfHref = apiUrl(
+      `/api/booklets/${encodeURIComponent(bookletSlug)}/pdf${token ? `?token=${encodeURIComponent(token)}` : ""}`
+    );
+
     // The gate sits inside the reader, so an unlocked chapter simply carries on from the
     // free ones on the same paper. A subscriber gets the booklet, not a second surface.
     return (
@@ -116,6 +145,25 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
         {chapters.map((chapter) => (
           <ChapterArticle chapter={chapter} key={chapter.id} />
         ))}
+
+        {/*
+          The PDF is offered here and nowhere else, because here is the only place the
+          answer to "may this reader have it?" is known. On the page it was a button that
+          returned 401 to every reader who had not subscribed — which was all of them.
+        */}
+        {pdfLabel ? (
+          <p className="mt-14 border-t border-[color:var(--reading-rule)] pt-8">
+            <a
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md border border-[color:var(--reading-label)] px-5 py-3 text-[0.82em] font-semibold uppercase tracking-[0.18em] text-[color:var(--reading-head)] transition hover:border-gold hover:text-gold"
+              href={pdfHref}
+              rel="noreferrer"
+              target="_blank"
+            >
+              <Download size={16} />
+              {pdfLabel}
+            </a>
+          </p>
+        ) : null}
       </>
     );
   }
