@@ -7,8 +7,7 @@
   "scripts": {
     "dev": "npm run prepare-pdfjs && next dev",
     "prepare-pdfjs": "node scripts/copy-pdfjs-assets.mjs",
-    "generate-sitemap": "node scripts/generate-sitemap.mjs",
-    "build": "npm run prepare-pdfjs && npm run generate-sitemap && next build",
+    "build": "npm run prepare-pdfjs && next build",
     "start": "next start",
     "lint": "eslint . --max-warnings=0"
   },
