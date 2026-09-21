@@ -59,14 +59,25 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
 
       const payload = (await response.json()) as {
         hasAccess?: boolean;
-        chapters?: ReadableChapter[];
+        chapters?: Array<ReadableChapter & { free?: boolean }>;
       };
 
       if (!payload?.hasAccess) {
         return null;
       }
 
-      return (payload.chapters || []).filter((chapter) => chapter.paragraphs?.length);
+      /**
+       * Only the chapters the page does not already have.
+       *
+       * The endpoint returns the whole booklet, free chapters included, and the free ones
+       * are already server-rendered above this gate. Rendering them again put the opening
+       * of every booklet in twice for a subscriber — four free chapters and then all
+       * seventeen, twenty-one in a seventeen-chapter booklet — which a chapter count read
+       * as success rather than as duplication.
+       */
+      return (payload.chapters || []).filter(
+        (chapter) => chapter.free === false && chapter.paragraphs?.length
+      );
     } catch {
       return null;
     }

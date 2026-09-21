@@ -169,10 +169,27 @@ a {
   break-inside: avoid;
 }
 
-.book-flow figure img {
-  max-height: calc(var(--page-h) - var(--page-margin-block) * 2 - 3em);
-  width: auto;
+/*
+ * Plates are fitted, not cropped or stretched: as wide as the column allows, as tall as
+ * --plate-cap allows, and always the shape of the file. Width comes from the cap and the
+ * plate's own ratio, and the ratio is held by aspect-ratio, so a plate that has not loaded
+ * yet already occupies the space it will fill.
+ */
+.plate img {
+  display: block;
+  height: auto;
   margin-inline: auto;
+  aspect-ratio: var(--plate-ratio);
+  width: min(100%, calc(var(--plate-cap, 42vh) * var(--plate-ratio)));
+}
+
+/*
+ * A plate opens a chapter, so it has to share its page with the chapter's heading. A cap
+ * of a whole page's height left the heading alone on one page and the plate on the next.
+ * Nine em is the heading at its printed size, its wrap, and the space around it.
+ */
+.book-flow {
+  --plate-cap: calc(var(--page-h) - var(--page-margin-block) * 2 - 9em);
 }
 
 /* Nor is a chapter opening left stranded at the foot of a page. */

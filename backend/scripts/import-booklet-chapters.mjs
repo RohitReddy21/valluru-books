@@ -17,9 +17,11 @@ import { readFile, readdir, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { createHash } from "node:crypto";
 
 const require = createRequire(import.meta.url);
 const { MongoClient } = require("mongodb");
+const sharp = require("sharp");
 const { preserveRedactedChapters, preserveRedactedPdfs } = require("../src/content-chapters.js");
 
 /** Databases this script must never write to, whatever the flags say. */
@@ -125,7 +127,50 @@ function titleKeyFromExtractionSlug(slug) {
  * --images points at the directory extract-booklet-images.mjs wrote to, and --image-base
  * at the URL those files are served from. Without both, chapters import as text only.
  */
-function platesFor(slug, options) {
+/**
+ * A picture printed in this many booklets is the publisher's mark, not an illustration.
+ *
+ * The Valluru logo is drawn on the cover and closing pages of every booklet, in several
+ * tints, and the extractor sees each as a plate. A page-share test inside one booklet
+ * cannot catch it — three appearances in seventeen pages is under any sensible threshold
+ * — but across booklets it repeats in eight of them. Left in, it became a fake plate at
+ * chapter openings, black on the reader's cream paper.
+ */
+const BRANDING_MIN_BOOKLETS = 3;
+const brandingHashes = new Set();
+
+async function findBranding(imagesDir) {
+  const seen = new Map();
+
+  for (const slug of await readdir(imagesDir)) {
+    const manifestPath = path.join(imagesDir, slug, "plates.json");
+
+    if (!existsSync(manifestPath)) {
+      continue;
+    }
+
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+
+    for (const plate of manifest.plates || []) {
+      const key = await pictureKey(path.join(imagesDir, slug, plate.file));
+      seen.set(key, (seen.get(key) || new Set()).add(slug));
+    }
+  }
+
+  for (const [key, booklets] of seen) {
+    if (booklets.size >= BRANDING_MIN_BOOKLETS) {
+      brandingHashes.add(key);
+    }
+  }
+}
+
+/** The same picture at another width or encoding must hash the same, hence the shrink. */
+async function pictureKey(file) {
+  const pixels = await sharp(file).resize(48, 48, { fit: "fill" }).greyscale().raw().toBuffer();
+  return createHash("sha1").update(Buffer.from(pixels.map((value) => value >> 4))).digest("hex");
+}
+
+async function platesFor(slug, options) {
   if (!options.images) {
     return [];
   }
@@ -139,12 +184,22 @@ function platesFor(slug, options) {
   const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
   const base = String(options["image-base"] || "").replace(/\/$/, "");
 
-  return (manifest.plates || []).map((plate) => ({
-    src: `${base}/${slug}/${plate.file}`,
-    width: plate.width,
-    height: plate.height,
-    page: plate.page
-  }));
+  const kept = [];
+
+  for (const plate of manifest.plates || []) {
+    if (brandingHashes.has(await pictureKey(path.join(options.images, slug, plate.file)))) {
+      continue;
+    }
+
+    kept.push({
+      src: `${base}/${slug}/${plate.file}`,
+      width: plate.width,
+      height: plate.height,
+      page: plate.page
+    });
+  }
+
+  return kept;
 }
 
 /**
@@ -197,6 +252,11 @@ if (!options.source) {
 const sourcePayload = JSON.parse(await readFile(options.source, "utf8"));
 const content = sourcePayload.content ?? sourcePayload;
 
+if (options.images) {
+  await findBranding(options.images);
+  console.log(`  ${brandingHashes.size} picture(s) repeated across booklets treated as branding, not plates`);
+}
+
 const files = (await readdir(options.chapters)).filter((f) => f.endsWith(".json"));
 const extracted = new Map();
 
@@ -230,9 +290,15 @@ let matched = 0;
 const unmatched = [];
 const used = new Set();
 
-// Inward Fire only. The Inward Mirror booklets reuse numbers like "Booklet 2", so a
-// number-based match there hands them Inward Fire's chapters.
-for (const series of [content.series]) {
+/**
+ * Both series are matched, but not the same way. The Inward Mirror booklets reuse numbers
+ * like "Booklet 2", so a number-based match there hands them Inward Fire's chapters.
+ * Title is the only key the two share, so it is the only one the Mirror is trusted with.
+ */
+for (const [series, allowNumberFallback] of [
+  [content.series, true],
+  [content.inwardMirror, false]
+]) {
   if (!Array.isArray(series?.booklets)) {
     continue;
   }
@@ -240,7 +306,9 @@ for (const series of [content.series]) {
   for (const booklet of series.booklets) {
     const number = numberFromLabel(booklet.numberLabel);
     const data =
-      byTitle.get(titleKey(booklet.title)) || (number ? byNumber.get(number) : null) || null;
+      byTitle.get(titleKey(booklet.title)) ||
+      (allowNumberFallback && number ? byNumber.get(number) : null) ||
+      null;
 
     if (!data || used.has(data.slug)) {
       unmatched.push(`${booklet.numberLabel || booklet.slug}`);
@@ -249,7 +317,7 @@ for (const series of [content.series]) {
 
     used.add(data.slug);
 
-    const plates = platesFor(data.slug, options);
+    const plates = await platesFor(data.slug, options);
     const platesByChapter = assignPlates(plates, data.chapters);
 
     booklet.chapters = data.chapters.map((chapter, index) => {

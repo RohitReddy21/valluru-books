@@ -77,13 +77,26 @@ export function ChapterArticle({ chapter }: { chapter: ReadableChapter }) {
         own page facing the chapter it was drawn to introduce.
       */}
       {chapter.images?.map((image) => (
-        <figure className="mt-6" key={image.src}>
+        <figure className="plate mt-6" key={image.src}>
+          {/*
+            Fitted, never stretched or cropped. The plates are portrait — 2:3 covers — and
+            at full column width one is over a thousand pixels tall, so the clipped preview
+            showed a slice of its top edge and read as a broken banner. The height cap lets
+            the whole picture sit in the preview; in the reader the page's own rule
+            (.book-flow figure img) is more specific and takes over.
+          */}
+          {/*
+            The ratio is set up front, not left to the file. A lazy image that has not
+            loaded has no size, so the page reflowed as each plate arrived and a booklet
+            grew from seventeen pages to sixty-eight while it was being read.
+          */}
           <Image
             alt=""
-            className="h-auto w-full rounded-sm"
+            className="rounded-sm"
             height={image.height}
             sizes="(min-width: 1024px) 34rem, 100vw"
             src={image.src}
+            style={{ "--plate-ratio": image.width / image.height } as React.CSSProperties}
             width={image.width}
           />
         </figure>

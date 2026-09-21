@@ -62,9 +62,12 @@ const ROMAN_OR_NUMBER = /^(?:[ivxlcdm]+|\d{1,2})[.)]?$/i;
 const NUMBERED_HEADING = /^\d{1,2}\.\s+\S/;
 const MAX_HEADING_CHARS = 90;
 /**
- * This many chapter openings on one page means the page is the contents, not the book.
+ * A page is a contents listing when it has at least this many chapter openings and they
+ * make up at least this share of its lines.
  */
 const CONTENTS_HEADINGS_MIN = 4;
+const CONTENTS_HEADING_SHARE = 0.25;
+const CONTENTS_CONTINUATION_MIN = 2;
 /**
  * How far below a heading its own wrapped line may sit, as a multiple of the type size.
  * A wrapped line is one leading down; anything further is a separate piece of setting.
@@ -369,13 +372,26 @@ async function extract(file, options) {
    * chapter opening wherever it appears. What separates the listing from the book is
    * density: a chapter opens once on a page, a contents page carries a dozen.
    */
-  const openingsByPage = new Map();
+  const contentsPages = new Set();
 
   for (const [pageIndex, lines] of pages.entries()) {
-    openingsByPage.set(
-      pageIndex + 1,
-      lines.filter((line) => !isFurniture(line, furniture) && isStrongHeading(line.text)).length
-    );
+    const kept = lines.filter((line) => !isFurniture(line, furniture));
+    const openings = kept.filter((line) => isStrongHeading(line.text)).length;
+
+    /**
+     * Count alone cannot tell the two apart. The Inward Mirror booklets are eight short
+     * numbered sections in fifteen pages, so a page carrying four openings is a normal
+     * page there, and treating it as a contents listing folded a booklet's chapters into
+     * one another. What a contents page has that a chapter page does not is no body: it
+     * is almost nothing but the headings.
+     */
+    // A listing that runs over onto a further page is usually short there — booklet six's
+    // ends with three entries — so the page after a contents page needs far fewer.
+    const needed = contentsPages.has(pageIndex) ? CONTENTS_CONTINUATION_MIN : CONTENTS_HEADINGS_MIN;
+
+    if (openings >= needed && openings >= kept.length * CONTENTS_HEADING_SHARE) {
+      contentsPages.add(pageIndex + 1);
+    }
   }
 
   // Page spans are tracked so the illustrations can be placed later: a plate belongs to
@@ -388,7 +404,7 @@ async function extract(file, options) {
         continue;
       }
 
-      if (isHeading(line, bodyHeight) && openingsByPage.get(pageNumber) < CONTENTS_HEADINGS_MIN) {
+      if (isHeading(line, bodyHeight) && !contentsPages.has(pageNumber)) {
         /**
          * A heading that wrapped onto a second line is still one heading. Without this,
          * the tail line starts a new chapter and steals the body that follows it.
@@ -463,19 +479,10 @@ async function extract(file, options) {
     /**
      * A numbered opening stays a chapter even when short — booklet six's chapters are a
      * verse and its commentary, barely over a hundred words each, and folding them by
-     * length collapsed the whole booklet into one.
-     *
-     * But only when it opens its page alone. A chapter opens once on a page; where
-     * several openings share one, they are a list of chapters rather than chapters, and
-     * the exemption would carry a contents page into the book a line at a time.
+     * length collapsed the whole booklet into one. Contents pages never get this far:
+     * their headings were not treated as openings in the first place.
      */
-    const opensAlone = (openingsByPage.get(section.startPage) || 1) <= 1;
-
-    if (
-      built.length &&
-      !(isStrongHeading(section.title) && opensAlone) &&
-      wordsIn(section) < MIN_CHAPTER_WORDS
-    ) {
+    if (built.length && !isStrongHeading(section.title) && wordsIn(section) < MIN_CHAPTER_WORDS) {
       const previous = built[built.length - 1];
       previous.paragraphs.push(section.title, ...section.paragraphs);
       // A folded pull-quote extends the chapter it belongs to, so its pages come too.

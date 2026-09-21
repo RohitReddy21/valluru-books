@@ -502,6 +502,47 @@ Also fixed on the way: booklet thirteen sets its running head as `12 THE INWARD 
 counted one head as two and neither reached the 40% furniture threshold — 33 paragraphs of
 running head in the prose. `normalizeForComparison` now drops the folio from either end.
 
+### The Inward Mirror is on the same reader
+
+The seven Inward Mirror booklets (`IM_B01…B07`, ~2,000 words and 15–17 pages each) now go
+through the same extraction, import and reader as Inward Fire: 77 sections, 4 plates each,
+one **Read the booklet** button, the gate at the end of the free reading, the Article
+paywall schema. `import-booklet-chapters.mjs` matches both series but trusts **title only**
+for the Mirror — its booklets reuse numbers like "Booklet 2", so a number fallback would
+hand it Inward Fire's chapters.
+
+Things this exposed that had been silently wrong for Inward Fire too:
+
+- **The Valluru logo was being served as a plate.** It is drawn on the cover and closing
+  pages of every booklet in several tints, so it repeats three times in seventeen pages —
+  under any per-booklet threshold — and showed up as a fake illustration at chapter
+  openings, dark on the cream paper. The import now hashes every extracted picture
+  (48×48, greyscale, quantised) and drops any that appears in **3+ booklets**. 313 plates
+  → 215.
+- **Subscribers saw the free chapters twice.** `/api/booklets/:slug/chapters` returns the
+  whole booklet; the free chapters are already server-rendered above the gate, and the gate
+  rendered the full list again. A 17-chapter booklet showed 21 — and I read "21 chapters"
+  as success. `ChapterGate` now keeps only `free === false`. **When verifying, compare
+  against the expected count, not just a plausible one.**
+- **A contents page is detected by heading *density*, not count.** Four openings on a page
+  is normal in the Mirror (eight short sections in fifteen pages), so a count rule folded
+  its chapters together. A contents page is nearly all headings: ≥4 openings *and* ≥25% of
+  the page's lines, and a page continuing a listing needs only 2 (booklet six's runs over
+  onto a page with three entries).
+- **Plates are fitted, and reserve their space.** Portrait 2:3 plates at full column width
+  were 1,100px tall, so the clipped preview showed a slice of the top edge like a broken
+  banner. `.plate img` sets width from `--plate-cap × --plate-ratio` and holds the shape
+  with `aspect-ratio`. The ratio also has to be set up front: an unloaded lazy image has no
+  size, so pages reflowed as plates arrived — the count at open said 17, settled at 68.
+  With the ratio reserved, count at open equals settled count.
+- **A plate opening a chapter must share its page with the heading.** Capping it at a whole
+  page's height left the heading alone on one page and the plate on the next — an empty left
+  page on every cover spread. The cap leaves 9em for the heading.
+
+A fresh visitor also gets the **global subscribe popup** (`role=dialog`), a separate modal.
+When scripting the reader in a browser, select `[role="dialog"][aria-label^="Reading "]`,
+not the first `[role=dialog]`.
+
 ### ⚠ Anything that proves access must carry the token, not just the cookie
 
 The subscriber cookie is a **third-party cookie in production** — the API is on another
