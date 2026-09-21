@@ -1,5 +1,6 @@
 import Image from "next/image";
 import {
+  TABLE_CELL_SEPARATOR,
   toChapterBlocks,
   type BookletChapterImage,
   type ChapterBlock
@@ -75,6 +76,42 @@ function ChapterBlocks({ blocks, chapterId }: { blocks: ChapterBlock[]; chapterI
             <p className="rd-label" key={key}>
               {block.lines[0]}
             </p>
+          );
+        }
+
+        // A table the PDF printed, kept as one: the columns are the point of it.
+        if (block.kind === "table") {
+          const [head, ...body] = block.lines.map((row) => row.split(TABLE_CELL_SEPARATOR));
+
+          return (
+            <div className="rd-table-wrap" key={key}>
+              <table className="rd-table">
+                <thead>
+                  <tr>
+                    {head.map((cell, cellIndex) => (
+                      <th key={`${key}-h${cellIndex}`} scope="col">
+                        {cell}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {body.map((row, rowIndex) => (
+                    <tr key={`${key}-r${rowIndex}`}>
+                      {row.map((cell, cellIndex) =>
+                        cellIndex === 0 ? (
+                          <th key={`${key}-r${rowIndex}c${cellIndex}`} scope="row">
+                            {cell}
+                          </th>
+                        ) : (
+                          <td key={`${key}-r${rowIndex}c${cellIndex}`}>{cell}</td>
+                        )
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           );
         }
 

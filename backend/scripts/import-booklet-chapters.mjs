@@ -18,6 +18,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
+import { buildLexicon, cleanBooklet } from "./lib/clean-chapters.mjs";
 
 const require = createRequire(import.meta.url);
 const { MongoClient } = require("mongodb");
@@ -425,7 +426,10 @@ for (const [series, allowNumberFallback] of [
         paper: theme.paper,
         ink: theme.ink,
         accent: theme.accent,
-        aspect: theme.aspect
+        aspect: theme.aspect,
+        // Not measurable from the PDF's text: set by hand in the themes file or in the
+        // stored booklet, and kept across imports (see BookletReaderTheme.coverTitled).
+        ...((theme.coverTitled ?? booklet.reader?.coverTitled) ? { coverTitled: true } : {})
       };
     }
 
@@ -511,6 +515,21 @@ try {
   const merged = stored?.content
     ? preserveRedactedChapters(preserveRedactedPdfs(content, stored.content), stored.content)
     : content;
+
+  // Extraction leaves running heads, stray headings and split words behind; repair them on
+  // the way in so a re-import cannot bring back what clean-booklet-text.mjs removed.
+  const seriesKeys = ["series", "inwardMirror"].filter((key) => Array.isArray(merged[key]?.booklets));
+  const lexicon = buildLexicon(
+    seriesKeys.flatMap((key) =>
+      merged[key].booklets.flatMap((booklet) =>
+        (booklet.chapters || []).flatMap((chapter) => [chapter.title, ...(chapter.paragraphs || [])])
+      )
+    )
+  );
+
+  for (const key of seriesKeys) {
+    merged[key].booklets = merged[key].booklets.map((booklet) => cleanBooklet(booklet, lexicon).booklet);
+  }
 
   // Same key and shape saveSiteContent uses, so the backend reads this without changes.
   await db.collection("content").updateOne(

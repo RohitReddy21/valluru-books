@@ -34,26 +34,52 @@ export function Endpaper() {
   return <div aria-hidden="true" className="rd-front rd-endpaper" />;
 }
 
-export function BookCover({ title, subtitle, author, seriesLabel, numberLabel, src }: Identity & { src?: string }) {
+export function BookCover({
+  title,
+  subtitle,
+  author,
+  seriesLabel,
+  numberLabel,
+  src,
+  titled = false,
+}: Identity & { src?: string; titled?: boolean }) {
   return (
     <section aria-label="Cover" className="rd-front rd-cover">
       {src ? (
-        <Image alt="" className="object-cover" fill priority sizes="(min-width: 1024px) 34rem, 100vw" src={src} />
+        <Image
+          alt=""
+          className="object-cover"
+          fill
+          priority
+          sizes="(min-width: 1024px) 34rem, 100vw"
+          src={src}
+        />
       ) : null}
-      <div className="rd-cover-plate">
-        <p className="rd-cover-series">
-          {seriesLabel}
-          {numberLabel ? ` · ${numberLabel}` : ""}
-        </p>
-        <p className="rd-cover-title">{title}</p>
-        {subtitle ? <p className="rd-cover-sub">{subtitle}</p> : null}
-        <p className="rd-cover-author">{author}</p>
-      </div>
+      {/* A cover that already prints its title needs no second one laid over it. */}
+      {titled ? (
+        <h2 className="sr-only">{title}</h2>
+      ) : (
+        <div className="rd-cover-plate">
+          <p className="rd-cover-series">
+            {seriesLabel}
+            {numberLabel ? ` · ${numberLabel}` : ""}
+          </p>
+          <p className="rd-cover-title">{title}</p>
+          {subtitle ? <p className="rd-cover-sub">{subtitle}</p> : null}
+          <p className="rd-cover-author">{author}</p>
+        </div>
+      )}
     </section>
   );
 }
 
-export function TitlePage({ title, subtitle, author, seriesLabel, numberLabel }: Identity) {
+export function TitlePage({
+  title,
+  subtitle,
+  author,
+  seriesLabel,
+  numberLabel,
+}: Identity) {
   return (
     <section aria-label="Title page" className="rd-front rd-titlepage">
       <div className="rd-titlepage-top">
@@ -75,7 +101,7 @@ export function ContentsPage({
   entries,
   pageOf,
   onJump,
-  fit
+  fit,
 }: {
   /** Anything that changes the page's size or type; the list is fitted again when it does. */
   fit: unknown;
@@ -109,7 +135,12 @@ export function ContentsPage({
   }, [fit, entries]);
 
   return (
-    <section aria-label="Contents" className="rd-front rd-contents" ref={ref} data-dense={entries.length > 11 ? "true" : undefined}>
+    <section
+      aria-label="Contents"
+      className="rd-front rd-contents"
+      ref={ref}
+      data-dense={entries.length > 11 ? "true" : undefined}
+    >
       <p className="rd-kicker">Contents</p>
       <h2 className="rd-title">{title}</h2>
       <ol className="rd-toc">
@@ -118,10 +149,20 @@ export function ContentsPage({
 
           return (
             <li key={entry.id}>
-              <button className="rd-toc-row" onClick={() => onJump(entry.id)} type="button">
-                <span className="rd-toc-title">{splitChapterTitle(entry.title).title}</span>
+              <button
+                className="rd-toc-row"
+                onClick={() => onJump(entry.id)}
+                type="button"
+              >
+                <span className="rd-toc-title">
+                  {splitChapterTitle(entry.title).title}
+                </span>
                 <span className="rd-toc-page">
-                  {entry.free ? page ?? "" : <Lock aria-label="Opens with your email" size={11} />}
+                  {entry.free ? (
+                    (page ?? "")
+                  ) : (
+                    <Lock aria-label="Opens with your email" size={11} />
+                  )}
                 </span>
               </button>
             </li>

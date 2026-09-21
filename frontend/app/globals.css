@@ -305,8 +305,13 @@ a {
   break-before: auto;
 }
 
-/* The cover is drawn by the reader; its extracted text stays in the page for search. */
-.book-flow .rd-chapter[data-cover] {
+/*
+ * The cover is drawn by the reader; its extracted text stays in the page for search. The
+ * closed preview on the booklet page hides it too, or the title is printed a second time
+ * straight under the heading.
+ */
+.book-flow .rd-chapter[data-cover],
+.reading-surface .rd-chapter[data-cover] {
   display: none;
 }
 
@@ -1124,4 +1129,45 @@ a {
   width: 100%;
   max-width: none;
   padding: 1.6em 1.1em 1.3em;
+}
+
+/* ── Tables the booklets print (the yoga toolkit in booklet one) ──────────────────── */
+.rd-table-wrap {
+  margin-top: 1.1em;
+  overflow-x: auto;
+}
+
+.rd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86em;
+  line-height: 1.4;
+  color: var(--reading-ink);
+}
+
+.rd-table th,
+.rd-table td {
+  padding: 0.5em 0.6em;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid color-mix(in srgb, var(--reading-ink) 16%, transparent);
+}
+
+.rd-table thead th {
+  font-size: 0.82em;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--reading-label);
+  border-bottom: 1px solid var(--reading-label);
+}
+
+.rd-table tbody th {
+  width: 34%;
+  font-weight: 600;
+  color: var(--reading-head);
+}
+
+.rd-table tr {
+  break-inside: avoid;
 }

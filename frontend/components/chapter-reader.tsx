@@ -621,7 +621,7 @@ export function ChapterReader({
               <div className="rd-scroller book-scroller h-full" onScroll={() => syncPage(false)} ref={scrollerRef}>
                 <div className="rd-track" ref={trackRef}>
                   <Endpaper />
-                  <BookCover {...identity} src={coverSrc} />
+                  <BookCover {...identity} src={coverSrc} titled={theme?.coverTitled} />
                   <TitlePage {...identity} />
                   <ContentsPage entries={entries} fit={pageVars} onJump={goToChapter} pageOf={pageOf} title={title} />
                   <div className="book-flow rd-flow" ref={flowRef}>
