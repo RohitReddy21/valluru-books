@@ -688,12 +688,26 @@ Python heredoc turns `` into a backspace, silently disabling the regex; check w
 `TABLES` because flattened cells cannot be recovered by rule. Look at the PDF page before
 adding another.
 
-**Not fixed:** booklets 6–9 (Telugu verse, two columns) are still scrambled — interleaved
-columns, wrapped titles truncated, chapters 12A–E folded into 11, Telugu glyph damage — and
-booklet 7 lost its first two poems. That needs layout-aware re-extraction, not patches.
-Several booklets (3, 4, 5, 13–19) have paragraphs of 2,000–3,000 characters where the PDF
-has many short ones: the paragraph-gap threshold in `extract-booklet-chapters.mjs` is too
-loose for their spacing.
+**Fixed:** the paragraph-gap threshold in `extract-booklet-chapters.mjs` never fired —
+`1.5 × median(gaps)` on a page of short paragraphs makes the median *itself* the paragraph
+gap, so nothing was ever wide enough to break on. It now reads the line pitch off the low
+end of the sorted gap distribution (`LINE_PITCH_PERCENTILE = 0.2`) instead, which is
+always plain leading whatever the paragraph length. At the finer cut, a running head can
+land as several short paragraphs of its own, or fused onto the tail of real prose and
+continuing through the paragraphs after it — `withoutRunningHeadParagraphs` in
+`clean-chapters.mjs` handles both, scanning a growing window anchored to whichever
+paragraph actually names the booklet (`RUNNING_HEAD_LEAD_IN`), never growing from an
+unrelated paragraph just because a match turns up further ahead. `resplit-booklet-
+paragraphs.mjs` re-cuts what is already stored against a fresh extraction, matching
+chapter-for-chapter by exact spelling so nothing but paragraph boundaries changes; applied
+to the sandbox, 382 of 443 chapters matched and re-cut, median paragraph length falling
+from ~1,000–3,000 characters to ~100–300 across every affected booklet — run it again
+after any future re-extraction, the same way.
+
+**Still not fixed:** booklets 6–9 (Telugu verse, two columns) are still scrambled —
+interleaved columns, wrapped titles truncated, chapters 12A–E folded into 11, Telugu glyph
+damage — and booklet 7 lost its first two poems. That needs layout-aware re-extraction,
+not paragraph-level patches.
 
 ### `NEXT_PUBLIC_SANDBOX=1`
 
