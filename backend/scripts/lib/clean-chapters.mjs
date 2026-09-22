@@ -26,6 +26,85 @@ const RUNNING_HEAD = new RegExp(
   "g"
 );
 
+/**
+ * A paragraph that opens a running head — "…Hopelessly efficient. Booklet Ten" — with the
+ * rest of it, "WHEN THE CHESSBOARD BURNS The Seeker and the Long Work of Bhagavān", still
+ * to come in the paragraphs after it. Only a paragraph that itself names its own booklet
+ * this way is worth growing a window from: without this check, growing the window from
+ * wherever the scan happens to be would eventually contain a running head many paragraphs
+ * later and sweep in every unrelated paragraph in between as if it were part of it.
+ */
+const RUNNING_HEAD_LEAD_IN = new RegExp(`\\bBooklet\\s+${NUMBER_WORD}\\b`);
+
+/**
+ * Drops a running head spread across up to five paragraphs, however it landed: as
+ * paragraphs of its own with nothing else in them, or fused onto the tail of a real
+ * paragraph and continuing through the paragraphs after it — "Hopelessly efficient.
+ * Booklet Ten" | "WHEN THE CHESSBOARD BURNS" | "The Seeker and the Long Work of
+ * Bhagavān". Fine paragraph cuts (near one line each) put the running head at the head
+ * or foot of almost every page, and a page break falls wherever it falls in the prose.
+ *
+ * The matched span collapses to whatever real prose survives outside the running head —
+ * one paragraph, or none. A survivor that trails off mid-sentence (the running head cut
+ * in before the sentence closed) is carried onto the next paragraph rather than left as
+ * a fragment of its own.
+ */
+function withoutRunningHeadParagraphs(source) {
+  // A local copy: a carried-over residue is spliced into the next slot ahead of it, and
+  // the caller's array — original.paragraphs — must not be seen to change out from under it.
+  const paragraphs = [...source];
+  const out = [];
+
+  for (let index = 0; index < paragraphs.length; ) {
+    if (!RUNNING_HEAD_LEAD_IN.test(paragraphs[index])) {
+      out.push(paragraphs[index]);
+      index += 1;
+      continue;
+    }
+
+    let consumed = 0;
+    let residue;
+
+    for (let span = 1; span <= 5 && index + span <= paragraphs.length; span += 1) {
+      const window = paragraphs.slice(index, index + span).join(" ");
+
+      // RUNNING_HEAD carries the "g" flag, so a shared lastIndex would make .test()
+      // resume from a previous call instead of starting over.
+      RUNNING_HEAD.lastIndex = 0;
+
+      if (RUNNING_HEAD.test(window)) {
+        residue = window.replace(RUNNING_HEAD, " ").replace(/\s{2,}/g, " ").trim();
+        consumed = span;
+        break;
+      }
+    }
+
+    if (!consumed) {
+      // Names its own booklet but never completes into the full running head within
+      // reach — leave it alone rather than guess at what else might be going on.
+      out.push(paragraphs[index]);
+      index += 1;
+      continue;
+    }
+
+    index += consumed;
+
+    if (!residue) {
+      continue;
+    }
+
+    if (unfinished(residue) && index < paragraphs.length) {
+      // The running head cut into the middle of a sentence; give the rest of it to
+      // whatever paragraph comes next, real or another running-head span.
+      paragraphs[index] = `${residue} ${paragraphs[index]}`;
+    } else {
+      out.push(residue);
+    }
+  }
+
+  return out;
+}
+
 /** "End of Booklet One": the PDF's last line, fused onto the last paragraph. */
 const END_MARK = new RegExp(`\\s*End of Booklet\\s+${NUMBER_WORD}\\.?\\s*$`, "i");
 
@@ -378,7 +457,7 @@ export function cleanBooklet(booklet, lexicon) {
   for (const original of source) {
     const cleaned = {
       ...original,
-      paragraphs: (original.paragraphs || [])
+      paragraphs: withoutRunningHeadParagraphs(original.paragraphs || [])
         .map((paragraph) =>
           paragraph.replace(RUNNING_HEAD, " ").replace(END_MARK, "").replace(/\s{2,}/g, " ").trim()
         )

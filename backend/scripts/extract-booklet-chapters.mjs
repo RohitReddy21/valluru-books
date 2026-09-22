@@ -37,8 +37,21 @@ const FURNITURE_PAGE_SHARE = 0.4;
 const FURNITURE_BAND = 0.08;
 /** A line this much taller than the body type is treated as a heading. */
 const HEADING_SIZE_RATIO = 1.15;
-/** A vertical gap this much larger than the usual leading starts a new paragraph. */
-const PARAGRAPH_GAP_RATIO = 1.5;
+/**
+ * A vertical gap this much larger than a line's own pitch starts a new paragraph.
+ *
+ * The booklets space paragraphs by about half a line (12pt pitch, 17pt between paragraphs),
+ * so the ratio has to sit below 1.42; the old 1.5 never fired and whole chapters came out as
+ * one paragraph.
+ */
+const PARAGRAPH_GAP_RATIO = Number(process.env.PARAGRAPH_GAP_RATIO) || 1.25;
+
+/**
+ * Where in the sorted line gaps the body pitch is read. Not the median: a page of short
+ * paragraphs is half paragraph gaps, and the median then *is* the paragraph gap, so nothing
+ * is wide enough to break on. The low end of the distribution is always plain line pitch.
+ */
+const LINE_PITCH_PERCENTILE = 0.2;
 /**
  * A section shorter than this is a pull-quote, not a chapter. These booklets set quotes
  * in large type mid-prose, which otherwise reads exactly like a chapter opening. Its text
@@ -359,7 +372,8 @@ async function extract(file, options) {
       }
     }
   }
-  const bodyGap = median(gaps);
+  const sortedGaps = gaps.filter((gap) => gap > 2).sort((left, right) => left - right);
+  const bodyGap = sortedGaps.length ? sortedGaps[Math.floor(sortedGaps.length * LINE_PITCH_PERCENTILE)] : 0;
 
   const chapters = [];
   let pending = null;

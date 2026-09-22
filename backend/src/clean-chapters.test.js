@@ -80,6 +80,53 @@ test("the running head, the end mark and a stray contents list are removed", asy
   assert.equal(cleaned.chapters[4].paragraphs[0], "Amen.");
 });
 
+test("a running head fused onto real prose and spread over the paragraphs after it is removed, prose kept in order", async () => {
+  const { buildLexicon, cleanBooklet } = await load();
+  const { booklet: cleaned } = cleanBooklet(
+    booklet([
+      {
+        title: "1. The Chessboard We Build in the Head",
+        paragraphs: [
+          "The mind is efficient that way.",
+          "Hopelessly efficient. Booklet Ten",
+          "WHEN THE CHESSBOARD BURNS",
+          "The Seeker and the Long Work of Bhagavān",
+          "It can suffer in advance."
+        ]
+      }
+    ]),
+    buildLexicon([])
+  );
+
+  assert.deepEqual(cleaned.chapters[0].paragraphs, [
+    "The mind is efficient that way.",
+    "Hopelessly efficient.",
+    "It can suffer in advance."
+  ]);
+});
+
+test("a running head that cuts a sentence in two rejoins across the paragraphs it interrupted", async () => {
+  const { buildLexicon, cleanBooklet } = await load();
+  const { booklet: cleaned } = cleanBooklet(
+    booklet([
+      {
+        title: "1. Chapter",
+        paragraphs: [
+          "The strategist may look sharp and may build many Booklet Ten",
+          "WHEN THE CHESSBOARD BURNS",
+          "The Seeker and the Long Work of Bhagavān",
+          "if-then branches before he ever speaks."
+        ]
+      }
+    ]),
+    buildLexicon([])
+  );
+
+  assert.deepEqual(cleaned.chapters[0].paragraphs, [
+    "The strategist may look sharp and may build many if-then branches before he ever speaks."
+  ]);
+});
+
 test("split and run-together words are repaired where the book itself shows the right form", async () => {
   const { buildLexicon, repairText } = await load();
   const lexicon = buildLexicon(["self-owned and self-ownership and reason and re-alignment", "the reason"]);
