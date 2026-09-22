@@ -56,6 +56,29 @@ function parseArgs(argv) {
 
 const hex = (r, g, b) => `#${[r, g, b].map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
 
+/**
+ * A page that measures as pure or near-pure white — no channel more than a few points
+ * apart from the others, all of them bright — reads as glare on a screen inside the
+ * reader's dark shell, next to every other booklet's warmer cream. The reading surface is
+ * a deliberate departure from print-paper fidelity here: it floors to the reader's own
+ * default cream rather than carry a literally white page. Genuinely warm off-whites
+ * (#fbf8f1 and the like) already fall outside this and are left as measured.
+ */
+const WHITE_FLOOR = { min: 250, spread: 6 };
+const READER_DEFAULT_CREAM = "#f7f0e4";
+
+function floorWhite(paperHex) {
+  if (!paperHex) {
+    return paperHex;
+  }
+
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(paperHex.slice(i, i + 2), 16));
+  const low = Math.min(r, g, b);
+  const spread = Math.max(r, g, b) - low;
+
+  return low >= WHITE_FLOOR.min && spread <= WHITE_FLOOR.spread ? READER_DEFAULT_CREAM : paperHex;
+}
+
 /** Maps an embedded face name onto the handful of faces the reader can actually load. */
 function faceFamily(name) {
   const n = String(name || "").toLowerCase();
@@ -185,7 +208,7 @@ async function measure(file) {
     aspect: Number((view.width / view.height).toFixed(4)),
     pageWidthPt: Math.round(view.width),
     pageHeightPt: Math.round(view.height),
-    paper: paper && paperKey ? paper : null,
+    paper: paper && paperKey ? floorWhite(paper) : null,
     ink: ink || null,
     accent: ink ? pickAccent(colorRuns, ink) : null,
     face: faceFamily(face),
