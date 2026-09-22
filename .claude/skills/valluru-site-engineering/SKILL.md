@@ -709,6 +709,24 @@ interleaved columns, wrapped titles truncated, chapters 12A–E folded into 11, 
 damage — and booklet 7 lost its first two poems. That needs layout-aware re-extraction,
 not paragraph-level patches.
 
+**`orphans`/`widows` on `.book-flow .rd-p`** (`app/globals.css`) were `3`, the print
+convention for long-form body copy. At the finer paragraph cut most paragraphs here are
+one to three lines, short of what `3` can ever split, so a paragraph that didn't fit the
+remaining column had to move whole rather than split — visibly stranding blank space at
+the *foot* of individual columns (confirmed by screenshot: a chapter opening with three
+short paragraphs, half its column left blank, the paragraph that should have followed
+sitting complete on the next page instead). Now `1`. **What this does and does not fix,**
+checked directly rather than assumed: it removes that per-column waste — real, visible,
+worth having — but it does *not* explain a whole booklet's page count. Booklet one's full
+19 chapters (6,017 words) paginate to **~110 pages at this reader's column width whether
+you use the original coarse paragraphs or the finer re-cut ones** (measured 107 vs 114
+side by side, same viewport, same build, only the paragraph source swapped) — that scale
+comes from the column being narrow and typographically spacious, a design choice, not
+regression from the paragraph-cut work above. Don't reach for "reduce the page count" as
+a follow-up without measuring the *baseline* first — free-preview page counts (6 chapters)
+and full-booklet counts (19) are not comparable, and it is easy to alarm yourself by
+comparing them.
+
 ### `NEXT_PUBLIC_SANDBOX=1`
 
 `lib/site-env.ts`. Set on the sandbox Vercel project only. It adds `noindex` (meta and
