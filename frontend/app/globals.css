@@ -321,14 +321,23 @@ a {
   break-inside: avoid;
 }
 
-/* The printed page: justified, hyphenated, paragraphs separated by space rather than indent. */
+/*
+ * The printed page: justified, hyphenated, paragraphs separated by space rather than indent.
+ *
+ * orphans/widows stay at 1: this prose runs short, often one or two lines to a paragraph,
+ * by the author's own hand — a table of sentence fragments, not academic body copy. At the
+ * print convention of 2 or 3, a column can only ever split a paragraph of 4+ lines; most of
+ * these never reach that, so the browser has no choice but to carry each one whole to the
+ * next column rather than split it — abandoning most of the column behind it. A 4,000-word
+ * chapter that should fill about a dozen pages was filling closer to eighty.
+ */
 .book-flow .rd-p {
   margin-top: 0.72em;
   text-align: justify;
   hyphens: auto;
   -webkit-hyphens: auto;
-  orphans: 3;
-  widows: 3;
+  orphans: 1;
+  widows: 1;
   text-wrap: pretty;
 }
 
