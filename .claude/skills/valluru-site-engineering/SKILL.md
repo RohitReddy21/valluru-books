@@ -704,10 +704,39 @@ to the sandbox, 382 of 443 chapters matched and re-cut, median paragraph length 
 from ~1,000–3,000 characters to ~100–300 across every affected booklet — run it again
 after any future re-extraction, the same way.
 
-**Still not fixed:** booklets 6–9 (Telugu verse, two columns) are still scrambled —
-interleaved columns, wrapped titles truncated, chapters 12A–E folded into 11, Telugu glyph
-damage — and booklet 7 lost its first two poems. That needs layout-aware re-extraction,
-not paragraph-level patches.
+**Fixed: column interleaving.** Several booklets set a verse and its Author's Note (or a
+Telugu original and its Devanagari transcription) as two cards side by side on one page.
+Reading a page by vertical position alone — all `toLines` did before — interleaves them: a
+commentary line at the same height as a verse line lands next to it, and the two texts come
+out spliced together mid-sentence. `findColumnSplit` in `extract-booklet-chapters.mjs`
+reads where each page's text actually starts (header/footer band excluded, since a running
+head can start anywhere and would corrupt the read); where that finds a gutter — a gap far
+wider than ordinary word-spacing, real content on both sides — the left card is read in
+full, top to bottom, then the right, rather than merged by height. The column boundary also
+forces its own paragraph break (`columnBreak` on the line), since the last line of one card
+and the first of the other are unrelated prose that would otherwise pass the vertical-gap
+test by coincidence. Checked against the whole corpus before it went anywhere near the
+database: every booklet without this problem comes out byte-for-byte identical; booklets
+six and eight (confirmed two-column) come out structurally correct — verse, meaning, and
+Author's Note as three separate paragraphs instead of one scrambled one, all the way
+through booklet six's nested 12A–12E sub-poems. Applied via `swap-booklet-chapters.mjs`
+(paragraphs swapped by chapter *position* against a fresh extraction, not by spelling —
+this reorders text, so the resplit script's exact-spelling match is designed to refuse it;
+`id`, `number`, `images`, `free` and `title` are left alone, and a booklet is skipped
+outright if its chapter count doesn't match the fresh extraction's).
+
+**Still not fixed:** the same booklets still have **character-level glyph damage** inside
+the Telugu (and, in booklet eight, the Devanagari transcription) — a second embedded font,
+used only for verse and captions, decoding some glyphs to the wrong Unicode codepoint
+(confirmed by rendering the page: the printed glyphs are correct, the text layer is not).
+The meter-label fix above and the leaked-contents fix are instances of this same root cause
+that were small and bounded enough to hand-transcribe; the verse text itself is not —
+booklet six alone has ~27 poems, each several lines, each potentially carrying its own
+wrong characters. That is real, separate work (render every affected page, read the
+correct text off it, write it down), not something to start without checking scope first.
+Booklet seven's chapters were flagged by an early heuristic but turned out to be ordinary
+single-column verse with irregular line indentation, not this bug — checked directly
+against its PDF pages before ruling it out, not assumed.
 
 **`orphans`/`widows` on `.book-flow .rd-p`** (`app/globals.css`) were `3`, the print
 convention for long-form body copy. At the finer paragraph cut most paragraphs here are
