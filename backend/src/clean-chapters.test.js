@@ -190,6 +190,32 @@ test("a leaked contents run with no Contents heading to anchor on is stripped, s
   assert.equal(untouched.chapters[0].paragraphs.length, 2);
 });
 
+test("a leaked CONTENTS block stripContents' title-matching misses is stripped for its booklet", async () => {
+  const { buildLexicon, cleanBooklet } = await load();
+  const { booklet: cleaned } = cleanBooklet(
+    booklet(
+      [
+        {
+          title: "AUTHOR’S NOTE",
+          frontMatter: true,
+          paragraphs: [
+            "The poem begins with Rudra’s form and ends with the jīva turning Siva-facing through grief.",
+            "CONTENTS",
+            "Author’s Note Opening: When Grief Becomes Rhythm How to Read This Stotram 1 Stanza 1 2 Stanza 2"
+          ]
+        },
+        { title: "1.", paragraphs: ["Verse."] }
+      ],
+      "booklet-eight"
+    ),
+    buildLexicon([])
+  );
+
+  assert.deepEqual(cleaned.chapters[0].paragraphs, [
+    "The poem begins with Rudra’s form and ends with the jīva turning Siva-facing through grief."
+  ]);
+});
+
 test("a meter label pdf.js's own text layer decoded wrong is restored, scoped to its booklet", async () => {
   const { buildLexicon, cleanBooklet } = await load();
   const { booklet: cleaned } = cleanBooklet(

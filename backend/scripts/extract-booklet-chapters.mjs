@@ -202,22 +202,70 @@ function joinLineParts(parts, typeSize) {
   return line.replace(/\s+/g, " ").trim();
 }
 
-/** Groups a page's text items into lines, keyed on their baseline. */
-function toLines(textContent, pageHeight) {
+/**
+ * How much wider a gap between where text starts has to be than ordinary word-spacing
+ * before it counts as a column gutter rather than justified prose. A justified line's
+ * items rarely start more than 50-60pt apart; several booklets set a verse and its
+ * Author's Note as two cards side by side on the same page, with a gutter of 250-350pt.
+ */
+const COLUMN_GAP_MIN_PT = 90;
+const COLUMN_GAP_MIN_SHARE = 0.12;
+/** Below this many items on the narrower side, a gap is one stray line, not a column. */
+const COLUMN_MIN_ITEMS = 3;
+
+/**
+ * Where a page splits into two side-by-side columns, if it does. Reading a page by
+ * vertical position alone works until two cards share a page — a verse on the left, its
+ * Author's Note on the right — where it interleaves them: a commentary line at the same
+ * height as a verse line lands next to it in the merged reading order, and the two texts
+ * come out spliced together.
+ *
+ * The split is read from where text actually starts, not assumed at the page's own
+ * midpoint, because the two cards are rarely even widths. Header/footer-band items are
+ * left out first — a running head can start anywhere and would corrupt the gap.
+ */
+function findColumnSplit(items, pageWidth, pageHeight) {
+  const body = items.filter(
+    (item) => item.y <= pageHeight * (1 - FURNITURE_BAND) && item.y >= pageHeight * FURNITURE_BAND
+  );
+
+  if (body.length < COLUMN_MIN_ITEMS * 2) {
+    return null;
+  }
+
+  const xs = [...new Set(body.map((item) => Math.round(item.x)))].sort((left, right) => left - right);
+  let split = null;
+  let widest = 0;
+
+  for (let i = 1; i < xs.length; i += 1) {
+    const gap = xs[i] - xs[i - 1];
+
+    if (gap > widest) {
+      widest = gap;
+      split = (xs[i] + xs[i - 1]) / 2;
+    }
+  }
+
+  if (split === null || widest < Math.max(COLUMN_GAP_MIN_PT, pageWidth * COLUMN_GAP_MIN_SHARE)) {
+    return null;
+  }
+
+  const left = body.filter((item) => item.x < split).length;
+  const right = body.length - left;
+
+  return left >= COLUMN_MIN_ITEMS && right >= COLUMN_MIN_ITEMS ? split : null;
+}
+
+/** Groups one column's items into lines, keyed on their baseline, top of page first. */
+function bucketLines(items, pageHeight) {
   const buckets = new Map();
 
-  for (const item of textContent.items) {
-    if (!item.str || !item.str.trim()) {
-      continue;
-    }
+  for (const item of items) {
+    const key = String(item.y);
+    const bucket = buckets.get(key) || { y: item.y, height: 0, parts: [] };
 
-    const y = Math.round(item.transform[5]);
-    const key = String(y);
-    const height = Math.abs(item.transform[3]) || Math.abs(item.height) || 0;
-    const bucket = buckets.get(key) || { y, height: 0, parts: [] };
-
-    bucket.height = Math.max(bucket.height, height);
-    bucket.parts.push({ x: item.transform[4], width: item.width || 0, str: item.str });
+    bucket.height = Math.max(bucket.height, item.height);
+    bucket.parts.push({ x: item.x, width: item.width, str: item.str });
     buckets.set(key, bucket);
   }
 
@@ -232,6 +280,50 @@ function toLines(textContent, pageHeight) {
     }))
     .filter((line) => line.text)
     .sort((left, right) => right.y - left.y);
+}
+
+/** Groups a page's text items into lines, in reading order. */
+function toLines(textContent, pageHeight, pageWidth) {
+  const items = [];
+
+  for (const item of textContent.items) {
+    if (!item.str || !item.str.trim()) {
+      continue;
+    }
+
+    items.push({
+      x: item.transform[4],
+      y: Math.round(item.transform[5]),
+      width: item.width || 0,
+      height: Math.abs(item.transform[3]) || Math.abs(item.height) || 0,
+      str: item.str
+    });
+  }
+
+  const split = pageWidth ? findColumnSplit(items, pageWidth, pageHeight) : null;
+
+  if (split === null) {
+    return bucketLines(items, pageHeight);
+  }
+
+  // The left card read in full, top to bottom, then the right card — not the two
+  // interleaved by height, which is the bug this exists to avoid. The two are unrelated
+  // prose that happen to sit on the same page, so paragraph-building must not join across
+  // them just because the last line of one and the first of the other pass the gap test.
+  const left = bucketLines(
+    items.filter((item) => item.x < split),
+    pageHeight
+  );
+  const right = bucketLines(
+    items.filter((item) => item.x >= split),
+    pageHeight
+  );
+
+  if (left.length) {
+    left[left.length - 1] = { ...left[left.length - 1], columnBreak: true };
+  }
+
+  return [...left, ...right];
 }
 
 function findFurniture(pages) {
@@ -332,7 +424,9 @@ function toParagraphs(lines, bodyGap) {
 
     const gap = lines[i].y - next.y;
 
-    if (bodyGap > 0 && gap > bodyGap * PARAGRAPH_GAP_RATIO) {
+    // A column boundary is not a vertical gap at all — the next line can land anywhere —
+    // so it has to force the break itself rather than pass the gap test by coincidence.
+    if (lines[i].columnBreak || (bodyGap > 0 && gap > bodyGap * PARAGRAPH_GAP_RATIO)) {
       flush();
     }
   }
@@ -356,7 +450,7 @@ async function extract(file, options) {
   for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
     const page = await document.getPage(pageNumber);
     const viewport = page.getViewport({ scale: 1 });
-    pages.push(toLines(await page.getTextContent(), viewport.height));
+    pages.push(toLines(await page.getTextContent(), viewport.height, viewport.width));
   }
 
   const furniture = findFurniture(pages);

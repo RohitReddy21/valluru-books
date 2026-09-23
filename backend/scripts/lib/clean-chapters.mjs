@@ -328,7 +328,14 @@ function takeTrailingHeading(chapter) {
  * run of debris starts, verified against its source. Everything in the chapter from the
  * first paragraph starting this way onward is the leak, through the end of the chapter.
  */
-const LEAKED_CONTENTS_RUNS = [{ booklet: "booklet-six", startsWith: "1. 1. The First Cry" }];
+const LEAKED_CONTENTS_RUNS = [
+  { booklet: "booklet-six", startsWith: "1. 1. The First Cry" },
+  // This one does carry a literal "CONTENTS" heading, but stripContents's listing() count
+  // requires matching this booklet's own chapter titles — which are bare numbers ("1.",
+  // "2."), not the "Stanza 1", "Stanza 2" the contents page actually lists them as, so the
+  // match never clears its threshold.
+  { booklet: "booklet-eight", startsWith: "CONTENTS" }
+];
 
 function stripLeakedContentsRun(booklet, chapter, changes) {
   // Matched on the booklet and the debris's own distinctive opening text, not the
