@@ -154,6 +154,42 @@ test("the flattened yoga table becomes a table", async () => {
   assert.equal(cleaned.chapters[0].paragraphs[1].split("\n").length, 11, "the marker, the header and nine rows");
 });
 
+test("a leaked contents run with no Contents heading to anchor on is stripped, scoped to its booklet", async () => {
+  const { buildLexicon, cleanBooklet } = await load();
+  const { booklet: cleaned } = cleanBooklet(
+    booklet(
+      [
+        {
+          title: "Author's Note",
+          frontMatter: true,
+          paragraphs: [
+            "May grief return to the One who owns it.",
+            "1. 1. The First Cry 14. 12C. Dwaraka Shores and the Ganga Ashes కందము - accusation.",
+            "2. 2. Silence After the Storm 15. 12D. Barsana After Death కందము - presence mistaken."
+          ]
+        },
+        { title: "1. Real Chapter", paragraphs: ["Text."] }
+      ],
+      "booklet-six"
+    ),
+    buildLexicon([])
+  );
+
+  assert.deepEqual(cleaned.chapters[0].paragraphs, ["May grief return to the One who owns it."]);
+  assert.equal(cleaned.chapters[1].paragraphs[0], "Text.");
+
+  // The same leaked opening line in a different booklet is not this booklet's leak.
+  const { booklet: untouched } = cleanBooklet(
+    booklet(
+      [{ title: "Author's Note", frontMatter: true, paragraphs: ["A note.", "1. 1. The First Cry 14. 12C. Elsewhere"] }],
+      "booklet-two"
+    ),
+    buildLexicon([])
+  );
+
+  assert.equal(untouched.chapters[0].paragraphs.length, 2);
+});
+
 test("a meter label pdf.js's own text layer decoded wrong is restored, scoped to its booklet", async () => {
   const { buildLexicon, cleanBooklet } = await load();
   const { booklet: cleaned } = cleanBooklet(

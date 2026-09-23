@@ -317,6 +317,35 @@ function takeTrailingHeading(chapter) {
   return { chapter: { ...chapter, paragraphs }, leaked };
 }
 
+/**
+ * A run of paragraphs that is a leaked contents list `stripContents` cannot see, because
+ * there is no "Contents" heading anywhere near it to anchor on — the PDF's own two-column
+ * contents page (each entry giving its meter and a one-line gist) simply continues past
+ * where the Author's Note ends, with no marker between the two. General detection risks
+ * real prose: a reflective paragraph can legitimately name two or three of a booklet's own
+ * chapters in passing (confirmed against the corpus — one does, elsewhere). So this is
+ * matched the same way as MEASURED_TEXT and TABLES: by where a specific booklet's specific
+ * run of debris starts, verified against its source. Everything in the chapter from the
+ * first paragraph starting this way onward is the leak, through the end of the chapter.
+ */
+const LEAKED_CONTENTS_RUNS = [{ booklet: "booklet-six", startsWith: "1. 1. The First Cry" }];
+
+function stripLeakedContentsRun(booklet, chapter, changes) {
+  // Matched on the booklet and the debris's own distinctive opening text, not the
+  // chapter's position — a stray-heading merge earlier in the same pass can shift which
+  // chapter carries a given number, but this exact run only ever starts one way.
+  const run = LEAKED_CONTENTS_RUNS.find((candidate) => candidate.booklet === booklet.slug);
+  const at = run ? chapter.paragraphs.findIndex((paragraph) => paragraph.startsWith(run.startsWith)) : -1;
+
+  if (at === -1) {
+    return chapter.paragraphs;
+  }
+
+  changes?.push(`leaked contents list removed: ${chapter.paragraphs.length - at} paragraphs from "${run.startsWith}"`);
+
+  return chapter.paragraphs.slice(0, at);
+}
+
 /** The contents list the extractor left at the foot of the Author's Note. */
 function stripContents(paragraphs, chapterTitles, log) {
   const titles = chapterTitles
@@ -557,7 +586,9 @@ export function cleanBooklet(booklet, lexicon) {
     const paragraphs = restoreTables(
       booklet,
       stripContents(
-        chapter.paragraphs.map((paragraph) => restoreMeasuredText(booklet, paragraph, log)),
+        stripLeakedContentsRun(booklet, chapter, log).map((paragraph) =>
+          restoreMeasuredText(booklet, paragraph, log)
+        ),
         bodyTitles,
         log
       ),
