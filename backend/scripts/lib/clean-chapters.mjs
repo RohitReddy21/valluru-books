@@ -408,6 +408,41 @@ const TABLES = [
   }
 ];
 
+/**
+ * Text pdf.js's own text layer gets wrong before any of the code above ever sees it — a
+ * second, broken embedded font used only for these small italic captions, decoding some
+ * glyphs to the wrong Unicode codepoint (stray Latin letters, combining marks, reordered
+ * aksharas). Confirmed against the rendered page, not the text layer: the same "Meter:"
+ * line reads correctly wherever the glyph outlines are drawn, so what is wrong is the
+ * text layer's mapping, not the printed page. No rule recovers this — the fix is reading
+ * the page and writing down what it says, the same as TABLES above.
+ */
+const MEASURED_TEXT = [
+  { booklet: "booklet-nine", from: "łకంద పద̇కం / Kanda Padyam", to: "కంద పద్యం / Kanda Padyam" },
+  { booklet: "booklet-nine", from: "łకంద పద̇మాలిł ధో రణి", to: "కంద పద్యమాలిక ధోరణి" },
+  { booklet: "booklet-nine", from: "శాłక్త / ƱకంǕత్రిł ʛక్తőత్ర ధో రణి", to: "శాక్త / తాంత్రిక స్తోత్ర ధోరణి" },
+  { booklet: "booklet-nine", from: "వచనపద̇ ధో రణి", to: "వచనపద్య ధోరణి" },
+  { booklet: "booklet-nine", from: "łకంద ధో రణి", to: "కంద ధోరణి" },
+  { booklet: "booklet-nine", from: "చకంపłమాల", to: "చంపకమాల" },
+  { booklet: "booklet-nine", from: "ఉőత్పలమాల", to: "ఉత్పలమాల" },
+  { booklet: "booklet-nine", from: "మɁక్తభవిǪత్రడిőము", to: "మత్తేభవిక్రీడితము" },
+  { booklet: "booklet-nine", from: "łకంద పద̇కం", to: "కంద పద్యం" },
+  { booklet: "booklet-nine", from: "శారūర్దూలవిǪత్రడిőము", to: "శార్దూలవిక్రీడితము" }
+];
+
+function restoreMeasuredText(booklet, text, changes) {
+  let out = text;
+
+  for (const fix of MEASURED_TEXT) {
+    if (fix.booklet === booklet.slug && out.includes(fix.from)) {
+      out = out.split(fix.from).join(fix.to);
+      changes?.push(`measured text restored: "${fix.from}" → "${fix.to}"`);
+    }
+  }
+
+  return out;
+}
+
 function restoreTables(booklet, paragraphs, changes) {
   const out = [];
 
@@ -515,12 +550,17 @@ export function cleanBooklet(booklet, lexicon) {
     chapters.push(current);
   }
 
-  // 3. The Author's Note keeps no contents list; tables become tables.
+  // 3. Text the PDF's own text layer got wrong; the Author's Note keeps no contents
+  // list; tables become tables.
   const bodyTitles = chapters.filter((chapter) => !chapter.frontMatter).map((chapter) => chapter.title);
   const repaired = chapters.map((chapter) => {
     const paragraphs = restoreTables(
       booklet,
-      stripContents(chapter.paragraphs, bodyTitles, log),
+      stripContents(
+        chapter.paragraphs.map((paragraph) => restoreMeasuredText(booklet, paragraph, log)),
+        bodyTitles,
+        log
+      ),
       log
     ).map((paragraph) => (paragraph.startsWith(TABLE_MARKER) ? paragraph : repairText(paragraph, lexicon, log)));
 

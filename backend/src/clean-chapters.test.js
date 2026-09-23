@@ -154,6 +154,27 @@ test("the flattened yoga table becomes a table", async () => {
   assert.equal(cleaned.chapters[0].paragraphs[1].split("\n").length, 11, "the marker, the header and nine rows");
 });
 
+test("a meter label pdf.js's own text layer decoded wrong is restored, scoped to its booklet", async () => {
+  const { buildLexicon, cleanBooklet } = await load();
+  const { booklet: cleaned } = cleanBooklet(
+    booklet(
+      [{ title: "1. A Poem", paragraphs: ["Meter: łకంద పద̇కం / Kanda Padyam", "The verse follows."] }],
+      "booklet-nine"
+    ),
+    buildLexicon([])
+  );
+
+  assert.equal(cleaned.chapters[0].paragraphs[0], "Meter: కంద పద్యం / Kanda Padyam");
+
+  // The same corrupted text in a different booklet is not this booklet's font damage.
+  const { booklet: untouched } = cleanBooklet(
+    booklet([{ title: "1. A Poem", paragraphs: ["Meter: łకంద పద̇కం / Kanda Padyam"] }], "booklet-two"),
+    buildLexicon([])
+  );
+
+  assert.equal(untouched.chapters[0].paragraphs[0], "Meter: łకంద పద̇కం / Kanda Padyam");
+});
+
 test("cleaning twice changes nothing more", async () => {
   const { buildLexicon, cleanBooklet } = await load();
   const source = booklet([
