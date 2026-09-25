@@ -1,6 +1,7 @@
 import Image from "next/image";
 import {
   TABLE_CELL_SEPARATOR,
+  isIndicLine,
   toChapterBlocks,
   type BookletChapterImage,
   type ChapterBlock
@@ -116,10 +117,17 @@ function ChapterBlocks({ blocks, chapterId }: { blocks: ChapterBlock[]; chapterI
         }
 
         if (block.kind === "verse") {
+          // A verse that holds Telugu or Devanagari and Latin lines alternately is a poem with
+          // its transliteration beneath each line; the transliteration reads as a quiet gloss.
+          const glossed = block.lines.some(isIndicLine);
+
           return (
             <p className="rd-p rd-verse" key={key}>
               {block.lines.map((line, lineIndex) => (
-                <span className="block" key={`${key}-${lineIndex}`}>
+                <span
+                  className={glossed && !isIndicLine(line) ? "block rd-roman" : "block"}
+                  key={`${key}-${lineIndex}`}
+                >
                   {line}
                 </span>
               ))}

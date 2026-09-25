@@ -179,10 +179,62 @@ function splitSectionLabel(line: string): { label: string; rest: string } | null
   return match ? { label: match.label, rest: fragments.slice(match.taken).join(" ").trim() } : null;
 }
 
+const INDIC_LETTER = /[ऀ-ॿఀ-౿]/;
+/** A transliteration line is never longer than this; a longer Latin line is prose. */
+const TRANSLITERATION_LINE_MAX = 90;
+
+export const isIndicLine = (line: string) => INDIC_LETTER.test(line);
+
+/**
+ * The poems in booklet nine print each Telugu line with its Roman transliteration beneath.
+ * By the sentence-punctuation test alone the Roman lines, which end in a full stop, would
+ * each break out as a prose paragraph and the Telugu lines around them would regroup wrongly.
+ * So a short Latin line counts as verse when it sits inside a run that alternates Telugu and
+ * Latin — the line before is Telugu verse and the line after is Telugu, or an earlier Latin
+ * line already made this a couplet run — and a Telugu line ending in ! or ? (a verse can
+ * exclaim or ask) is still verse. An English sentence that merely follows a Telugu quotation
+ * has neither neighbour, so it stays prose.
+ */
+function classifyLines(lines: string[]): ("verse" | "prose")[] {
+  const kinds = lines.map((line) => (looksLikeVerseLine(line) ? "verse" : "prose")) as ("verse" | "prose")[];
+
+  lines.forEach((line, index) => {
+    if (isIndicLine(line) && line.length <= 100 && /[!?]["')\]]?$/.test(line)) {
+      kinds[index] = "verse";
+    }
+  });
+
+  let coupletRun = false;
+
+  lines.forEach((line, index) => {
+    if (isIndicLine(line)) {
+      coupletRun = kinds[index] === "verse" ? coupletRun : false;
+      return;
+    }
+
+    const previous = lines[index - 1];
+    const next = lines[index + 1];
+    const afterIndic = previous !== undefined && isIndicLine(previous) && kinds[index - 1] === "verse";
+    const short = line.length <= TRANSLITERATION_LINE_MAX;
+
+    if (afterIndic && short && ((next !== undefined && isIndicLine(next)) || coupletRun)) {
+      kinds[index] = "verse";
+      coupletRun = true;
+    } else if (kinds[index] !== "verse") {
+      coupletRun = false;
+    }
+  });
+
+  return kinds;
+}
+
 export function toChapterBlocks(paragraphs: string[]): ChapterBlock[] {
   const blocks: ChapterBlock[] = [];
+  const lineKinds = classifyLines(
+    paragraphs.map((paragraph) => (paragraph.startsWith(TABLE_MARKER) ? "" : (splitSectionLabel(paragraph)?.rest ?? paragraph)))
+  );
 
-  for (const paragraph of paragraphs) {
+  for (const [paragraphIndex, paragraph] of paragraphs.entries()) {
     if (paragraph.startsWith(TABLE_MARKER)) {
       const rows = paragraph
         .slice(TABLE_MARKER.length)
@@ -207,7 +259,7 @@ export function toChapterBlocks(paragraphs: string[]): ChapterBlock[] {
       }
     }
 
-    const kind = looksLikeVerseLine(line) ? "verse" : "prose";
+    const kind = lineKinds[paragraphIndex];
     const last = blocks[blocks.length - 1];
 
     // Only a run counts as verse: one short line amid prose is just a short paragraph.

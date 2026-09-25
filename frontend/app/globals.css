@@ -350,6 +350,13 @@ a {
   hyphens: manual;
 }
 
+.book-flow .rd-roman {
+  font-style: italic;
+  font-size: 0.86em;
+  opacity: 0.72;
+  margin-bottom: 0.3em;
+}
+
 .book-flow figure {
   break-inside: avoid;
 }

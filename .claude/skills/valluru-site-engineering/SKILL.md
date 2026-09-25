@@ -795,6 +795,17 @@ inside the poem chapter in some, a separate "N. Notes" chapter in others), which
 reflects. The Telugu after `భా వ ము` keeps the PDF's own letterspaced label so
 `splitSectionLabel` still lifts it out.
 
+**Poems with a transliteration under each line (booklet nine).** `toChapterBlocks`
+(`lib/site-content.ts`) called a line verse only if it was short and did not end in sentence
+punctuation, so each Roman line — which ends in a full stop — broke out as its own prose
+paragraph and the Telugu lines around it regrouped against the wrong partner. `classifyLines`
+now (a) keeps a Telugu/Devanagari line ending in `!` or `?` as verse, and (b) treats a short
+Latin line as verse when it sits inside a run that alternates Indic and Latin — the line before
+is Indic verse and the line after is Indic, or an earlier Latin line already made this a
+couplet run. An English sentence that merely follows a Telugu quotation has neither neighbour
+and stays prose (booklet two's "To the Devī who abides…"). `chapter-body.tsx` gives those
+Latin lines `.rd-roman` (italic, smaller, muted) so the transliteration reads as a gloss.
+
 **Still not fixed (found by a sweep across every booklet, 2026-09-25):** booklet seven (118 of
 260 Indic paragraphs damaged, and no Roman transliteration to lean on — a full transcription,
 the largest remaining job). Booklets four, five, 10, 11, the nine Movement
