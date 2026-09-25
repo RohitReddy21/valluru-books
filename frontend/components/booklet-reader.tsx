@@ -33,7 +33,6 @@ function readStoredSubscriberInfo(): SubscriberInfo | null {
 }
 
 export function BookletReader({ booklet }: Props) {
-  const isFree = booklet.slug === "booklet-one";
   const accessStorageKey = `valluru_access_token_${booklet.slug}`;
   const storedAccessToken =
     typeof window !== "undefined"
@@ -58,14 +57,14 @@ export function BookletReader({ booklet }: Props) {
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       const globalSubscribed = window.localStorage.getItem(globalStorageKey) === "subscribed";
-      const hasLocalAccess = isFree || Boolean(storedAccessToken);
+      const hasLocalAccess = Boolean(storedAccessToken);
       const subscriberInfo = readStoredSubscriberInfo();
       setHasAccess(globalSubscribed || hasLocalAccess);
       setHasSubscriberInfo(Boolean(subscriberInfo?.email));
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [isFree, storedAccessToken]);
+  }, [storedAccessToken]);
 
   async function trackUnlock(reader?: { name?: string; email?: string }) {
     try {
@@ -91,12 +90,11 @@ export function BookletReader({ booklet }: Props) {
     setStatus("saving");
     let readerInfo: { name?: string; email?: string } | undefined;
     const storedSubscriberInfo = readStoredSubscriberInfo();
-    const needsSubscriberInfo = !isFree && !storedSubscriberInfo?.email;
+    const needsSubscriberInfo = !storedSubscriberInfo?.email;
     const subscriberName = (storedSubscriberInfo?.name || "").trim();
     const subscriberEmail = (needsSubscriberInfo ? email : storedSubscriberInfo?.email || email).trim();
     const shouldSubscribe =
-      !isFree &&
-      (window.localStorage.getItem(globalStorageKey) !== "subscribed" || needsSubscriberInfo);
+      window.localStorage.getItem(globalStorageKey) !== "subscribed" || needsSubscriberInfo;
 
     if (needsSubscriberInfo && !subscriberEmail) {
       setStatus("error");
@@ -166,7 +164,7 @@ export function BookletReader({ booklet }: Props) {
     );
   }
 
-  const shouldShowSubscriberFields = !isFree && (!hasAccess || !hasSubscriberInfo);
+  const shouldShowSubscriberFields = !hasAccess || !hasSubscriberInfo;
 
   // Always show the same reader section while preserving access tracking.
   return (

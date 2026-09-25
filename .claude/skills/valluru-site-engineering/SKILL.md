@@ -655,10 +655,14 @@ The old rule counted the Opening as a body chapter, so readers got Opening + 1 +
 The gate's "N more chapters" is the number of *numbered* chapters left (distinct labels),
 so it is the booklet's total less the free three: booklet one says 12 of 15.
 
-**Booklet one is a free sample for the PDF only.** `hasBookletAccess(request, slug, { freeSample: false })`
-is what `/api/booklets/:slug/chapters` uses, so booklet one's chapters gate like every
-other booklet's. The PDF endpoint still lets booklet one through — a known bypass of the
-gate for that one booklet; decide before treating the gate as watertight.
+**No booklet is exempt from the gate (2026-09-26).** Booklet one used to hand out its whole
+PDF as a free sample (`FREE_BOOKLET_SLUGS`, a `freeSample` option on `hasBookletAccess`, and an
+`isFree` flag in `booklet-reader.tsx`). That gated by booklet, not by depth, and contradicted
+the review's "the PDF endpoint refuses requests without the cookie", so all three are gone:
+`hasBookletAccess(request, slug)` has one rule for every booklet, and every PDF response is
+`private, no-store`. The Movements pages are a separate hole: their PDFs are direct public
+Supabase URLs (Movement 1's is booklet one's full PDF, Movement 3's the "Grief as Fire" print
+file), which no gate can see. Whether they stay is the owner's call.
 
 ### Sign-up is email only
 

@@ -20,7 +20,6 @@ const {
   resolveChapterAccess
 } = require("./src/content-chapters");
 const {
-  FREE_BOOKLET_SLUGS,
   cookieOptions,
   createAccessToken,
   createAdminToken,
@@ -3330,9 +3329,7 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
 
     // A gated PDF must never sit in a shared cache, or a CDN hands it to the next
     // reader along without one of the checks above ever running.
-    const pdfCacheControl = FREE_BOOKLET_SLUGS.has(slug)
-      ? "public, max-age=3600"
-      : "private, no-store";
+    const pdfCacheControl = "private, no-store";
 
     const supabaseObject = getSupabaseObjectFromUrl(booklet.pdf);
 
@@ -3395,7 +3392,7 @@ app.get("/api/booklets/:slug/chapters", async (request, response, next) => {
     }
 
     const chapters = Array.isArray(booklet.chapters) ? booklet.chapters : [];
-    const hasAccess = hasBookletAccess(request, slug, { freeSample: false });
+    const hasAccess = hasBookletAccess(request, slug);
     const resolved = resolveChapterAccess(chapters);
     const visible = resolved.filter((chapter) => hasAccess || chapter.free);
 

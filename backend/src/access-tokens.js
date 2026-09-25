@@ -153,27 +153,18 @@ function setSubscriberCookie(response, request, subscriber) {
 }
 
 /**
- * Booklet one is the free sample. booklet-reader.tsx applies the same rule client-side,
- * so the two must stay in step.
- */
-const FREE_BOOKLET_SLUGS = new Set(["booklet-one"]);
-
-/**
- * Decides whether a request may read a booklet PDF.
+ * Decides whether a request may read a booklet's gated chapters or its PDF.
+ *
+ * No booklet is exempt. Booklet one used to hand out its whole PDF as a free sample, which
+ * gated by booklet rather than by depth: chapters 1–3 of every booklet are the free sample,
+ * and the illustrated PDF is part of what sign-up adds.
  *
  * The signed subscriber cookie is the source of truth: it survives a cleared localStorage
  * and works on the reader's other devices. The two checks below it are the grace path —
  * readers who subscribed before this gate existed hold a per-booklet cookie or an access
  * token instead, and must not be locked out of a booklet they already gave an email for.
  */
-function hasBookletAccess(request, slug, { freeSample = true } = {}) {
-  // The chapter gate passes freeSample: false. Booklet one is a free sample for the PDF, but
-  // its chapters are gated at the 3/4 boundary like every other booklet's, so the free
-  // sample cannot be what unlocks them.
-  if (freeSample && FREE_BOOKLET_SLUGS.has(slug)) {
-    return true;
-  }
-
+function hasBookletAccess(request, slug) {
   if (getSubscriberFromRequest(request)) {
     return true;
   }
@@ -192,7 +183,6 @@ function hasBookletAccess(request, slug, { freeSample = true } = {}) {
 }
 
 module.exports = {
-  FREE_BOOKLET_SLUGS,
   cookieOptions,
   createAccessToken,
   createAdminToken,
