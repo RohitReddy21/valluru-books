@@ -13,6 +13,7 @@
 import { TRANSCRIBED_VERSES } from "./transcribed-verses.mjs";
 import { TRANSCRIBED_STANZAS } from "./transcribed-stanzas.mjs";
 import { TRANSCRIBED_PASSAGES } from "./transcribed-passages.mjs";
+import { TRANSCRIBED_BOOKLET_NINE } from "./transcribed-booklet-nine.mjs";
 
 const LATIN = "A-Za-zĀ-ſḀ-ỿ";
 const LOWER = "a-zà-ÿāīūṛṝḷṅñṭḍṇśṣḥṃ";
@@ -628,6 +629,105 @@ function restoreTranscribedPassages(booklet, chapters, changes) {
   return out;
 }
 
+const SPACED_MEANING = /^M\s?E\s?A\s?N\s?I\s?N\s?G\b/;
+const SPACED_BHAVAM = "భా వ ము";
+
+/**
+ * Booklet nine: every Telugu line, Telugu note and Telugu subtitle. A poem chapter is its
+ * Meter line, then each Telugu line with its Roman transliteration beneath, then (in some
+ * chapters) the భావము note, up to the English "MEANING". A Notes chapter is the భావము alone.
+ * The chapter is found by the English start of its title, which the damage never touches;
+ * everything between the Meter line (or the భావము label) and "MEANING" is rebuilt, so it is
+ * safe to run twice. The cover chapter's contents list takes the same Telugu subtitles.
+ */
+function restoreTranscribedBookletNine(booklet, chapters, changes) {
+  if (booklet.slug !== "booklet-nine") {
+    return chapters;
+  }
+
+  const out = chapters.map((chapter) => ({ ...chapter, paragraphs: [...chapter.paragraphs] }));
+  const used = new Set();
+  let rebuilt = 0;
+
+  for (const entry of TRANSCRIBED_BOOKLET_NINE) {
+    const at = out.findIndex((chapter, index) => !used.has(index) && String(chapter.title).startsWith(entry.key));
+
+    if (at === -1) {
+      changes?.push(`booklet nine chapter NOT found: ${entry.key}`);
+      continue;
+    }
+
+    used.add(at);
+    const chapter = out[at];
+    const paragraphs = chapter.paragraphs;
+    const end = paragraphs.findIndex((paragraph) => SPACED_MEANING.test(paragraph));
+    const tail = end === -1 ? [] : paragraphs.slice(end);
+    let head;
+    let body;
+
+    if (entry.lines.length) {
+      const meter = paragraphs.findIndex((paragraph) => /^Meter:/.test(paragraph));
+
+      if (meter === -1) {
+        changes?.push(`booklet nine: no Meter line in ${entry.key}`);
+        continue;
+      }
+
+      head = paragraphs.slice(0, meter + 1);
+      body = entry.lines.flat();
+
+      if (entry.bhavam) {
+        body.push(`${SPACED_BHAVAM} ${entry.bhavam}`);
+      }
+    } else {
+      const label = paragraphs.findIndex((paragraph) => /^భా\s?వ\s?ము/.test(paragraph));
+
+      if (label === -1) {
+        changes?.push(`booklet nine: no భావము in ${entry.key}`);
+        continue;
+      }
+
+      head = paragraphs.slice(0, label);
+      body = [SPACED_BHAVAM, entry.bhavam];
+    }
+
+    const next = [...head, ...body, ...tail];
+
+    if (JSON.stringify(next) !== JSON.stringify(paragraphs) || chapter.title !== entry.title) {
+      chapter.paragraphs = next;
+      chapter.title = entry.title;
+      rebuilt += 1;
+    }
+  }
+
+  // "3. 3. Kannikattu — <damaged>" on the cover chapter's contents list.
+  for (const chapter of out) {
+    chapter.paragraphs = chapter.paragraphs.map((paragraph) => {
+      const listed = paragraph.match(/^(\d+)\. \1\. (.+?) — /);
+      const entry = listed && TRANSCRIBED_BOOKLET_NINE.find((candidate) => candidate.title.startsWith(`${listed[1]}. `) && !/Notes$/.test(candidate.key));
+      const telugu = entry && entry.title.slice(entry.key.length).trim();
+
+      if (!telugu) {
+        return paragraph;
+      }
+
+      const next = `${listed[1]}. ${listed[1]}. ${listed[2]} — ${telugu}`;
+
+      if (next !== paragraph) {
+        rebuilt += 1;
+      }
+
+      return next;
+    });
+  }
+
+  if (rebuilt) {
+    changes?.push(`booklet nine Telugu restored from the printed pages: ${rebuilt} chapters/contents lines rebuilt`);
+  }
+
+  return out;
+}
+
 /** The English after each " — " in a word-by-word paragraph, up to where the next entry's own headword starts. */
 function englishGlosses(wordByWord) {
   return wordByWord
@@ -862,7 +962,11 @@ export function cleanBooklet(booklet, lexicon) {
       // Numbered as they now stand, so a merge leaves no gap.
       chapters: restoreTranscribedStanzas(
         booklet,
-        restoreTranscribedPassages(booklet, restoreTranscribedVerses(booklet, repaired, log), log),
+        restoreTranscribedBookletNine(
+          booklet,
+          restoreTranscribedPassages(booklet, restoreTranscribedVerses(booklet, repaired, log), log),
+          log
+        ),
         log
       ).map((chapter, index) => ({
         ...chapter,

@@ -386,6 +386,40 @@ test("damaged Telugu passages are replaced only where the exact damaged run is f
   assert.ok(missed.some((line) => line.startsWith("passage NOT restored")));
 });
 
+test("booklet nine's poems and notes are rebuilt from the transcription, found by the English part of the title", async () => {
+  const { buildLexicon, cleanBooklet } = await load();
+  const { TRANSCRIBED_BOOKLET_NINE } = await import("../scripts/lib/transcribed-booklet-nine.mjs");
+  const poem = TRANSCRIBED_BOOKLET_NINE.find((entry) => entry.key === "1. The Mirror of Māyā");
+  const notes = TRANSCRIBED_BOOKLET_NINE.find((entry) => entry.key === "3. Notes");
+  const build = (slug) =>
+    booklet(
+      [
+        { title: "In Amma's Lap", paragraphs: ["Cover.", "1. 1. The Mirror of Māyā — దామగ్ద"] },
+        {
+          title: "1. The Mirror of Māyā మాయా అద్దం",
+          paragraphs: ["Meter: కంద పద్యం", "మాయా అ ద్దమ్మ", "māyā addamulōnan", "భా వ ము గరవ్విం", "M E A N I N G The devotee sees."]
+        },
+        { title: "3. Notes", paragraphs: ["భా వ ము", "damaged ¥", "M E A N I N G The devotee says."] }
+      ],
+      slug
+    );
+  const { booklet: cleaned } = cleanBooklet(build("booklet-nine"), buildLexicon([]));
+
+  assert.deepEqual(cleaned.chapters[1].paragraphs, [
+    "Meter: కంద పద్యం",
+    ...poem.lines.flat(),
+    `భా వ ము ${poem.bhavam}`,
+    "M E A N I N G The devotee sees."
+  ]);
+  assert.equal(cleaned.chapters[1].title, poem.title);
+  assert.deepEqual(cleaned.chapters[2].paragraphs, ["భా వ ము", notes.bhavam, "M E A N I N G The devotee says."]);
+  assert.equal(cleaned.chapters[0].paragraphs[1], `1. 1. The Mirror of Māyā — ${poem.title.slice(poem.key.length).trim()}`);
+  assert.deepEqual(cleanBooklet(cleaned, buildLexicon([])).booklet, cleaned);
+
+  const { booklet: other } = cleanBooklet(build("booklet-two"), buildLexicon([]));
+  assert.equal(other.chapters[1].paragraphs[1], "మాయా అ ద్దమ్మ");
+});
+
 test("cleaning twice changes nothing more", async () => {
   const { buildLexicon, cleanBooklet } = await load();
   const source = booklet([

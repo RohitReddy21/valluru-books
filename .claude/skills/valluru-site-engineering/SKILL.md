@@ -779,10 +779,25 @@ printed back cover read as text: "Booklet N of seven · The Inward Mirror Series
 (usually a repeat of the epilogue's last sentence), and the running footer. `stripBackCover`
 cuts from the first of them (matched by that line's own wording) to the end of the chapter.
 
+**Fixed for booklet nine (2026-09-25).** Every Telugu line of all 15 poems, the 15 Telugu
+"భావము" notes and the Telugu chapter subtitles (and the cover chapter's contents list) came
+out damaged. Each poem prints a Telugu line with its Roman transliteration beneath; the Roman
+line extracts intact, so the Roman is kept as stored and the Telugu was read off the page.
+The Roman line was then used as a *second reading*: a script transliterates it to Telugu and
+compares consonant skeletons with what was read off the page — all 20 chapters' lines agree
+within 2 consonants, so a misread consonant would have shown. (It cannot see a wrong vowel
+sign, and the Roman itself has one fault, `n` + a combining macron for `ñ`, repaired.)
+`scripts/lib/transcribed-booklet-nine.mjs` holds title, lines (Telugu, Roman pairs) and భావము
+per chapter; `restoreTranscribedBookletNine` finds each chapter by the English start of its
+title (the damage never touches it) and rebuilds everything between the Meter line — or the
+భావము label in a Notes chapter — and "M E A N I N G". The layout differs by chapter (bhāvam
+inside the poem chapter in some, a separate "N. Notes" chapter in others), which the data
+reflects. The Telugu after `భా వ ము` keeps the PDF's own letterspaced label so
+`splitSectionLabel` still lifts it out.
+
 **Still not fixed (found by a sweep across every booklet, 2026-09-25):** booklet seven (118 of
-260 Indic paragraphs damaged, no Roman transliteration to lean on) and booklet nine (76 of
-154; each Telugu line has an intact Roman transliteration beneath it, so it can be rebuilt
-from that and checked against the page). Booklets four, five, 10, 11, the nine Movement
+260 Indic paragraphs damaged, and no Roman transliteration to lean on — a full transcription,
+the largest remaining job). Booklets four, five, 10, 11, the nine Movement
 booklets and all seven Mirror booklets have no Indic text; booklets 12 and 14 have no chapters.
 The sweep only sees damage that leaves stray symbols or Latin letters — a wrong vowel sign
 (booklet six's `కన్నేందు` for `కన్నొందు`) passes it, so "not flagged" is not "proofread".
