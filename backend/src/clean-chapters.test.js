@@ -420,6 +420,55 @@ test("booklet nine's poems and notes are rebuilt from the transcription, found b
   assert.equal(other.chapters[1].paragraphs[1], "మాయా అ ద్దమ్మ");
 });
 
+test("booklet seven's verse-sections are rebuilt between the label and the English commentary, even where a page break fused them", async () => {
+  const { buildLexicon, cleanBooklet } = await load();
+  const { TRANSCRIBED_BOOKLET_SEVEN } = await import("../scripts/lib/transcribed-booklet-seven.mjs");
+  const sections = TRANSCRIBED_BOOKLET_SEVEN;
+  const build = (slug) =>
+    booklet(
+      sections.map((section, index) => ({
+        title: `${index + 1} Section`,
+        paragraphs: [
+          "English before.",
+          "పద్యం — శా ర@్దూల ధో రణి",
+          "damaged ¥ line",
+          "METER damaged",
+          // Section 3 (index 2) is the fused case: the last భావము line and the commentary share a paragraph.
+          index === 2 ? "damaged భావము tail AUTHOR CONTEXT The English stays." : "భావము damaged",
+          ...(index === 2 ? [] : ["AUTHOR CONTEXT The English stays."]),
+          "MEANING “Kept.”"
+        ]
+      })),
+      slug
+    );
+  const { booklet: cleaned } = cleanBooklet(build("booklet-seven"), buildLexicon([]));
+
+  cleaned.chapters.forEach((chapter, index) => {
+    const section = sections[index];
+    const [first, ...more] = section.bhavam;
+
+    assert.deepEqual(chapter.paragraphs, [
+      "English before.",
+      section.label,
+      ...section.lines,
+      `METER ${section.meter}`,
+      `భావము ${first}`,
+      ...more,
+      "AUTHOR CONTEXT The English stays.",
+      "MEANING “Kept.”"
+    ]);
+  });
+  assert.deepEqual(cleanBooklet(cleaned, buildLexicon([])).booklet, cleaned);
+
+  const short = build("booklet-seven");
+  short.chapters.pop();
+  const { log } = cleanBooklet(short, buildLexicon([]));
+  assert.ok(log.some((line) => line.startsWith("booklet seven verses NOT restored")));
+
+  const { booklet: other } = cleanBooklet(build("booklet-two"), buildLexicon([]));
+  assert.equal(other.chapters[0].paragraphs[2], "damaged ¥ line");
+});
+
 test("cleaning twice changes nothing more", async () => {
   const { buildLexicon, cleanBooklet } = await load();
   const source = booklet([

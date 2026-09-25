@@ -806,12 +806,20 @@ couplet run. An English sentence that merely follows a Telugu quotation has neit
 and stays prose (booklet two's "To the Devī who abides…"). `chapter-body.tsx` gives those
 Latin lines `.rd-roman` (italic, smaller, muted) so the transliteration reads as a gloss.
 
-**Still not fixed (found by a sweep across every booklet, 2026-09-25):** booklet seven (118 of
-260 Indic paragraphs damaged, and no Roman transliteration to lean on — a full transcription,
-the largest remaining job). Booklets four, five, 10, 11, the nine Movement
-booklets and all seven Mirror booklets have no Indic text; booklets 12 and 14 have no chapters.
-The sweep only sees damage that leaves stray symbols or Latin letters — a wrong vowel sign
-(booklet six's `కన్నేందు` for `కన్నొందు`) passes it, so "not flagged" is not "proofread".
+**Fixed for booklet seven (2026-09-25).** All 25 verse-sections (meter label, verse, METER
+line, భావము) and the Telugu phrases quoted inside the English commentary were damaged, and —
+unlike booklet nine — there is no Roman transliteration beneath them to cross-check against, so
+every line is a reading off the rendered page and nothing else. `scripts/lib/transcribed-
+booklet-seven.mjs` holds the 25 sections plus 16 exact-string `fixes` for quoted phrases
+(`“గోవర్ధనగిÉధాÉ” → “గోవర్ధనగిరిధారి”` and so on). `restoreTranscribedBookletSeven` finds each
+section by its `పద్యం —` label (25 found, in order, or it logs "NOT restored" and does
+nothing), and replaces everything from the label up to the first paragraph that opens — or,
+where a page break fused them, *contains* — `AUTHOR CONTEXT` or `MEANING`; the English from
+that point is kept as stored. Only tripwire: the consonant skeleton of each verse against the
+damaged text, which agrees within 2–18% (the damaged text is itself missing whole syllables at
+line starts in places, e.g. section 12, so it is a weak check). Read at 3× per page half; a
+Telugu reader must proof this one — it is the least cross-checked of all the transcriptions.
+Booklets twelve and fourteen have no chapters at all, so there is nothing to fix there.
 
 **The reader is ragged-right, not justified.** `.book-flow .rd-p` was `text-align: justify`
 with `hyphens: auto`. In a ~35-character column with short paragraphs and long Sanskrit words,

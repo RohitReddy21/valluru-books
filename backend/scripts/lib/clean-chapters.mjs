@@ -14,6 +14,7 @@ import { TRANSCRIBED_VERSES } from "./transcribed-verses.mjs";
 import { TRANSCRIBED_STANZAS } from "./transcribed-stanzas.mjs";
 import { TRANSCRIBED_PASSAGES } from "./transcribed-passages.mjs";
 import { TRANSCRIBED_BOOKLET_NINE } from "./transcribed-booklet-nine.mjs";
+import { TRANSCRIBED_BOOKLET_SEVEN, BOOKLET_SEVEN_FIXES } from "./transcribed-booklet-seven.mjs";
 
 const LATIN = "A-Za-zĀ-ſḀ-ỿ";
 const LOWER = "a-zà-ÿāīūṛṝḷṅñṭḍṇśṣḥṃ";
@@ -728,6 +729,99 @@ function restoreTranscribedBookletNine(booklet, chapters, changes) {
   return out;
 }
 
+const VERSE_SECTION_LABEL = "పద్యం —";
+const COMMENTARY_START = /(^|\s)(AUTHOR CONTEXT|MEANING)\b/;
+
+/**
+ * Booklet seven: 25 verse-sections, each a Telugu label ("పద్యం — <meter>"), the verse, a METER
+ * line and the భావము, followed by the English Author Context and Meaning. A section's Telugu
+ * is everything from its label up to the first paragraph that opens (or, where a page break
+ * fused them, contains) "AUTHOR CONTEXT" or "MEANING"; that stretch is replaced wholesale, and
+ * the English from that point on is kept exactly as stored. Sections are matched by order, and
+ * only when exactly as many labels are found as were transcribed. Then the damaged Telugu
+ * phrases quoted inside the English commentary are replaced one by one. Safe to run twice.
+ */
+function restoreTranscribedBookletSeven(booklet, chapters, changes) {
+  if (booklet.slug !== "booklet-seven") {
+    return chapters;
+  }
+
+  const sections = TRANSCRIBED_BOOKLET_SEVEN;
+  const out = chapters.map((chapter) => ({ ...chapter, paragraphs: [...chapter.paragraphs] }));
+  const found = [];
+
+  out.forEach((chapter, chapterIndex) =>
+    chapter.paragraphs.forEach((paragraph, paragraphIndex) => {
+      if (paragraph.startsWith(VERSE_SECTION_LABEL)) {
+        found.push({ chapterIndex, paragraphIndex });
+      }
+    })
+  );
+
+  let rebuilt = 0;
+
+  if (found.length === sections.length) {
+    // Back to front, so an earlier splice never moves a later section's position.
+    for (let n = found.length - 1; n >= 0; n -= 1) {
+      const { chapterIndex, paragraphIndex } = found[n];
+      const section = sections[n];
+      const paragraphs = out[chapterIndex].paragraphs;
+      let end = paragraphIndex + 1;
+
+      while (end < paragraphs.length && !COMMENTARY_START.test(paragraphs[end])) {
+        end += 1;
+      }
+
+      if (end >= paragraphs.length) {
+        changes?.push(`booklet seven section ${n + 1}: no commentary found, left alone`);
+        continue;
+      }
+
+      const fused = paragraphs[end].match(COMMENTARY_START);
+      const tail = fused && fused.index > 0 ? [paragraphs[end].slice(fused.index).trim()] : [paragraphs[end]];
+      const [first, ...more] = section.bhavam;
+      const next = [
+        section.label,
+        ...section.lines,
+        `METER ${section.meter}`,
+        ...(first ? [`భావము ${first}`, ...more] : [])
+      ];
+      const before = paragraphs.slice(paragraphIndex, end + 1);
+      const after = [...next, ...tail];
+
+      if (JSON.stringify(before) !== JSON.stringify(after)) {
+        paragraphs.splice(paragraphIndex, end - paragraphIndex + 1, ...after);
+        rebuilt += 1;
+      }
+    }
+  } else {
+    changes?.push(`booklet seven verses NOT restored: found ${found.length} sections, ${sections.length} transcribed`);
+  }
+
+  let fixed = 0;
+
+  for (const chapter of out) {
+    chapter.paragraphs = chapter.paragraphs.map((paragraph) => {
+      let text = paragraph;
+
+      for (const [from, to] of BOOKLET_SEVEN_FIXES) {
+        if (text.includes(from)) {
+          text = text.split(from).join(to);
+          fixed += 1;
+        }
+      }
+
+      return text;
+    });
+  }
+
+  if (rebuilt || fixed) {
+    changes?.push(`booklet seven Telugu restored from the printed pages: ${rebuilt} sections rebuilt, ${fixed} phrases fixed`);
+  }
+
+  return out;
+}
+
 /** The English after each " — " in a word-by-word paragraph, up to where the next entry's own headword starts. */
 function englishGlosses(wordByWord) {
   return wordByWord
@@ -962,9 +1056,13 @@ export function cleanBooklet(booklet, lexicon) {
       // Numbered as they now stand, so a merge leaves no gap.
       chapters: restoreTranscribedStanzas(
         booklet,
-        restoreTranscribedBookletNine(
+        restoreTranscribedBookletSeven(
           booklet,
-          restoreTranscribedPassages(booklet, restoreTranscribedVerses(booklet, repaired, log), log),
+          restoreTranscribedBookletNine(
+            booklet,
+            restoreTranscribedPassages(booklet, restoreTranscribedVerses(booklet, repaired, log), log),
+            log
+          ),
           log
         ),
         log
