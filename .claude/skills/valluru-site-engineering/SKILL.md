@@ -821,6 +821,14 @@ line starts in places, e.g. section 12, so it is a weak check). Read at 3× per 
 Telugu reader must proof this one — it is the least cross-checked of all the transcriptions.
 Booklets twelve and fourteen have no chapters at all, so there is nothing to fix there.
 
+**Proofreading sheet.** `docs/telugu-proofreading-sheet.html` is a snapshot (2026-09-26) listing
+all 128 transcribed passages with their PDF page, for a Telugu reader to check against the
+books; tick boxes are stored in that reader's browser only. It is generated from
+`backend/scripts/lib/transcribed-*.mjs`, so it goes stale the moment one of those changes:
+correct the `.mjs` file first, re-run `clean-booklet-text.mjs`, and regenerate the sheet. A
+correction sent by the proofreader is "booklet, page, line" — apply it in the matching module,
+never in the database alone, or the next clean pass puts the old reading back.
+
 **Where the damage ends (sweep of every booklet, 2026-09-25).** Booklets four, five, 10, 11,
 the nine Movement booklets and all seven Mirror booklets contain no Telugu or Devanagari, and
 their Latin text has no stray symbols; every booklet that does contain Indic text (one, two,

@@ -1,0 +1,796 @@
+<title>Telugu Proofreading Sheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Serif+Telugu:wght@400;600&family=Noto+Serif+Devanagari:wght@400&display=swap">
+<style>
+:root{
+  --bg:#f5f6f8; --surface:#ffffff; --ink:#1c2230; --muted:#5d6577; --line:#dfe2e9;
+  --accent:#3947a8; --accent-soft:#e8eafa; --ok:#1f7a4d; --ok-soft:#e3f3ea; --warn:#8a5a00; --warn-soft:#fbf0d8;
+  --ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --te:"Noto Serif Telugu","Noto Serif Devanagari","Nirmala UI","Gautami",serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12151d; --surface:#1a1f2b; --ink:#e8eaf0; --muted:#9aa3b8; --line:#2b3243;
+  --accent:#9aa6ff; --accent-soft:#252b4d; --ok:#6fd3a0; --ok-soft:#173326; --warn:#f0c46a; --warn-soft:#3a2f14; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#12151d; --surface:#1a1f2b; --ink:#e8eaf0; --muted:#9aa3b8; --line:#2b3243;
+  --accent:#9aa6ff; --accent-soft:#252b4d; --ok:#6fd3a0; --ok-soft:#173326; --warn:#f0c46a; --warn-soft:#3a2f14; color-scheme:dark;}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--ui);padding-inline:16px;padding-block:0 64px}
+.wrap{max-width:860px;margin:0 auto}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);padding-block:10px;margin-inline:-16px;padding-inline:16px}
+.top .in{max-width:860px;margin:0 auto;display:flex;gap:6px 14px;flex-wrap:wrap;align-items:center}
+.top strong{font-weight:600;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.top nav{display:flex;gap:6px;flex-wrap:wrap}
+.top a{font-size:13px;color:var(--accent);text-decoration:none;padding:3px 9px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+.top a:hover,.top a:focus-visible{border-color:var(--accent);outline:none}
+h1{font-size:clamp(26px,5vw,34px);line-height:1.15;margin:36px 0 10px;font-weight:600;text-wrap:balance}
+.lede{color:var(--muted);max-width:62ch;margin:0 0 20px}
+.how{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));margin:0 0 8px}
+.how div{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;font-size:14px}
+.how b{display:block;font-weight:600;margin-bottom:2px}
+.total{margin:18px 0 0;font-size:14px;color:var(--muted)}
+.book{margin-top:44px;scroll-margin-top:64px}
+.bh h2{font-size:21px;margin:0 0 6px;font-weight:600;text-wrap:balance}
+.note{margin:0 0 6px;color:var(--muted);max-width:66ch;font-size:14px}
+.prog{margin:0 0 14px;font-size:13px;color:var(--ok);font-variant-numeric:tabular-nums}
+.list{display:flex;flex-direction:column;gap:10px}
+.pas{background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.pas.is-done{border-color:var(--ok)}
+.meta{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px}
+.pg{background:var(--accent-soft);color:var(--accent);font-weight:600;padding:1px 8px;border-radius:5px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.wh{color:var(--muted);flex:1 1 200px;min-width:0}
+.ck{display:inline-flex;gap:6px;align-items:center;cursor:pointer;color:var(--muted)}
+.ck input{width:16px;height:16px;accent-color:var(--ok)}
+.pas.is-done .ck{color:var(--ok)}
+.tx{font-family:var(--te);font-size:18px;line-height:1.85;padding:10px 14px 12px;overflow-wrap:anywhere}
+.tx div+div{margin-top:0}
+.foot{margin-top:48px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);padding-top:14px}
+@media (max-width:520px){.tx{font-size:17px}}
+</style>
+<div class="top"><div class="in"><strong>Telugu proofreading</strong><nav>
+<a href="#booklet-one">Booklet 1</a><a href="#booklet-two">Booklet 2</a><a href="#booklet-three">Booklet 3</a><a href="#booklet-six">Booklet 6</a><a href="#booklet-seven">Booklet 7</a><a href="#booklet-eight">Booklet 8</a><a href="#booklet-nine">Booklet 9</a>
+</nav></div></div>
+<div class="wrap">
+<h1>Telugu proofreading sheet</h1>
+<p class="lede">Seven booklets have Telugu or Devanagari text that could not be copied out of the PDFs, because the font stores the wrong characters. Each passage below was read from the printed page and typed in. This sheet lists all of them with their PDF page, so a Telugu reader can check them against the book.</p>
+<div class="how">
+<div><b>1 · Open the PDF page</b>Use the page number shown. Passages that run over a page are given as a range.</div>
+<div><b>2 · Compare line by line</b>Look for wrong vowel signs, missing conjuncts and dropped or repeated syllables.</div>
+<div><b>3 · Tick it, or note the fix</b>Ticks stay in this browser only. Send corrections as booklet, page and the line you changed.</div>
+</div>
+<p class="total">128 passages in total. Booklet 7 needs the closest look.</p>
+
+<section class="book" id="booklet-one" data-book="booklet-one">
+  <header class="bh">
+    <h2>Booklet 1 · When the Gods Fall Silent</h2>
+    <p class="note">Short Telugu lines inside the English prose.</p>
+    <p class="prog"><span class="done" data-done="booklet-one">0</span> of 5 passages checked</p>
+  </header>
+  <div class="list">
+    <article class="pas" id="p1">
+      <div class="meta"><span class="pg">p. 16</span><span class="wh">10. Education, Power, and Jīvodhāraṇa</span>
+        <label class="ck"><input type="checkbox" data-id="p1" id="c-p1"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>చదువులు చెదలు పడతాయి. పదవులు ఔదలు పడతాయి.</div></div>
+    </article>
+    <article class="pas" id="p2">
+      <div class="meta"><span class="pg">p. 17</span><span class="wh">10. Education, Power, and Jīvodhāraṇa</span>
+        <label class="ck"><input type="checkbox" data-id="p2" id="c-p2"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>అమ్మా.. మళ్లీ ఒక పట్టు పట్టి.. నేను కూడా ఒక మత్తేభమో శార్దూలమో వ్రాసి వదలాలి.</div><div>రావణుడంతటి వాణ్ని కాకపోయినా దండకం ఆయనకు ధారపోయ్యాలి.</div><div>ఆ నిఖిల చరాచర నాదమూర్తికి, ఆ నిర్గుణ నిరాకార నాదబ్రహ్మకి, ఆ నటరాజుకి.. అదే ఈ నటుడి నాద నీరాజనం.</div></div>
+    </article>
+    <article class="pas" id="p3">
+      <div class="meta"><span class="pg">p. 17</span><span class="wh">10. Education, Power, and Jīvodhāraṇa</span>
+        <label class="ck"><input type="checkbox" data-id="p3" id="c-p3"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>ఓంకార నాదము ఆద్యంత రహితము; నాదపురుషుని సేవనే పరమార్థము.. సర్వ శోక నివారణము, మాయా నివృత్తి, నిర్వాణము.</div></div>
+    </article>
+    <article class="pas" id="p4">
+      <div class="meta"><span class="pg">p. 18</span><span class="wh">11. The Harishchandra Test: When Even Gods Are Silent</span>
+        <label class="ck"><input type="checkbox" data-id="p4" id="c-p4"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>సప్త ఋషులు సహాయం చేయ్యలేనప్పుడు; దిక్పాలకులు దేవేంద్రుని సైతం దెబ్బతీసినప్పుడు. నమ్మిన నాథుడు మౌనం వహించినప్పుడు. జగన్మాత కూడా ఆయన మాట కాదని, కొడుకు పిలిచినా కదలి రానప్పుడు. భార్య ఆకస్మాత్తుగా, అప్పుడే నిద్ర లేచిన భర్త వద్దకు కొడుకు కళేబరం తీసుకువచ్చి కాల్చమన్నప్పుడు. నిలబడతావా? నిలబడగలవా?</div></div>
+    </article>
+    <article class="pas" id="p5">
+      <div class="meta"><span class="pg">p. 18</span><span class="wh">11. The Harishchandra Test: When Even Gods Are Silent</span>
+        <label class="ck"><input type="checkbox" data-id="p5" id="c-p5"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>…రోజూ పలికే మా అమ్మ దక్షిణ కాళీ పలకల. తండ్రి సమాధానమివ్వల. కొడుకుని ఆయనకే అర్పించేశాను. కథ కాదుగా, యుగము కలి గా. ఆ సుఖాంతము ఉండదు...</div></div>
+    </article>
+  </div>
+</section>
+
+<section class="book" id="booklet-two" data-book="booklet-two">
+  <header class="bh">
+    <h2>Booklet 2 · When Silence Became Sound</h2>
+    <p class="note">Sanskrit verses written in Telugu script.</p>
+    <p class="prog"><span class="done" data-done="booklet-two">0</span> of 5 passages checked</p>
+  </header>
+  <div class="list">
+    <article class="pas" id="p6">
+      <div class="meta"><span class="pg">p. 9</span><span class="wh">3. Siva, Kāli, and the Parent-Child Secret</span>
+        <label class="ck"><input type="checkbox" data-id="p6" id="c-p6"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>త్వమేవ మాతా చ పితా త్వమేవ ।</div><div>త్వమేవ బంధుశ్చ సఖా త్వమేవ ।</div><div>త్వమేవ విద్యా ద్రవిణం త్వమేవ ।</div><div>త్వమేవ సర్వం మమ దేవ దేవ ॥</div></div>
+    </article>
+    <article class="pas" id="p7">
+      <div class="meta"><span class="pg">p. 9</span><span class="wh">3. Siva, Kāli, and the Parent-Child Secret</span>
+        <label class="ck"><input type="checkbox" data-id="p7" id="c-p7"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>And the Devī tradition says the same thing through another door:</div><div>యా దేవీ సర్వభూతేషు మాతృరూపేణ సంస్థితా ।</div><div>నమస్తస్యై నమస్తస్యై నమస్తస్యై నమో నమః ॥</div></div>
+    </article>
+    <article class="pas" id="p8">
+      <div class="meta"><span class="pg">p. 11</span><span class="wh">5. Om: The Doorway Between Silence and Creation</span>
+        <label class="ck"><input type="checkbox" data-id="p8" id="c-p8"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>ఓం ఇత్యేతదక్షరమిదం సర్వం ।</div><div>తస్యోపవ్యాఖ్యానం భూతం భవద్ భవిష్యదితి సర్వమోంకార ఏవ ।</div><div>యచ్చాన్యత్ త్రికాలాతీతం తదప్యోంకార ఏవ ॥</div></div>
+    </article>
+    <article class="pas" id="p9">
+      <div class="meta"><span class="pg">p. 14</span><span class="wh">7. Nataraja: Stillness Dancing as Creation and Dissolution</span>
+        <label class="ck"><input type="checkbox" data-id="p9" id="c-p9"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>డమడ్డమడ్డమడ్డమన్నినాదవడ్డమర్వయం ।</div><div>చకార చండతాండవం తనోతు నః శివః శివమ్ ॥</div></div>
+    </article>
+    <article class="pas" id="p10">
+      <div class="meta"><span class="pg">p. 20</span><span class="wh">11. When the Sound Remains After the World Breaks</span>
+        <label class="ck"><input type="checkbox" data-id="p10" id="c-p10"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>సర్వధర్మాన్ పరిత్యజ్య మామేకం శరణం వ్రజ ।</div><div>అహం త్వా సర్వపాపేభ్యో మోక్షయిష్యామి మా శుచః ॥</div></div>
+    </article>
+  </div>
+</section>
+
+<section class="book" id="booklet-three" data-book="booklet-three">
+  <header class="bh">
+    <h2>Booklet 3 · Where Language Learns to Bow</h2>
+    <p class="note">Telugu poems and quoted phrases. The Tikkana and Pothana verses are the author’s quotations, set as printed.</p>
+    <p class="prog"><span class="done" data-done="booklet-three">0</span> of 13 passages checked</p>
+  </header>
+  <div class="list">
+    <article class="pas" id="p11">
+      <div class="meta"><span class="pg">p. 7</span><span class="wh">3. Siva Recognizes Arjuna: When Bhagavān Gives the Work</span>
+        <label class="ck"><input type="checkbox" data-id="p11" id="c-p11"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>నరుఁడవు నీవు మున్నఖిలనాథుఁడవైన ముకుందుతోడ</div><div>దుస్తర తప మాచరించి జగతీభర రక్షణకారణంబుగా</div><div>ధరణి నవతరించిన పురాతనఋషి వని యెల్లనున్</div><div>విచారితమ యెఱుంగుదున్ నరుని నిన్ను జయింపఁగ నెవ్వఁడేర్చునే!</div></div>
+    </article>
+    <article class="pas" id="p12">
+      <div class="meta"><span class="pg">p. 8</span><span class="wh">4. Arjuna Against the Nivātakavacas: Courage Without Spectacle</span>
+        <label class="ck"><input type="checkbox" data-id="p12" id="c-p12"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>సవ్యేన రశ్మీన్ జగ్రాహ ధనుః సవ్యేన చామితః ।</div><div>తథా తు యుధ్యమానం తం దదృశుస్తాం శ్చ దానవాన్ ॥</div><div>With his left hand, he gathered the reins; with that same left hand, he held the bow. The dānavas saw him fighting like that — charioteer and warrior at once.</div></div>
+    </article>
+    <article class="pas" id="p13">
+      <div class="meta"><span class="pg">p. 9</span><span class="wh">5. Krishna Rushes at Bhishma: When Protection Breaks Stipulation</span>
+        <label class="ck"><input type="checkbox" data-id="p13" id="c-p13"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>ధరణీచక్రము గ్రక్కునం గదల దిగ్ధంతావళశ్రేణికం</div><div>ధరముల్ మొగ్గం బడన్ దిశావలయ ముత్కంపంబుగా నీ బలం</div><div>బురులన్ బాజంగ భీష్ముపై గవిసె రౌద్రోద్రేకముం జూచి ఖే</div><div>చరలోకంబును సంచలింప హరి చంచద్బాహు ఘోరాకృతిన్.</div><div>అంహోమర్దనుఁ డాజనార్దనుఁడు మాద్యద్భీష్మకుంభీంద్రుపై</div><div>సింహోల్లాసవిభాసి యై కవియు నుత్సేకంబు నాటోపమున్</div><div>రంహస్స్ఫూర్తియు దీప్తమూర్తియును సంరంభంబుఁ జూడన్ జగ</div><div>త్సంహారోన్ముఖుఁ డైనరుద్రుగతి రౌద్రప్రక్రియం బొల్చినన్.</div></div>
+    </article>
+    <article class="pas" id="p14">
+      <div class="meta"><span class="pg">p. 9</span><span class="wh">5. Krishna Rushes at Bhishma: When Protection Breaks Stipulation</span>
+        <label class="ck"><input type="checkbox" data-id="p14" id="c-p14"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>The verse “ధరణీచక్రము…” is in Mattēbha-vikrīḍitam. The verse “అంహోమర్దనుఁడు…” is in Śārdūlam.</div></div>
+    </article>
+    <article class="pas" id="p15">
+      <div class="meta"><span class="pg">p. 10–11</span><span class="wh">6. Rudra Before Arjuna’s Arrows: When Grief Transfers to Him</span>
+        <label class="ck"><input type="checkbox" data-id="p15" id="c-p15"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>కడగి యే వీరు నేయు నస్త్రములకైననెదిరి యవ్వల నడచు జే యెంద్రు</div><div>గడగినడచు నమ్మేటి జగము లీ నలు గడలనుగలుగు భూతేశు డీశ్వరుండనఘ</div><div>వినుము.</div></div>
+    </article>
+    <article class="pas" id="p16">
+      <div class="meta"><span class="pg">p. 11</span><span class="wh">6. Rudra Before Arjuna’s Arrows: When Grief Transfers to Him</span>
+        <label class="ck"><input type="checkbox" data-id="p16" id="c-p16"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>Here the repeated sound — కడగి / గడగి / నడచు — matters. It creates the sense of striding. Rudra is not sitting in abstraction. He is advancing ahead.</div></div>
+    </article>
+    <article class="pas" id="p17">
+      <div class="meta"><span class="pg">p. 11</span><span class="wh">7. Bhima Before Hanuman: Strength Learning to Bow</span>
+        <label class="ck"><input type="checkbox" data-id="p17" id="c-p17"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>జయదయాపాథోధి! జయపుణ్యమూర్తి!</div><div>జయజయ, దశదిశాసాంద్రసత్కీర్తి</div><div>జయదీనపోషణ! జయసత్కృపాంగ!</div><div>జయజయశ్రీరామ! చరణాబ్జభృంగ!</div></div>
+    </article>
+    <article class="pas" id="p18">
+      <div class="meta"><span class="pg">p. 13</span><span class="wh">9. Prahlāda Before the Pillar: The Child Who Did Not Need Proof</span>
+        <label class="ck"><input type="checkbox" data-id="p18" id="c-p18"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>ఇందు గలఁ డందు లేఁ డని</div><div>సందేహము వలదు చక్రి సర్వోపగతుం</div><div>డెం దెందు వెదకి చూచిన</div><div>నందందే కలఁడు దానవాగ్రణి! వింటే.</div></div>
+    </article>
+    <article class="pas" id="p19">
+      <div class="meta"><span class="pg">p. 13</span><span class="wh">9. Prahlāda Before the Pillar: The Child Who Did Not Need Proof</span>
+        <label class="ck"><input type="checkbox" data-id="p19" id="c-p19"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>The meter is kanda padyam. Kanda gives compact certainty. It does not wander. It does not build a long philosophical thesis. The repeated spatial movement — ఇందు / అందు / ఎందెందు / అందందే — makes omnipresence audible.</div></div>
+    </article>
+    <article class="pas" id="p20">
+      <div class="meta"><span class="pg">p. 14</span><span class="wh">10. Gajendra’s Cry: When Protocol Cannot Outrun Surrender</span>
+        <label class="ck"><input type="checkbox" data-id="p20" id="c-p20"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>సిరికిం జెప్పఁడు; శంఖ చక్ర యుగముం జేదోయి సంధింపఁ; డే</div><div>పరివారంబునుఁ జీరఁ డభ్రగపతిం బన్నింపఁ డాకర్ణికాం</div><div>తర ధమ్మిల్లముఁ జక్క నొత్తఁడు; వివాద ప్రోత్థిత శ్రీ కుచో</div><div>పరిచేలాంచలమైన వీడఁడు గజప్రాణావనోత్సాహియై.</div></div>
+    </article>
+    <article class="pas" id="p21">
+      <div class="meta"><span class="pg">p. 15</span><span class="wh">11. Ramadasu in Prison: The Devotee’s Right to Complain</span>
+        <label class="ck"><input type="checkbox" data-id="p21" id="c-p21"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>His kīrtana “ఇక్ష్వాకు కులతిలక” carries that anguish with astonishing intimacy:</div></div>
+    </article>
+    <article class="pas" id="p22">
+      <div class="meta"><span class="pg">p. 15</span><span class="wh">11. Ramadasu in Prison: The Devotee’s Right to Complain</span>
+        <label class="ck"><input type="checkbox" data-id="p22" id="c-p22"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>మీ తండ్రి దశరథ మహారాజు పెట్టెనా రామచంద్రా</div><div>లేక మీ మామ జనక మహారాజు పంపెనా రామచంద్రా ॥ ఇక్ష్వాకు కులతిలక ॥</div></div>
+    </article>
+    <article class="pas" id="p23">
+      <div class="meta"><span class="pg">p. 17</span><span class="wh">13. The Gist</span>
+        <label class="ck"><input type="checkbox" data-id="p23" id="c-p23"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>Krishna rushing at Bhishma shows language becoming divine protection. The Lord’s compassion outruns even His own stipulation. In Mattēbha-vikrīḍitam, “ధరణీచక్రము…” makes the earth tremble with elephantine force; in Śārdūlam, “అంహోమర్దనుఁడు…” gives Krishna’s rush a leonine, Rudra-like ferocity.</div></div>
+    </article>
+  </div>
+</section>
+
+<section class="book" id="booklet-six" data-book="booklet-six">
+  <header class="bh">
+    <h2>Booklet 6 · When Grief Became Nāda</h2>
+    <p class="note">The 31 verses (the printed caption before verse 9 is included), then four words quoted in the Author’s Notes. The meter label మత్తేభవిక్రీడితము was also corrected throughout.</p>
+    <p class="prog"><span class="done" data-done="booklet-six">0</span> of 35 passages checked</p>
+  </header>
+  <div class="list">
+    <article class="pas" id="p24">
+      <div class="meta"><span class="pg">p. 7</span><span class="wh">1. The First Cry</span>
+        <label class="ck"><input type="checkbox" data-id="p24" id="c-p24"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>నిన్నే కోరితి తండ్రీ నన్నీయ మాయగుండ మట్టున లాగన్ । కన్నొందు గర్వముతోడు కొన్నావు మొదటి పుత్రుఁ — కోలునె యెట్లు ॥</div></div>
+    </article>
+    <article class="pas" id="p25">
+      <div class="meta"><span class="pg">p. 8</span><span class="wh">2. Silence After the Storm</span>
+        <label class="ck"><input type="checkbox" data-id="p25" id="c-p25"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>దిక్పాలాదులు కాలచక్రముతో దేర్చి నిలిచిన వేళలో దుఃఖాంభోధిని నన్ను ముంచితివి దోషంబుగానన్పకన్ । “సాక్షాత్ సన్నిధియే సుఖం” యని నేన్సంశాంతిమై భ్రమించితిన్ నిశ్శబ్దంబే చిదానందమని నేడు నెమ్మదిగా నేర్చితిన్ ॥</div></div>
+    </article>
+    <article class="pas" id="p26">
+      <div class="meta"><span class="pg">p. 9</span><span class="wh">3. Kāla Redirected</span>
+        <label class="ck"><input type="checkbox" data-id="p26" id="c-p26"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>బాలుఁ డింత నిరాపరాధి — నను బోయినన్ భగ్నమైపోయెడిన్ వేలంబించక కాలమార్గమును నావైపు త్రిప్పితివే । అమ్మా! ఆత్మకు అన్నమై నిలువుమీ — ఆలోచనక్షీణమై నీ నామంబు మిగిలే నిశ్చలతలో నన్నుంచు దయామయీ ॥</div></div>
+    </article>
+    <article class="pas" id="p27">
+      <div class="meta"><span class="pg">p. 10</span><span class="wh">4. Annapūrṇa Intimacy</span>
+        <label class="ck"><input type="checkbox" data-id="p27" id="c-p27"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>అన్నంబు దేహమునకే వద్దనితివి — సరే తల్లి! వాదింతునా? । ఆత్మకన్నంబు పెట్టి ఊరడింపవె నన్ను — అన్నపూర్ణే ॥</div></div>
+    </article>
+    <article class="pas" id="p28">
+      <div class="meta"><span class="pg">p. 11</span><span class="wh">5. Śrāddha, Daśa-Dānālu, and</span>
+        <label class="ck"><input type="checkbox" data-id="p28" id="c-p28"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>శ్రాద్ధంబు చేసెదొకడు లేదని నాకేమి దుఃఖముండునయ్యా । పెసరపప్పన్నమును తిననీయ దేహమిదే గద తండ్రీ । వైతరణీదాట దశదానములకంటె పెద్దదానమడిగితివి । నీవై యున్న ననున్ ఇంక నేనేమి దానమిచ్చెద చెప్పు ॥</div></div>
+    </article>
+    <article class="pas" id="p29">
+      <div class="meta"><span class="pg">p. 12</span><span class="wh">6. Speaking to the Mothers</span>
+        <label class="ck"><input type="checkbox" data-id="p29" id="c-p29"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పిలిచెద వమ్మ యెప్పుడో పెద్దమ్మలిద్దరితో పలుకితివా? । తండ్రీ మాటకే మీరు తలవంచు వారేనా — తల్లులందరు ॥</div></div>
+    </article>
+    <article class="pas" id="p30">
+      <div class="meta"><span class="pg">p. 13</span><span class="wh">7. Skill, Helplessness, and the</span>
+        <label class="ck"><input type="checkbox" data-id="p30" id="c-p30"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>ప్రాణంబు కాపాడుదునని కార్యక్రమములు నేర్చితినయ్యా । ప్రజల ప్రాణములకై యంత్రములకు బుద్ధులు నేర్పితినయ్యా । పక్కగదిలో నిద్రించిన నా బిడ్డనైన కాపాడలేక పంచభూతపు రాయివేసితివి భుజముపైన — చెప్పు తండ్రీ ॥</div></div>
+    </article>
+    <article class="pas" id="p31">
+      <div class="meta"><span class="pg">p. 14</span><span class="wh">8. Liṅga and Body</span>
+        <label class="ck"><input type="checkbox" data-id="p31" id="c-p31"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>భస్మంబై చివరికి మిగిలేదిద్దరమే గద తండ్రీ । భూమి నీరు గాలి తేజము నింగియై కట్టిన మట్టిదేహం । లింగంబంటిని చూచితిని — నన్నంటిని చూచితిని చివరికి । భేదంబేల? నీవుండగా బూడిదైన పంచభూతమే ॥</div></div>
+    </article>
+    <article class="pas" id="p32">
+      <div class="meta"><span class="pg">p. 15</span><span class="wh">9. Kāli After the Fire</span>
+        <label class="ck"><input type="checkbox" data-id="p32" id="c-p32"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>దక్షిణకాళి (the form of Kāli standing with Her right foot upon Śiva)</div><div>దక్షిణకాళి! దహ్యమానశిఖలాదీప్తాంఘ్రిపద్మంబుతో దిక్కుల్నింపిన ఘోరరూపమునకే దాసుడనై యున్నితిన్ । భోలాశంకరభావమున్ విరిగిపోనీయక భద్రంచేసి భూయో నన్నగ్నిపథంబులో నడిపితివి — నేడు నిన్నెరుగున్ ॥</div></div>
+    </article>
+    <article class="pas" id="p33">
+      <div class="meta"><span class="pg">p. 16</span><span class="wh">10. Kāmadahana Re-read</span>
+        <label class="ck"><input type="checkbox" data-id="p33" id="c-p33"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>శాంతాకారమునే భజించితిని శంభో! దక్షిణామూర్తివై చింతాక్షోభములార్పు వాక్యములచే చిత్తంబు నింపితివి । కామాంగారక దహనుడవని నేనెన్నడును గ్రహింపలే — మోహస్వరూపుడైన నా తనయున్ భస్మంబుగాచేసితివే ॥</div></div>
+    </article>
+    <article class="pas" id="p34">
+      <div class="meta"><span class="pg">p. 17</span><span class="wh">11. Nīlakaṇṭha and Remaining</span>
+        <label class="ck"><input type="checkbox" data-id="p34" id="c-p34"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>నీలకంఠ! హృదంతరాళమున నేడు నీవిచ్చినాలాహలమ్ నాలుక యింక పలుకవలెనని నాడీమార్గమున్ నిల్చియున్ । ఋణవిమోచన! ఇంక నాకిహ జగద్రంగస్థలంబందున ఏ ఋణమున్నది చెప్పు — నీవయిన పిమ్మట నాదేమియున్ ॥</div></div>
+    </article>
+    <article class="pas" id="p35">
+      <div class="meta"><span class="pg">p. 18</span><span class="wh">11. Nīlakaṇṭha and Remaining</span>
+        <label class="ck"><input type="checkbox" data-id="p35" id="c-p35"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>బృందావనమున్ మోహనాకృతిని చూచితిని లీలామధో కాలోపాయముతో మృతిప్రేమశిల్పంబున్ కప్పి సాగితిన్ । బర్సానకును రాలే — నిజనిధివనంబున్ లీనమై పోలేదు బిందుమాధవసన్నిధౌ నా గోపాలున్ని చూపితినన్ ॥</div></div>
+    </article>
+    <article class="pas" id="p36">
+      <div class="meta"><span class="pg">p. 19</span><span class="wh">11. Nīlakaṇṭha and Remaining</span>
+        <label class="ck"><input type="checkbox" data-id="p36" id="c-p36"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>అలిగితివో? నా గోపాలున్ నీకై తీసికొనిపోయితివో? లేక నీ రాధాక్షేత్రమునందు రాకపోయిన నాపైన కోపించితివో । బిందుమాధవసాక్షిగా నా బిడ్డసౌందర్యమున్ చూచినన్ “ఇతడున్ నాదేవ్” యని బాలలీలతో దాచితివో మాధవా ॥</div></div>
+    </article>
+    <article class="pas" id="p37">
+      <div class="meta"><span class="pg">p. 20</span><span class="wh">11. Nīlakaṇṭha and Remaining</span>
+        <label class="ck"><input type="checkbox" data-id="p37" id="c-p37"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>గంగాతీరమునందు భస్మములనె నాచేత నిమ్మజ్జింపజేసి ద్వారావత్యపతనదుఃఖతటినిన్ చూపింప జేసితివో । యాదవసంతతినాశవేళ నీవెట్లుండితివో మాధవా — నాదుఃఖంబది కాదె — నీదే; నేనందు నీడై నిలిచితిన్ ॥</div></div>
+    </article>
+    <article class="pas" id="p38">
+      <div class="meta"><span class="pg">p. 21</span><span class="wh">11. Nīlakaṇṭha and Remaining</span>
+        <label class="ck"><input type="checkbox" data-id="p38" id="c-p38"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>యాదృచ్ఛికముగా మరణానంతరమున్ నిధివనంబందునన్ నన్నీడ్చితివి; బర్సానభూమికిన్ నీవే నడిపించితివి । రాధామాధవవిరహాగ్నిజనిత స్థైర్యంబు చూపించుటన్ ప్రేమే దుఃఖభరాశక్తియని నేడు నేర్పితివో మాధవా ॥</div></div>
+    </article>
+    <article class="pas" id="p39">
+      <div class="meta"><span class="pg">p. 22</span><span class="wh">11. Nīlakaṇṭha and Remaining</span>
+        <label class="ck"><input type="checkbox" data-id="p39" id="c-p39"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>నాకింక ప్రశ్నలవసరంబులేదు — ధైర్యంబునే ఇచ్చితివి నేనైన పలుకుచున్ననూ కర్మాచరణంబున్ సాగించుచున్ । నాదుఃఖంబది నీదై యుండగ నేనింక జీవించగలన్ — నీవింక ద్వారకతీరస్థ సమష్టిశోకస్థితిన్ మాధవా ॥</div></div>
+    </article>
+    <article class="pas" id="p40">
+      <div class="meta"><span class="pg">p. 23</span><span class="wh">13. The Child Who Held the</span>
+        <label class="ck"><input type="checkbox" data-id="p40" id="c-p40"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>బాలునై నిన్ను దాల్చి భయగృహమందు నిద్రపోయితిని తండ్రీ । పిలిచెదనని భయమా? పక్కగదిలో నల్లెద్దుమీద యమున్ జార్చితివేనా ॥</div></div>
+    </article>
+    <article class="pas" id="p41">
+      <div class="meta"><span class="pg">p. 24</span><span class="wh">14. Kālantaka Question</span>
+        <label class="ck"><input type="checkbox" data-id="p41" id="c-p41"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>మార్కండేయుని లింగమధ్యమునుండి రక్షించితివి కాదా? నల్లెద్దుమీద యముని త్రొక్కి కాలాంతకుడై నిలిచితివి శంభో । లోపల తలుపు వేసి నిద్రించిన నా బాలుని దాటగా నిద్రించిన నన్నెందుకు మేల్కొల్పలేదు — చెప్పు తండ్రీ ॥</div></div>
+    </article>
+    <article class="pas" id="p42">
+      <div class="meta"><span class="pg">p. 25</span><span class="wh">15. The Wronged Father and</span>
+        <label class="ck"><input type="checkbox" data-id="p42" id="c-p42"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>అన్యాయమైన తండ్రి తల్లిని పిలిచినెడల ఏమగునయ్యా । నాతో ఏడ్చు మా అమ్మ కోపమంత నీకెరుగదా తండ్రీ । అంధమాత పుత్రశోకం వంశమంత మింగెనని విన్నా । ఇంకొక తల్లిని రేపకుండ జాగ్రత్తపడితివా నాన్నా ॥</div></div>
+    </article>
+    <article class="pas" id="p43">
+      <div class="meta"><span class="pg">p. 26</span><span class="wh">16. Who Do I Complain To?</span>
+        <label class="ck"><input type="checkbox" data-id="p43" id="c-p43"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>ఎవరిని నిందింతున్? నీనో? కాలునినో? నా విధినో తండ్రీ? । నాతోనే విలపించు అమ్మకు నేనేమి ఫిర్యాదు చెప్పుదున్ ॥</div></div>
+    </article>
+    <article class="pas" id="p44">
+      <div class="meta"><span class="pg">p. 27</span><span class="wh">17. Was I the Target?</span>
+        <label class="ck"><input type="checkbox" data-id="p44" id="c-p44"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>గురియైనది నేనో? గృహమధ్యమున కాలంబు నన్నడుగుచుండగా కనురెప్పవలె కాపాడితిని యనుకున్న బిడ్డనున్ తీసితివా? । నన్నే తాకిన యెడల మాతృశోకాగ్నియు మళ్లీ రేగునని వంశక్షోభమున్ జాగరూకుడవై మౌనించితివో మహేశా ॥</div></div>
+    </article>
+    <article class="pas" id="p45">
+      <div class="meta"><span class="pg">p. 28</span><span class="wh">18. I Will Never Understand</span>
+        <label class="ck"><input type="checkbox" data-id="p45" id="c-p45"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>నీ లీల యెరుగను నాన్నా — యెరుగవలసిన పనిలేదయ్యా । కాలుని పంపినదేవడో కాపాడనిదేవడో అడగను నేను । నీవే తీసితివి అనుకొందున్; నీవే నిలిపితివి అనుకొందున్ । ఏడుపు దాటిన మౌనమందు నీడవై నిలువుము తండ్రీ ॥</div></div>
+    </article>
+    <article class="pas" id="p46">
+      <div class="meta"><span class="pg">p. 29</span><span class="wh">19. I Never Held You</span>
+        <label class="ck"><input type="checkbox" data-id="p46" id="c-p46"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>నిన్నే నేనడిగితిని బాల్యాంధకారమున్ దాల్చితిననుకొంటిన్ । నీవే నన్నంతరంగమునుండి బాహ్యంబుగాను కప్పితివి । కాలాతీత మహాకాల! కాలాంతక! ఆద్యంతరహితేశా! నేనెప్పుడున్ నిన్ను దాల్చలేదు — నీవే నన్ను ధరించితివి ॥</div></div>
+    </article>
+    <article class="pas" id="p47">
+      <div class="meta"><span class="pg">p. 31</span><span class="wh">20. I See Your Grief Now</span>
+        <label class="ck"><input type="checkbox" data-id="p47" id="c-p47"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>సీతమ్మనిపిలుచు రాముడవై చెప్పులులేకారణ్యమున్ ఏడ్చితివని నేడు గోచరించెను — నిన్నెరుగుదున్ తండ్రీ । మోహాంధపితృనిశ్చలంబుచే గాంధారిశాపాగ్నిలో యాదవవంశవినాశమున్ భరించిన నిన్నెట్లు మరచుదున్ ॥</div></div>
+    </article>
+    <article class="pas" id="p48">
+      <div class="meta"><span class="pg">p. 32</span><span class="wh">21. I Did Not Curse You</span>
+        <label class="ck"><input type="checkbox" data-id="p48" id="c-p48"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>నేను నా ధర్మమార్గమున నిశ్శబ్దముగా నడచితినయ్యా । కన్నీరు చూపలేదు; నిన్ను శపించుమని వాక్యము నిలువనీయలేదు । నిన్ను విడువుమని పలికిన పలుకులకును చోటు ఇవ్వలేదు । నీవు ఇచ్చిన దుఃఖమును నీదనుకొని మోసితిని తండ్రీ ॥</div></div>
+    </article>
+    <article class="pas" id="p49">
+      <div class="meta"><span class="pg">p. 33</span><span class="wh">22. Kāśī Gurus and Śānta-</span>
+        <label class="ck"><input type="checkbox" data-id="p49" id="c-p49"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>కాశీక్షేత్రగురువులు కూడ నిశ్చలతర్కంబున్ చూచి ఆశ్చర్యంబున పల్కిరి — జన్మాంతరసంస్కారబలంబిదని । దుఃఖాగ్నిమధ్యమున్ దహింపబడక ధర్మంబు దాటక నిల్చితిన్ నన్ను నీ ముందు నిలిపి నిన్నంటె నిశ్చలున్ చేయితివి తండ్రీ ॥</div></div>
+    </article>
+    <article class="pas" id="p50">
+      <div class="meta"><span class="pg">p. 34</span><span class="wh">23. What Shall We Say Now?</span>
+        <label class="ck"><input type="checkbox" data-id="p50" id="c-p50"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>ఇక నేనేమి చెప్పుదునయ్యా? నీవేమి సమాధానమిచ్చెదవు? । ప్రశ్నలన్నియు కరిగిపోయెను; తర్కమాటయు మౌనమైపోయె । నీవు నా దుఃఖమును మోసితివి; నీ దుఃఖమును నాకు చూపితివి । కుటుంబమయ్యితిమి నేడు — కూర్చుండుదాం సన్నిధిలో తండ్రీ ॥</div></div>
+    </article>
+    <article class="pas" id="p51">
+      <div class="meta"><span class="pg">p. 35</span><span class="wh">24. Just Be in Each Other’s</span>
+        <label class="ck"><input type="checkbox" data-id="p51" id="c-p51"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>నీవే రోదనమైనవాడవు; నీవే రోదితునన్ చేసితివి నీవే హంతకునై నిలిచితివి; నీవే హన్యమానుండవు । నీవే దుఃఖమును నా హృదయంలో పెట్టి నీవే మోయుచున్ నీవు నేనని భేదమెక్కడ? సన్నిధిలో నుందుము తండ్రీ ॥</div></div>
+    </article>
+    <article class="pas" id="p52">
+      <div class="meta"><span class="pg">p. 36</span><span class="wh">25. Back to Business</span>
+        <label class="ck"><input type="checkbox" data-id="p52" id="c-p52"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>తండ్రీ! ఇక పనికే తిరుగుదును — దుఃఖకథను పంచను నేను । దుఃఖంబుకూడ నాదికాదని గ్రహించిన జ్ఞానమున్ పంచుదును । నాదనుకున్న దేనియు నాదికాదు — ఆత్మయును నాదికాదయ్యా । శరణాగతుడనై నడుచుదును; నీవు నడిపిన దారినే సాగుదును ॥</div></div>
+    </article>
+    <article class="pas" id="p53">
+      <div class="meta"><span class="pg">p. 37</span><span class="wh">26. Lead Me Through Ananta</span>
+        <label class="ck"><input type="checkbox" data-id="p53" id="c-p53"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>లీలార్థంబును తీర్చుదునని తర్కించుటే మూర్ఖతన్ ఫల్గు బుద్ధిభరంబు విడిచితిని — నీవే గతి చూపుము । అనంతకాలమునందు అడుగడుగున్ చేతిపట్టి నడిపించుము అమ్మా! ఆత్మకన్నమై తల్లెవరున్ కానిది నీవే పోషింపుము ॥</div></div>
+    </article>
+    <article class="pas" id="p54">
+      <div class="meta"><span class="pg">p. 38</span><span class="wh">27. Nāda Arpaṇam</span>
+        <label class="ck"><input type="checkbox" data-id="p54" id="c-p54"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>ఛందోయతిప్రాసలందు తొట్రుపడితిని — దోషంబు దిద్దుమమ్మా । తండ్రీ విశ్వరూప వర్ణమాలిక నేర్పుము నీ కరుణతో । భాషా దేహసహోదరి — దేహముతో చచ్చునది; దానికేం మమత? ఆత్మంబాయన అనంతత్వముతో పలుకునట్లు నాదమర్పింతున్ ॥</div></div>
+    </article>
+    <article class="pas" id="p55">
+      <div class="meta"><span class="pg">p. 10</span><span class="wh">4. Annapūrṇa Intimacy, note</span>
+        <label class="ck"><input type="checkbox" data-id="p55" id="c-p55"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>అన్నం</div></div>
+    </article>
+    <article class="pas" id="p56">
+      <div class="meta"><span class="pg">p. 23</span><span class="wh">13. The Child Who Held the …, note</span>
+        <label class="ck"><input type="checkbox" data-id="p56" id="c-p56"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>నల్లెద్దుమీద యముడు</div></div>
+    </article>
+    <article class="pas" id="p57">
+      <div class="meta"><span class="pg">p. 27</span><span class="wh">17. Was I the Target?, note</span>
+        <label class="ck"><input type="checkbox" data-id="p57" id="c-p57"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>కనురెప్పవలె</div></div>
+    </article>
+    <article class="pas" id="p58">
+      <div class="meta"><span class="pg">p. 7</span><span class="wh">1. The First Cry, note</span>
+        <label class="ck"><input type="checkbox" data-id="p58" id="c-p58"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>తండ్రీ</div></div>
+    </article>
+  </div>
+</section>
+
+<section class="book" id="booklet-seven" data-book="booklet-seven">
+  <header class="bh">
+    <h2>Booklet 7 · Beyond Grief</h2>
+    <p class="note">The least cross-checked booklet: nothing prints a transliteration under these verses, so each line is a reading of the page and nothing else. Check it most carefully.</p>
+    <p class="prog"><span class="done" data-done="booklet-seven">0</span> of 26 passages checked</p>
+  </header>
+  <div class="list">
+    <article class="pas" id="p59">
+      <div class="meta"><span class="pg">p. 10</span><span class="wh">1 Burden Transfer</span>
+        <label class="ck"><input type="checkbox" data-id="p59" id="c-p59"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — శార్దూల ధోరణి</div><div>ఏ కార్యార్థమున్ నన్ను కట్టితివి తండ్రీ? యిదే జీవితం?</div><div>ఏ రూపంబున నిన్ను చూచెదనో యీ యాత్ర మిగిలె నాకింక ।</div><div>మోపితి భారములన్నియు నీ పాదములందుంచి సాగితిన్ —</div><div>మౌనంబింక చాలునయ్యా! వచ్చి నడిపింపుము శశిధర ॥</div><div>METER శార్దూల ధోరణి</div><div>భావము · సమర్పణ పూర్తైన తరువాతి సంభాషణ.</div><div>భారములు పాదాలవద్ద వదిలిన తరువాత వచ్చే ప్రశ్న:</div><div>“ఇప్పుడు నాతో ఏమి చేయదలచితివి?”</div></div>
+    </article>
+    <article class="pas" id="p60">
+      <div class="meta"><span class="pg">p. 11</span><span class="wh">2 The Bow Prepared</span>
+        <label class="ck"><input type="checkbox" data-id="p60" id="c-p60"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — శార్దూల ధోరణి</div><div>సంధింప నేర్చిన విల్లువలె నన్ను సిద్ధంచేసితివే తండ్రీ ।</div><div>విరగక నిలిచె దేహమును — వేడితో మ్రోగె చిత్తంబున్ ।</div><div>ఏ లక్ష్యంబున దించుదువో చెప్పవు గాని నేనింక సిద్ధమే —</div><div>నీ చేతంబు దొరకగనే సాగెద మార్గమున్ శశి ॥</div><div>METER శార్దూల ధోరణి</div><div>భావము · జీవితం గాయం కాదు — సాధన.</div><div>విల్లు వంగింది. వేడి తట్టుకుంది. విరగలేదు.</div><div>ఇప్పుడు అది సంధింపబడింది.</div></div>
+    </article>
+    <article class="pas" id="p61">
+      <div class="meta"><span class="pg">p. 12</span><span class="wh">3 Horses Refreshed</span>
+        <label class="ck"><input type="checkbox" data-id="p61" id="c-p61"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — మత్తేభ ధోరణి</div><div>అశ్రుధారలతో నింద్రియాశ్వములు శాంతించి సేదదీరెనన్</div><div>అమ్ముల తూణీరములు నిండి మరలాయుధ సిద్ధంబై నిల్చెనన్ ।</div><div>శస్త్రప్రాకారమున్ విశ్రాంతికై చాలించితిమ్ — లేవుమింక మాధవా!</div><div>అస్తమయంబుక మున్ సాగుదము; నీకిచ్చిన మాట నిలుపుదన్ శశిధర ॥</div><div>METER మత్తేభ ధోరణి</div><div>భావము · కృష్ణుడు కట్టించిన శస్త్రప్రాకారమున్ వెనుక దాచిన దుఃఖము కన్నీటి రూపమున బయటపడింది. ఇంద్రియాశ్వములు ఆ శెల్లులో సేదదీరినవి. ఆత్మ, ఇంద్రియాలు, యుద్ధసంకల్పం మళ్ళీ సమన్వయమయ్యాయి.</div></div>
+    </article>
+    <article class="pas" id="p62">
+      <div class="meta"><span class="pg">p. 14</span><span class="wh">4 The Hidden Grief of Mādhava</span>
+        <label class="ck"><input type="checkbox" data-id="p62" id="c-p62"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — మత్తేభ ధోరణి</div><div>వలయమ్ముల శస్త్రములతో కట్టుమని చెప్పితివే మాధవా</div><div>హయముల సేద్యకని — నీ హృదయ దుఃఖంబు దాచుటకై కాదా?</div><div>పాదయుద్ధమున్ చాలితినీ; బయటికి రా వెన్నదొంగ! రథంబడుపు —</div><div>అస్తమయంబుక మున్ కురుక్షేత్రము దాటించవే శశిధర ॥</div><div>METER మత్తేభ ధోరణి</div><div>భావము · భక్తుడు మందలించుటలేదు — అర్థం చేసుకుంటున్నాడు. “నీవూ దుఃఖిస్తున్నావు కదా?”</div><div>“వెన్నదొంగ” ఇక్కడ మాఖన్‌చోర్ కృష్ణునిపై సన్నిహితమైన ఆటపాటు. దుఃఖాన్నీ దొంగతనంలా దాచుకునే కృష్ణుణ్ణి భక్తుడు మెల్లగా ఆట పట్టిస్తున్నాడు.</div></div>
+    </article>
+    <article class="pas" id="p63">
+      <div class="meta"><span class="pg">p. 16</span><span class="wh">5 I Am Not Arjuna</span>
+        <label class="ck"><input type="checkbox" data-id="p63" id="c-p63"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — శార్దూల ధోరణి</div><div>పార్థుని రణకౌశలంబు నాకేల? ద్రోణుడున్ గురువై లేడయా ।</div><div>దేవాంశ సంభూతులన్ సహోదరులై నిల్చిన వారున్ కారయా ।</div><div>అగ్నిజాత యాజ్ఞసేనియును నాకేల? నీవున్న వేళ తండ్రీ —</div><div>స్థితప్రజ్ఞత ప్రసాదింపుము; దృఢచిత్తంబుతో సాగెదన్ శశిధర ॥</div><div>METER శార్దూల ధోరణి</div><div>భావము · అర్జునుని వరాలు లేవు — కానీ నీవున్నావు.</div></div>
+    </article>
+    <article class="pas" id="p64">
+      <div class="meta"><span class="pg">p. 17</span><span class="wh">6 Govardhana-Giridhari</span>
+        <label class="ck"><input type="checkbox" data-id="p64" id="c-p64"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — మత్తేభ ధోరణి</div><div>ఇంద్రతనయున్ని కానేను; దిక్పాలగ్రహానుగ్రహంబులే లేవు ।</div><div>గోవర్ధనగిరిధారివై నీవుండగా గోచరింతునా లోటే? ।</div><div>కపీంద్రుని సింహగర్జన పతాకౌన్నత్యంబు చాటగా —</div><div>పాంచజన్యఘోష మ్రోగ, ముక్కోటి దేవతల్ ప్రశ్నింతురే? శశిధర ॥</div><div>METER మత్తేభ ధోరణి</div><div>భావము · దైవసన్నిధి ఉన్నప్పుడు గ్రహబలం అవసరం లేదు.</div></div>
+    </article>
+    <article class="pas" id="p65">
+      <div class="meta"><span class="pg">p. 18</span><span class="wh">7 Witness and Glory</span>
+        <label class="ck"><input type="checkbox" data-id="p65" id="c-p65"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — కంద ధోరణి</div><div>కిరీటి రణమునకే</div><div>సంజయు సాక్షి వ్యాసు కీర్తి చాటె ।</div><div>నా రణమున నీవే</div><div>సాక్షి — కీర్తి నీదే అనంతా ॥</div><div>METER కంద ధోరణి</div><div>భావము · అర్జునుని యుద్ధానికి సంజయుడు సాక్షి; వ్యాసుడు కీర్తికారుడు. నా యుద్ధానికి నీవే సాక్షి; కీర్తి కూడా నీదే.</div></div>
+    </article>
+    <article class="pas" id="p66">
+      <div class="meta"><span class="pg">p. 19</span><span class="wh">8 Armor Pierced</span>
+        <label class="ck"><input type="checkbox" data-id="p66" id="c-p66"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — కంద ధోరణి</div><div>పూర్వకర్మ తాతై</div><div>కత్తి దూసెను రణమందు ।</div><div>జ్ఞానమే గురువై</div><div>దెబ్బకొట్టె — మోహముడిగె ॥</div><div>METER కంద ధోరణి</div><div>భావము · పాత కర్మలు తాతలై ఎదురయ్యాయి. జ్ఞానమే గురువై మోహాన్ని కొట్టింది.</div></div>
+    </article>
+    <article class="pas" id="p67">
+      <div class="meta"><span class="pg">p. 20</span><span class="wh">9 Lower the Discus</span>
+        <label class="ck"><input type="checkbox" data-id="p67" id="c-p67"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — కంద ధోరణి</div><div>బంధువులనెంచి</div><div>శక్తి దాచాను చక్రీ! ।</div><div>అరివీరులనిక దుంచెద</div><div>నేన్ — దింపుము చక్రమ్ ॥</div><div>METER కంద ధోరణి</div><div>భావము · శత్రువులను బంధువులని అనుకొని నా శక్తినే నేను దాచుకున్నాను. అందుకే పూర్తి బలంతో యుద్ధం చేయలేదు. ఇప్పుడు మోహం తగ్గింది.</div></div>
+    </article>
+    <article class="pas" id="p68">
+      <div class="meta"><span class="pg">p. 21</span><span class="wh">10 The Leftover Morsel</span>
+        <label class="ck"><input type="checkbox" data-id="p68" id="c-p68"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — కంద ధోరణి</div><div>మౌని శాపంబాపగ</div><div>అట్టడుగెంగిలి ముద్ద తింటివి ।</div><div>ప్రతి మెతుకు నీకే</div><div>నివేదింతు — శీలము గాచవయ్యో ॥</div><div>METER కంద ధోరణి</div><div>భావము · కృష్ణుడు శాపభయాన్ని తొలగించుటకు ఎంగిలి ముద్దనైనా తిన్నాడు. ఇక ప్రతి మెతుకూ నీకే నివేదింతును.</div></div>
+    </article>
+    <article class="pas" id="p69">
+      <div class="meta"><span class="pg">p. 22–23</span><span class="wh">11 No Embassy to Death</span>
+        <label class="ck"><input type="checkbox" data-id="p69" id="c-p69"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — కంద ధోరణి</div><div>కాలుడైన శత్రు</div><div>సభకీ రాయబారమొద్దు ।</div><div>నిన్ బంధిస్తే నాకున్</div><div>దిక్కెవరు? రేగెదమయ్య ॥</div><div>రాజ్యమొద్దు మనకున్</div><div>అరిసంహారమే ముద్దు ।</div><div>నీవుండగా తోడున్</div><div>రణమున చలరేగెదనయ్య ॥</div><div>METER కంద ధోరణి</div><div>భావము · రాజ్యం కాదు — ధర్మయుద్ధమే ముఖ్యం. అంతరాత్మ బంధితమైతే జీవితం దిక్కులేనిదవుతుంది.</div></div>
+    </article>
+    <article class="pas" id="p70">
+      <div class="meta"><span class="pg">p. 24–25</span><span class="wh">12 The Five Villages</span>
+        <label class="ck"><input type="checkbox" data-id="p70" id="c-p70"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — కంద ధోరణి</div><div>నిఖిలాండ నాయకుడే</div><div>నాతోడుగ పంచగ్రామాలేలనయ్య ।</div><div>నాకేమిత్తురు ఈ</div><div>శతదరిద్రులు ॥</div><div>నీ రూపము జూచినన్</div><div>చూడలేని అంధరాజు ।</div><div>నిన్నెరిగిన నాకున్</div><div>వాడేమిచ్చునయ్య ॥</div><div>METER కంద ధోరణి</div><div>భావము · పంచగ్రామాలు ఇక్కడ కేవలం గ్రామాలు కావు — పంచేంద్రియ సుఖక్షేత్రాలు. నిఖిలాండ నాయకుడు తోడుగా ఉన్నప్పుడు వాటికోసం ఎందుకు అడగాలి?</div></div>
+    </article>
+    <article class="pas" id="p71">
+      <div class="meta"><span class="pg">p. 26–27</span><span class="wh">13 Stay in My Heart</span>
+        <label class="ck"><input type="checkbox" data-id="p71" id="c-p71"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — కంద ధోరణి</div><div>చారల్లేవు నీ</div><div>సేతువు కట్టలే కనుక ।</div><div>గిరిదాల్చి ప్రాణంబు</div><div>గాచితిని కానేను రామభద్రా ॥</div><div>సేనలిచ్చి సఖ్యము</div><div>కోరగల రాజును కానేను ।</div><div>వెలివేయబడి బిడ్డన్</div><div>నీకిచ్చితిన్ — హృదయమున్ నిలువవా ॥</div><div>METER కంద ధోరణి</div><div>భావము · నేను సేతువుకై చారలు మోసిన ఉడుతను కాను. హనుమంతుడిలా గిరి దాల్చలేదు. సుగ్రీవుడిలా సేనలు ఇచ్చి సఖ్యం అడగగల రాజును కాను. అయినా వెలివేయబడి నా బిడ్డను నీకిచ్చితిని. ఇప్పుడు నా హృదయంలోనూ నిలువవా?</div></div>
+    </article>
+    <article class="pas" id="p72">
+      <div class="meta"><span class="pg">p. 28–29</span><span class="wh">14 Ask Sītamma to Take Me In</span>
+        <label class="ck"><input type="checkbox" data-id="p72" id="c-p72"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — కంద ధోరణి</div><div>పతకాల్చేయలేదు</div><div>ప్రాకారాల్కట్టలేదు ।</div><div>నావల్నడపలేదు</div><div>ప్రహరీల్దూకలేదు రామచంద్రా ॥</div><div>నీవిచ్చినన్నంబు</div><div>అనాథల్కర్పించి తీని ।</div><div>సీతమ్మకిన్ నంజేర్చుకో</div><div>మని చెప్పవా రామభద్రా ॥</div><div>METER కంద ధోరణి</div><div>భావము · పెద్ద కార్యాలు చేయలేదు. కానీ నీవిచ్చిన అన్నాన్ని అనాథలకు అర్పించి తిన్నాను. ఇప్పుడు సీతమ్మ దగ్గర నన్ను చేర్చుకోమని చెప్పవా?</div></div>
+    </article>
+    <article class="pas" id="p73">
+      <div class="meta"><span class="pg">p. 30–31</span><span class="wh">15 Supratika</span>
+        <label class="ck"><input type="checkbox" data-id="p73" id="c-p73"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — కంద ధోరణి</div><div>నా కొరకై నీవే</div><div>అస్త్రమొదలెత్తి నిలిచితివి ।</div><div>ధన్యము — హారమై</div><div>రాలె దైవాగ్ని అనంతా ॥</div><div>గర్వంబు సుప్రతీక</div><div>మై నడచె మదమున దునిమీద ।</div><div>ఇక ఆ గజగతిని</div><div>దుంచెద నేనయ్య చక్రీ ॥</div><div>METER కంద ధోరణి</div><div>భావము · వైష్ణవాస్త్రమువలె వచ్చిన వినాశక శక్తిని కృష్ణుడే తనపై తీసుకున్నాడు. అది కరుణవల్ల హారమై పడింది. కానీ గర్వం ఇంకా సుప్రతీకమనే యుద్ధగజంలా మదంతో నడుస్తోంది. ఇప్పుడు భక్తుడు అంటున్నాడు: “ఇక ఆ గజగతిని నేనే దుంచెదను.”</div></div>
+    </article>
+    <article class="pas" id="p74">
+      <div class="meta"><span class="pg">p. 32–34</span><span class="wh">16 Firebolt’s Father</span>
+        <label class="ck"><input type="checkbox" data-id="p74" id="c-p74"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — యుద్ధ కంద ధోరణి</div><div>తనయుని జంపుటకే</div><div>రథులేడ్గురైతిరి దౌర్భాగ్యుల్ ।</div><div>తండ్రినే వాఒడయ్య —</div><div>చిచ్చరపిడుగై బావా ॥</div><div>చంద్రాంశమున్ కానేను</div><div>సూర్యపుత్రుడే యేమి? ।</div><div>కోటిసూర్యప్రభాధికుడవు</div><div>నీవుండగా తండ్రీ ॥</div><div>కాలుడనై రణమున్</div><div>రుద్రున్ మెప్పింతు నేడు ।</div><div>పద్మవ్యుహమో పద్మమో</div><div>ప్రళయరౌద్రమున ఛేదింతున్ ॥</div><div>METER యుద్ధ కంద ధోరణి</div><div>భావము · అభిమన్యుని చంపుటకు ఏడుగురు రథులు కావలసి వచ్చింది. ఆ అన్యాయం తండ్రి హృదయంలో అగ్నిగా నిలిచింది. తనయుడు చిచ్చరపిడుగు అయితే, తండ్రి ఏమి చేయగలడో ఇప్పుడు రణమే చూడాలి.</div><div>చంద్రాంశముని తండ్రి ఇప్పుడు చంద్రసౌమ్యతలో నిలవడు. కర్ణుడు సూర్యపుత్రుడైనా, కోటిసూర్యప్రభాధికుడైన కృష్ణుడు తోడుండగా భయం లేదు. పద్మవ్యుహమో, పద్మమో — అది ఇక ఛేదింపబడవలసిన రణాంతర గోడ మాత్రమే.</div></div>
+    </article>
+    <article class="pas" id="p75">
+      <div class="meta"><span class="pg">p. 35–36</span><span class="wh">Telugu refrain: దిక్కేదోయ్</span>
+        <label class="ck"><input type="checkbox" data-id="p75" id="c-p75"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — నియత ఛందస్సు కాదు; రణవాచక / వచనపద్య ధోరణి</div><div>ధనుష్టంకారవంతోడ ధనంజయుడి దధద్దకిట,</div><div>దేవదత్త దారుణారవముతో ధరణి కంపించుచున్నది — నృపాధమా!</div><div>భీకరోన్మాదంబు కాలుని అంటెను; బీభత్సు కాడు రా భద్రతాహీనుండు —</div><div>భవుడే భైరవుడై బంధంబు దునుమ వచ్చెన్॥</div><div>దిక్కులేనిది ఆ నరుడు కాడు రా — నీవురా!</div><div>దిగంతముల్దాటి దామోదరుడతన్ని గాచె సుయోధనా॥</div><div>కురుల్జూలువలె గోచరించుచున్నవి — గాంచుము; నీ సేన జారినదోయ్।</div><div>నరసింహుడు పూనినాడు — నీకు దిక్కేదోయ్॥</div><div>METER నియత ఛందస్సు కాదు — రణవాచక / వచనపద్య ధోరణి</div><div>భావము · ఇది ద్రోణుని యుద్ధహెచ్చరిక. విరాటపర్వములో బృహన్నల వేషం దాటి ధనంజయుడు ఉత్తరుని రథసారథిగా చేసుకొని కౌరవసైన్యముపై దూసుకొస్తున్నాడు.</div><div>సుయోధనునికి అతడు ఒంటరి యోధుడిలా కనిపించవచ్చు. కాని ద్రోణునికి అతడు దిక్కులేని మనిషి కాదు. అతడు నరుడు — నరనారాయణ సంబంధమున్న నరుడు. దామోదరుడు దిక్కులు దాటి కూడా అతన్ని కాపాడుతున్నాడు.</div><div>అందుకే పద్యం యొక్క గుండె ఈ తిరుగుబాటు: “దిక్కులేనిది ఆ నరుడు కాడు రా — నీవురా!” భయం అర్జునునివద్ద లేదు. భయం సుయోధనుని సేనలోనే పుట్టింది.</div></div>
+    </article>
+    <article class="pas" id="p76">
+      <div class="meta"><span class="pg">p. 37</span><span class="wh">18 Krishna Stops Smiling</span>
+        <label class="ck"><input type="checkbox" data-id="p76" id="c-p76"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — యుద్ధ కంద ధోరణి</div><div>నవ్వుచుండగా నిన్ను</div><div>నిర్లక్ష్యించిరి మూర్ఖుల్ ।</div><div>మాధవుని మౌనంబే</div><div>మృత్యుఘంటిక గదరా ॥</div><div>వెన్నెలీలా ముగిసె</div><div>వేణునాదము నిలిచెను ।</div><div>చక్రధారి చూపున్</div><div>చలించె భువనంబులన్ ॥</div><div>METER </div><div>భావము · కృష్ణుడు నవ్వుతున్నంతవరకు, వాళ్లు ఆయనను తేలికగా తీసుకున్నారు. లీలా, వేణువు, వెన్నదొంగతనం — ఇవన్నీ చూసి మాధవుని మృదుత్వంగా భావించారు.</div><div>కాని కృష్ణుని మౌనం మొదలైతే, అది కేవలం నిశ్శబ్దం కాదు. అది మృత్యుఘంటిక.</div></div>
+    </article>
+    <article class="pas" id="p77">
+      <div class="meta"><span class="pg">p. 38</span><span class="wh">19 Nīlakaṇṭha</span>
+        <label class="ck"><input type="checkbox" data-id="p77" id="c-p77"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — యుద్ధ కంద ధోరణి</div><div>నీలకంఠుడనగా</div><div>నిగ్రహమేనని నమ్మితిరి ।</div><div>కంఠమందు నిలిచిన</div><div>కాలకూటము మరచితిరి ॥</div><div>మింగిన విషమది</div><div>మృదుత్వంబు కానేరా ।</div><div>విషమెల్ల ఉమ్మితినన్</div><div>విశ్వమేం మిగులునో ॥</div><div>METER </div><div>భావము · వారు నీలకంఠుని కరుణను బలహీనతగా చూశారు. విషాన్ని మింగి కంఠంలో నిలిపిన శివుడు సహనమూర్తి అని మాత్రమే భావించారు.</div><div>కాని ఆ నీలి కంఠం వెనుక నిలిచింది కాలకూటం. అది బయటకు వస్తే, ఎవరు నిలుస్తారు?</div></div>
+    </article>
+    <article class="pas" id="p78">
+      <div class="meta"><span class="pg">p. 39</span><span class="wh">20 Gandiva Remembered</span>
+        <label class="ck"><input type="checkbox" data-id="p78" id="c-p78"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — యుద్ధ కంద ధోరణి</div><div>గాండీవమదియని</div><div>గమనింపక నవ్వితిరి ।</div><div>మౌనంబున్ నిలిచినన్</div><div>మండుటెలియక మూర్ఖుల్ ॥</div><div>జ్యాఘోషమొకసారిన్</div><div>జగమంత దద్దరిల్లున్ ।</div><div>విడిచిన బాణమున్</div><div>వెనుతిరుగుట కలదురా ॥</div><div>METER </div><div>భావము · మౌనం చూసి వారు ఆయుధం మరిచిపోయారు. సహనం చూసి శక్తి మసకబారిందనుకున్నారు.</div><div>కాని గాండీవం గోడపై వేలాడే కట్టెలుకాదు. ఒకసారి జ్యా మ్రోగితే ప్రపంచమే దద్దరిల్లుతుంది.</div></div>
+    </article>
+    <article class="pas" id="p79">
+      <div class="meta"><span class="pg">p. 40</span><span class="wh">21 Hanuman on the Flag</span>
+        <label class="ck"><input type="checkbox" data-id="p79" id="c-p79"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — యుద్ధ కంద ధోరణి</div><div>బొమ్మయని పతాక</div><div>కొమ్మునవ్విరి దుర్మతుల్ ।</div><div>వాయుపుత్రుని నిశ్వాసం</div><div>వహ్నిజ్వాల మరచితిరి ॥</div><div>గర్జనమొకటితోనే</div><div>గుండెలు పగులునయ్య ।</div><div>రథముపైనుండె</div><div>రామనామ శ్వాసగదా ॥</div><div>METER </div><div>భావము · పతాకపై ఉన్న హనుమంతుడిని అలంకార బొమ్మగా చూశారు. కాని అది వాయువు, అగ్ని, భక్తి, రామనామం, ప్రాణశక్తి.</div></div>
+    </article>
+    <article class="pas" id="p80">
+      <div class="meta"><span class="pg">p. 41</span><span class="wh">22 Narasimha Threshold</span>
+        <label class="ck"><input type="checkbox" data-id="p80" id="c-p80"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — యుద్ధ కంద ధోరణి</div><div>మదాంధుల్ వేయి</div><div>స్తంభాలు కట్టి కులికిరి ।</div><div>సంధ్యవేళ చేరగనే</div><div>నఖరాగ్ని తెలిసెనో ॥</div><div>తనబలంబునే</div><div>కవచమని నమ్మితిరి ।</div><div>గడపదాటినంతే</div><div>గర్జించున్ నరసింహమ్ ॥</div><div>METER </div><div>భావము · వారు తమ నిర్మాణాలు, బలం, వ్యవస్థలు, అహంకారమే రక్షణ అని భావించారు. కాని ఒక నిజమైన స్తంభం చాలును.</div><div>సంధ్యవేళ వచ్చినపుడు — నఖాగ్ని బయలుదేరుతుంది.</div></div>
+    </article>
+    <article class="pas" id="p81">
+      <div class="meta"><span class="pg">p. 42</span><span class="wh">23 Mother’s Permission</span>
+        <label class="ck"><input type="checkbox" data-id="p81" id="c-p81"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — యుద్ధ కంద ధోరణి</div><div>అమ్మనడుగక యుద్ధం</div><div>ఆరంభింప నేనేరా ।</div><div>కాళికన్ను తిప్పితే</div><div>ఖడ్గమున్ కదలదురా ॥</div><div>సీతమ్మ కరుణలేక</div><div>శౌర్యమేమి నిలుచునో ।</div><div>జగజ్జనని సంకల్పం</div><div>జరిగెనన్ జయమయ్య ॥</div><div>METER యుద్ధ కంద ధోరణి</div><div>భావము · ఇది అహంకారయుద్ధం కాదు. శక్తి అనుమతి లేని వీరత్వం దురహంకారమవుతుంది.</div><div>కాళి చూపు తొలగితే ఖడ్గం కదలదు. సీతమ్మ కరుణ లేక శౌర్యం నిలవదు.</div></div>
+    </article>
+    <article class="pas" id="p82">
+      <div class="meta"><span class="pg">p. 43–44</span><span class="wh">24 The Living One Does Not Look Back</span>
+        <label class="ck"><input type="checkbox" data-id="p82" id="c-p82"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — కంద ధోరణి</div><div>మాణిక్యము తన</div><div>మెరుపున్ గర్వించు ।</div><div>మౌళికిరీటంబు</div><div>మణులనన్ పొంగు ॥</div><div>ధరించిన రాజుతల</div><div>దర్పంబున్ నిండున్ ।</div><div>వేళరాగ జీవుండు</div><div>వెనుదిరిగి చూడదు శశీ ॥</div><div>METER కంద ధోరణి</div><div>భావము · మెరుపు మాణిక్యానికీ గర్వం. అనేక మణులు కిరీటానికీ గర్వం. ఆ కిరీటాన్ని ధరించిన రాజుతలకీ దర్పం.</div><div>కాని వేళ రాగ — జీవుడు అన్నిటినీ వదిలి వెళ్తాడు. వెనుదిరిగి కూడా చూడడు.</div></div>
+    </article>
+    <article class="pas" id="p83">
+      <div class="meta"><span class="pg">p. 45–46</span><span class="wh">25 Beyond Grief</span>
+        <label class="ck"><input type="checkbox" data-id="p83" id="c-p83"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>పద్యం — ముగింపు కంద ధోరణి</div><div>దుఃఖంబు దాటితిన్</div><div>దూరమాయె నన్నుండి ।</div><div>భారమేం మిగిలెనో —</div><div>భగవద్కార్యమొక్కటే ॥</div><div>అస్తమించు వేళలో</div><div>ఆపకుమి నన్నయ్యా ।</div><div>వ్రతమిదే ముగిసినన్</div><div>వచ్చి తీసికొనుము తండ్రీ ॥</div><div>METER </div><div>భావము · ఇది దుఃఖాంతం కాదు. దుఃఖం కేంద్రస్థానం కోల్పోయిన క్షణం.</div><div>ఇప్పుడు మిగిలింది:</div><div>పని,</div><div>వ్రతం,</div><div>ధర్మం,</div><div>సమర్పిత కర్తవ్యమే.</div></div>
+    </article>
+    <article class="pas" id="p84">
+      <div class="meta"><span class="pg">commentary</span><span class="wh">Telugu phrases quoted in the English Author Context</span>
+        <label class="ck"><input type="checkbox" data-id="p84" id="c-p84"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>“కట్టితివి”</div><div>“మౌనంబింక చాలునయ్యా”</div><div>“గోవర్ధనగిరిధారి”</div><div>“జ్ఞానమే గురువై”</div><div>“శీలము గాచవయ్యో”</div><div>“శత్రు సభ”</div><div>“రేగెదమయ్య”</div><div>“చలరేగెదనయ్య”</div><div>Telugu refrain: దిక్కేదోయ్</div><div>“రా” in “కాడు రా”</div><div>“దిక్కులేనిది”</div><div>రథులేడ్గురైతిరి</div><div>చిచ్చరపిడుగు</div><div>సూర్యపుత్రుడు</div><div>కోటిసూర్యప్రభాధికుడు</div><div>ప్రళయరౌద్రమున ఛేదింతున్</div></div>
+    </article>
+  </div>
+</section>
+
+<section class="book" id="booklet-eight" data-book="booklet-eight">
+  <header class="bh">
+    <h2>Booklet 8 · Nādeśvara Kṣobhaśamana Stotram</h2>
+    <p class="note">Some Telugu words end in a halant where the Devanagari beside them ends in a long vowel (for example విగ్రహ్ and विग्रहा). They are set as printed.</p>
+    <p class="prog"><span class="done" data-done="booklet-eight">0</span> of 24 passages checked</p>
+  </header>
+  <div class="list">
+    <article class="pas" id="p85">
+      <div class="meta"><span class="pg">p. 8</span><span class="wh">Stanza 1 · Telugu and Devanagari</span>
+        <label class="ck"><input type="checkbox" data-id="p85" id="c-p85"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>జటాధరా నిజాపహా నిరామయా విలోహితా । జటాఘటానటాననా భవేశ శూలపాణయే ॥ డమడ్డమద్ధ్వనిప్రభో దయాంబుధే దిగంబరా । చలచ్చితంబు నాదితో సముద్ధరస్వ మాంశివా ॥</div><div>जटाधरा निजापहा निरामया विलोहिता । जटाघटानटानना भवेश शूलपाणये ॥ डमड्डमद्ध्वनिप्रभो दयांबुधे दिगंबरा । चलच्चितंबु नादितो समुद्धरस्व मांशिवा ॥</div></div>
+    </article>
+    <article class="pas" id="p86">
+      <div class="meta"><span class="pg">p. 11</span><span class="wh">Stanza 1 · word-by-word headwords (Telugu (Devanagari))</span>
+        <label class="ck"><input type="checkbox" data-id="p86" id="c-p86"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>జటాధరా   (जटाधरा)</div><div>నిజాపహా   (निजापहा)</div><div>నిరామయా   (निरामया)</div><div>విలోహితా   (विलोहिता)</div><div>జటాఘటానటాననా   (जटाघटानटानना)</div><div>భవేశ   (भवेश)</div><div>శూలపాణయే   (शूलपाणये)</div><div>డమడ్డమద్ధ్వనిప్రభో   (डमड्डमद्ध्वनिप्रभो)</div><div>దయాంబుధే   (दयांबुधे)</div><div>దిగంబరా   (दिगंबरा)</div><div>చలచ్చితంబు   (चलच्चितंबु)</div><div>నాదితో   (नादितो)</div><div>సముద్ధరస్వ   (समुद्धरस्व)</div><div>మాం శివా   (मां शिवा)</div></div>
+    </article>
+    <article class="pas" id="p87">
+      <div class="meta"><span class="pg">p. 8</span><span class="wh">Stanza 2 · Telugu and Devanagari</span>
+        <label class="ck"><input type="checkbox" data-id="p87" id="c-p87"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>భుజంగభూషణోద్ధత ప్రబోధకాలకాలకా । ప్రలంబకంఠకంధరా ప్రపంచభస్మలేపకా ॥ నినాదడంబరాంబుధౌ నిమగ్నచేతసో మమ । ప్రబుద్ధతాండవేన త్వముద్యమస్వ శంకరా ॥</div><div>भुजंगभूषणोद्धत प्रबोधकालकालका । प्रलंबकंठकंधरा प्रपंचभस्मलेपका ॥ निनादडंबरांबुधौ निमग्नचेतसो मम । प्रबुद्धतांडवेन त्वमुद्यमस्व शंकरा ॥</div></div>
+    </article>
+    <article class="pas" id="p88">
+      <div class="meta"><span class="pg">p. 12</span><span class="wh">Stanza 2 · word-by-word headwords (Telugu (Devanagari))</span>
+        <label class="ck"><input type="checkbox" data-id="p88" id="c-p88"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>భుజంగభూషణ   (भुजंगभूषण)</div><div>ఉద్ధత   (उद्धत)</div><div>ప్రబోధ   (प्रबोध)</div><div>కాలకాలకా   (कालकालका)</div><div>ప్రలంబకంఠకంధరా   (प्रलंबकंठकंधरा)</div><div>ప్రపంచభస్మలేపకా   (प्रपंचभस्मलेपका)</div><div>నినాద   (निनाद)</div><div>డంబరాంబుధౌ   (डंबरांबुधौ)</div><div>నిమగ్నచేతసో మమ   (निमग्नचेतसो मम)</div><div>ప్రబుద్ధతాండవేన   (प्रबुद्धतांडवेन)</div><div>త్వముద్యమస్వ   (त्वमुद्यमस्व)</div><div>శంకరా   (शंकरा)</div></div>
+    </article>
+    <article class="pas" id="p89">
+      <div class="meta"><span class="pg">p. 8</span><span class="wh">Stanza 3 · Telugu and Devanagari</span>
+        <label class="ck"><input type="checkbox" data-id="p89" id="c-p89"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>కపాలమాలికాధర ప్రహాసధూతభీతికా । ప్రభంజనప్రవాహిత ప్రణవసారవిగ్రహ్ ॥ దిగంతదగ్ధలోచన ప్రదీప్తవహ్నిలోలకా । దురాశబంధమున్ మమ ప్రచూర్ణయాశు పాశుపా ॥</div><div>कपालमालिकाधर प्रहासधूतभीतिका । प्रभंजनप्रवाहित प्रणवसारविग्रहा ॥ दिगंतदग्धलोचन प्रदीप्तवह्निलोलका । दुराशबंधमुन् मम प्रचूर्णयाशु पाशुपा ॥</div></div>
+    </article>
+    <article class="pas" id="p90">
+      <div class="meta"><span class="pg">p. 13</span><span class="wh">Stanza 3 · word-by-word headwords (Telugu (Devanagari))</span>
+        <label class="ck"><input type="checkbox" data-id="p90" id="c-p90"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>కపాలమాలికాధర   (कपालमालिकाधर)</div><div>ప్రహాసధూతభీతికా   (प्रहासधूतभीतिका)</div><div>ప్రభంజనప్రవాహిత   (प्रभंजनप्रवाहित)</div><div>ప్రణవసారవిగ్రహ్   (प्रणवसारविग्रहा)</div><div>దిగంతదగ్ధలోచన   (दिगंतदग्धलोचन)</div><div>ప్రదీప్తవహ్నిలోలకా   (प्रदीप्तवह्निलोलका)</div><div>దురాశబంధమున్ మమ   (दुराशबंधमुन् मम)</div><div>ప్రచూర్ణయాశు   (प्रचूर्णयाशु)</div><div>పాశుపా   (पाशुपा)</div></div>
+    </article>
+    <article class="pas" id="p91">
+      <div class="meta"><span class="pg">p. 8</span><span class="wh">Stanza 4 · Telugu and Devanagari</span>
+        <label class="ck"><input type="checkbox" data-id="p91" id="c-p91"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>త్రిలోచనా త్రయీమయా త్రిశూలభేదభాసురా । త్రికాలసాక్షిరూపకా త్రివేణిసంగమస్థితా ॥ చరాచరక్షయోదయ ప్రబోధనృత్యనాయకా । చిదంబరేశ మాంహృది చలత్వదీయతాండవమ్ ॥</div><div>त्रिलोचना त्रयीमया त्रिशूलभेदभासुरा । त्रिकालसाक्षिरूपका त्रिवेणिसंगमस्थिता ॥ चराचरक्षयोदय प्रबोधनृत्यनायका । चिदंबरेश मांहृदि चलत्वदीयतांडवम् ॥</div></div>
+    </article>
+    <article class="pas" id="p92">
+      <div class="meta"><span class="pg">p. 14</span><span class="wh">Stanza 4 · word-by-word headwords (Telugu (Devanagari))</span>
+        <label class="ck"><input type="checkbox" data-id="p92" id="c-p92"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>త్రిలోచనా   (त्रिलोचना)</div><div>త్రయీమయా   (त्रयीमया)</div><div>త్రిశూలభేదభాసురా   (त्रिशूलभेदभासुरा)</div><div>త్రికాలసాక్షిరూపకా   (त्रिकालसाक्षिरूपका)</div><div>త్రివేణిసంగమస్థితా   (त्रिवेणिसंगमस्थिता)</div><div>చరాచరక్షయోదయ   (चराचरक्षयोदय)</div><div>ప్రబోధనృత్యనాయకా   (प्रबोधनृत्यनायका)</div><div>చిదంబరేశ   (चिदंबरेश)</div><div>మాం హృది   (मां हृदि)</div><div>చలత్ త్వదీయ తాండవమ్   (चलत् त्वदीय तांडवम्)</div></div>
+    </article>
+    <article class="pas" id="p93">
+      <div class="meta"><span class="pg">p. 9</span><span class="wh">Stanza 5 · Telugu and Devanagari</span>
+        <label class="ck"><input type="checkbox" data-id="p93" id="c-p93"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>స్మశానధూళిధూసర ప్రబోధశూన్యవిభ్రమా । నిరీహభోగభంజన నిరంజనాధినాయకా ॥ అహంకృతిప్రవాహిణీ మమాశయాంతరస్థితా । నిహంసి చేత్ తదేవ మే నివృత్తిమార్గసిద్ధయే ॥</div><div>स्मशानधूळिधूसर प्रबोधशून्यविभ्रमा । निरीहभोगभंजन निरंजनाधिनायका ॥ अहंकृतिप्रवाहिणी ममाशयांतरस्थिता । निहंसि चेत् तदेव मे निवृत्तिमार्गसिद्धये ॥</div></div>
+    </article>
+    <article class="pas" id="p94">
+      <div class="meta"><span class="pg">p. 15</span><span class="wh">Stanza 5 · word-by-word headwords (Telugu (Devanagari))</span>
+        <label class="ck"><input type="checkbox" data-id="p94" id="c-p94"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>స్మశానధూళిధూసర   (स्मशानधूळिधूसर)</div><div>ప్రబోధశూన్యవిభ్రమా   (प्रबोधशून्यविभ्रमा)</div><div>నిరీహభోగభంజన   (निरीहभोगभंजन)</div><div>నిరంజనాధినాయకా   (निरंजनाधिनायका)</div><div>అహంకృతి   (अहंकृति)</div><div>ప్రవాహిణీ   (प्रवाहिणी)</div><div>మమాశయాంతరస్థితా   (ममाशयांतरस्थिता)</div><div>నిహంసి చేత్   (निहंसि चेत्)</div><div>తదేవ మే   (तदेव मे)</div><div>నివృత్తిమార్గసిద్ధయే   (निवृत्तिमार्गसिद्धये)</div></div>
+    </article>
+    <article class="pas" id="p95">
+      <div class="meta"><span class="pg">p. 9</span><span class="wh">Stanza 6 · Telugu and Devanagari</span>
+        <label class="ck"><input type="checkbox" data-id="p95" id="c-p95"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>సహస్రసూర్యదీప్తిమద్విరాజమానవిగ్రహ్ । సుధాంశుశేఖరప్రభో సురాసురార్చితాంఘ్రికా ॥ ప్రపంచమోహమండల ప్రచండవాహ్నిరూపకా । ప్రశాంతనాదమేవ మే పరాయణం మహేశ్వరా ॥</div><div>सहस्रसूर्यदीप्तिमद्विराजमानविग्रहा । सुधांशुशेखरप्रभो सुरासुरार्चितांघ्रिका ॥ प्रपंचमोहमंडल प्रचंडवाह्निरूपका । प्रशांतनादमेव मे परायणं महेश्वरा ॥</div></div>
+    </article>
+    <article class="pas" id="p96">
+      <div class="meta"><span class="pg">p. 15–16</span><span class="wh">Stanza 6 · word-by-word headwords (Telugu (Devanagari))</span>
+        <label class="ck"><input type="checkbox" data-id="p96" id="c-p96"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>సహస్రసూర్యదీప్తిమత్   (सहस्रसूर्यदीप्तिमत्)</div><div>విరాజమానవిగ్రహ్   (विराजमानविग्रहा)</div><div>సుధాంశుశేఖరప్రభో   (सुधांशुशेखरप्रभो)</div><div>సురాసురార్చితాంఘ్రికా   (सुरासुरार्चितांघ्रिका)</div><div>ప్రపంచమోహమండల   (प्रपंचमोहमंडल)</div><div>ప్రచండవాహ్నిరూపకా   (प्रचंडवाह्निरूपका)</div><div>ప్రశాంతనాదమేవ   (प्रशांतनादमेव)</div><div>మే పరాయణం   (मे परायणं)</div><div>మహేశ్వరా   (महेश्वरा)</div></div>
+    </article>
+    <article class="pas" id="p97">
+      <div class="meta"><span class="pg">p. 9</span><span class="wh">Stanza 7 · Telugu and Devanagari</span>
+        <label class="ck"><input type="checkbox" data-id="p97" id="c-p97"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>డమరుకంపితోద్భట ప్రణూతభూతసంచయా । దిగంతగర్జితధ్వనిప్రకంపితాఖిలాంబరా ॥ నటత్తదేకపాదతః సృజస్యవస్యసంహృతీన్ । నమామి నిత్యశంకర ప్రకాశతాండవప్రభో ॥</div><div>डमरुकंपितोद्भट प्रणूतभूतसंचया । दिगंतगर्जितध्वनिप्रकंपिताखिलांबरा ॥ नटत्तदेकपादतः सृजस्यवस्यसंहृतीन् । नमामि नित्यशंकर प्रकाशतांडवप्रभो ॥</div></div>
+    </article>
+    <article class="pas" id="p98">
+      <div class="meta"><span class="pg">p. 16</span><span class="wh">Stanza 7 · word-by-word headwords (Telugu (Devanagari))</span>
+        <label class="ck"><input type="checkbox" data-id="p98" id="c-p98"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>డమరుకంపిత   (डमरुकंपित)</div><div>ఉద్భట   (उद्भट)</div><div>ప్రణూతభూతసంచయా   (प्रणूतभूतसंचया)</div><div>దిగంతగర్జితధ్వని   (दिगंतगर्जितध्वनि)</div><div>ప్రకంపితాఖిలాంబరా   (प्रकंपिताखिलांबरा)</div><div>నటత్ తదేకపాదతః   (नटत् तदेकपादतः)</div><div>సృజసి   (सृजसि)</div><div>అవసి   (अवसि)</div><div>సంహృతీన్   (संहृतीन्)</div><div>నమామి   (नमामि)</div><div>నిత్యశంకర   (नित्यशंकर)</div><div>ప్రకాశతాండవప్రభో   (प्रकाशतांडवप्रभो)</div></div>
+    </article>
+    <article class="pas" id="p99">
+      <div class="meta"><span class="pg">p. 9</span><span class="wh">Stanza 8 · Telugu and Devanagari</span>
+        <label class="ck"><input type="checkbox" data-id="p99" id="c-p99"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>గిరీంద్రజాతకాంతయా గృహీతవామభాగకా । కృపాకటాక్షవీక్షణ ప్రబోధితాఖిలాత్మకా ॥ అనాదిమధ్యశూన్యకా అనంతనాదవాహకా । అశేషచేతసాంపతే అవేధయాశు మాంశివా ॥</div><div>गिरींद्रजातकांतया गृहीतवामभागका । कृपाकटाक्षवीक्षण प्रबोधिताखिलात्मका ॥ अनादिमध्यशून्यका अनंतनादवाहका । अशेषचेतसांपते अवेधयाशु मांशिवा ॥</div></div>
+    </article>
+    <article class="pas" id="p100">
+      <div class="meta"><span class="pg">p. 17</span><span class="wh">Stanza 8 · word-by-word headwords (Telugu (Devanagari))</span>
+        <label class="ck"><input type="checkbox" data-id="p100" id="c-p100"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>గిరీంద్రజాతకాంతయా   (गिरींद्रजातकांतया)</div><div>గృహీతవామభాగకా   (गृहीतवामभागका)</div><div>కృపాకటాక్షవీక్షణ   (कृपाकटाक्षवीक्षण)</div><div>ప్రబోధితాఖిలాత్మకా   (प्रबोधिताखिलात्मका)</div><div>అనాది   (अनादि)</div><div>మధ్యశూన్యకా   (मध्यशून्यका)</div><div>అనంతనాదవాహకా   (अनंतनादवाहका)</div><div>అశేషచేతసాంపతే   (अशेषचेतसांपते)</div><div>అవేధయాశు   (अवेधयाशु)</div><div>మాం శివా   (मां शिवा)</div></div>
+    </article>
+    <article class="pas" id="p101">
+      <div class="meta"><span class="pg">p. 10</span><span class="wh">Stanza 9 · Telugu and Devanagari</span>
+        <label class="ck"><input type="checkbox" data-id="p101" id="c-p101"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>నిరుద్ధవాసనావృత ప్రబద్ధజీవబంధనా । నిశాచరాంతకోద్యమ నిరీక్షితేశలోకకా ॥ ప్రచండతాండవక్షణ ప్రబుద్ధశక్తిసంచయా । ప్రవేశయాశు మాంహృది ప్రకాశరుద్రనర్తనమ్ ॥</div><div>निरुद्धवासनावृत प्रबद्धजीवबंधना । निशाचरांतकोद्यम निरीक्षितेशलोकका ॥ प्रचंडतांडवक्षण प्रबुद्धशक्तिसंचया । प्रवेशयाशु मांहृदि प्रकाशरुद्रनर्तनम् ॥</div></div>
+    </article>
+    <article class="pas" id="p102">
+      <div class="meta"><span class="pg">p. 18</span><span class="wh">Stanza 9 · word-by-word headwords (Telugu (Devanagari))</span>
+        <label class="ck"><input type="checkbox" data-id="p102" id="c-p102"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>నిరుద్ధవాసనావృత   (निरुद्धवासनावृत)</div><div>ప్రబద్ధజీవబంధనా   (प्रबद्धजीवबंधना)</div><div>నిశాచరాంతకోద్యమ   (निशाचरांतकोद्यम)</div><div>నిరీక్షితేశలోకకా   (निरीक्षितेशलोकका)</div><div>ప్రచండతాండవక్షణ   (प्रचंडतांडवक्षण)</div><div>ప్రబుద్ధశక్తిసంచయా   (प्रबुद्धशक्तिसंचया)</div><div>ప్రవేశయాశు   (प्रवेशयाशु)</div><div>మాం హృది   (मां हृदि)</div><div>ప్రకాశరుద్రనర్తనమ్   (प्रकाशरुद्रनर्तनम्)</div></div>
+    </article>
+    <article class="pas" id="p103">
+      <div class="meta"><span class="pg">p. 10</span><span class="wh">Stanza 10 · Telugu and Devanagari</span>
+        <label class="ck"><input type="checkbox" data-id="p103" id="c-p103"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>జగత్త్రయీప్రవాహక ప్రణవనాదసాక్షికా । జలంధరాంతకప్రభో జటాజ్వలత్ప్రకాశకా ॥ మదాంధచేతసో మమ మోహపాశభంజనా । మహాతపోనిధే విభో మయి ప్రసీద శూలినే ॥</div><div>जगत्त्रयीप्रवाहक प्रणवनादसाक्षिका । जलंधरांतकप्रभो जटाज्वलत्प्रकाशका ॥ मदांधचेतसो मम मोहपाशभंजना । महातपोनिधे विभो मयि प्रसीद शूलिने ॥</div></div>
+    </article>
+    <article class="pas" id="p104">
+      <div class="meta"><span class="pg">p. 19</span><span class="wh">Stanza 10 · word-by-word headwords (Telugu (Devanagari))</span>
+        <label class="ck"><input type="checkbox" data-id="p104" id="c-p104"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>జగత్త్రయీప్రవాహక   (जगत्त्रयीप्रवाहक)</div><div>ప్రణవనాదసాక్షికా   (प्रणवनादसाक्षिका)</div><div>జలంధరాంతకప్రభో   (जलंधरांतकप्रभो)</div><div>జటాజ్వలత్ప్రకాశకా   (जटाज्वलत्प्रकाशका)</div><div>మదాంధచేతసో మమ   (मदांधचेतसो मम)</div><div>మోహపాశభంజనా   (मोहपाशभंजना)</div><div>మహాతపోనిధే   (महातपोनिधे)</div><div>విభో   (विभो)</div><div>మయి ప్రసీద   (मयि प्रसीद)</div><div>శూలినే   (शूलिने)</div></div>
+    </article>
+    <article class="pas" id="p105">
+      <div class="meta"><span class="pg">p. 10</span><span class="wh">Stanza 11 · Telugu and Devanagari</span>
+        <label class="ck"><input type="checkbox" data-id="p105" id="c-p105"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>నటేశతాండవోదిత ప్రబోధవహ్నిధారకా । నవీనచేతనాప్రద నిరామయేశ శంకరా ॥ శివేతినామసంకుల ప్రణూతనాదవీచికా । శివోఽహమిత్యవస్థితిం ప్రసాదయాశు శశిధరే ॥</div><div>नटेशतांडवोदित प्रबोधवह्निधारका । नवीनचेतनाप्रद निरामयेश शंकरा ॥ शिवेतिनामसंकुल प्रणूतनादवीचिका । शिवोऽहमित्यवस्थितिं प्रसादयाशु शशिधरे ॥</div></div>
+    </article>
+    <article class="pas" id="p106">
+      <div class="meta"><span class="pg">p. 19–20</span><span class="wh">Stanza 11 · word-by-word headwords (Telugu (Devanagari))</span>
+        <label class="ck"><input type="checkbox" data-id="p106" id="c-p106"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>నటేశ   (नटेश)</div><div>తాండవోదిత   (तांडवोदित)</div><div>ప్రబోధవహ్నిధారకా   (प्रबोधवह्निधारका)</div><div>నవీనచేతనాప్రద   (नवीनचेतनाप्रद)</div><div>నిరామయేశ   (निरामयेश)</div><div>శంకరా   (शंकरा)</div><div>శివేతి నామసంకుల   (शिवेति नामसंकुल)</div><div>ప్రణూతనాదవీచికా   (प्रणूतनादवीचिका)</div><div>శివోఽహమితి   (शिवोऽहमिति)</div><div>అవస్థితిం   (अवस्थितिं)</div><div>ప్రసాదయాశు   (प्रसादयाशु)</div><div>శశిధరే   (शशिधरे)</div></div>
+    </article>
+    <article class="pas" id="p107">
+      <div class="meta"><span class="pg">p. 10</span><span class="wh">Phalaśruti · Telugu and Devanagari</span>
+        <label class="ck"><input type="checkbox" data-id="p107" id="c-p107"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>శోకాగ్నిదగ్ధచేతసో య ఇమం నాదముచ్చరేత్ । శివానుగ్రహసంస్పర్శైర్జీవః శివోన్ముఖో భవేత్ ॥</div><div>शोकाग्निदग्धचेतसो य इमं नादमुच्चरेत् । शिवानुग्रहसंस्पर्शैर्जीवः शिवोन्मुखो भवेत् ॥</div></div>
+    </article>
+    <article class="pas" id="p108">
+      <div class="meta"><span class="pg">p. 21</span><span class="wh">Phalaśruti · word-by-word headwords (Telugu (Devanagari))</span>
+        <label class="ck"><input type="checkbox" data-id="p108" id="c-p108"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>శోకాగ్ని   (शोकाग्नि)</div><div>దగ్ధచేతసః   (दग्धचेतसः)</div><div>యః   (यः)</div><div>ఇమం నాదం   (इमं नादं)</div><div>ఉచ్చరేత్   (उच्चरेत्)</div><div>శివానుగ్రహ   (शिवानुग्रह)</div><div>సంస్పర్శైః   (संस्पर्शैः)</div><div>జీవః   (जीवः)</div><div>శివోన్ముఖః   (शिवोन्मुखः)</div><div>భవేత్   (भवेत्)</div></div>
+    </article>
+  </div>
+</section>
+
+<section class="book" id="booklet-nine" data-book="booklet-nine">
+  <header class="bh">
+    <h2>Booklet 9 · In Amma’s Lap</h2>
+    <p class="note">Each Telugu line was also checked against the Roman transliteration printed beneath it, which came through intact.</p>
+    <p class="prog"><span class="done" data-done="booklet-nine">0</span> of 20 passages checked</p>
+  </header>
+  <div class="list">
+    <article class="pas" id="p109">
+      <div class="meta"><span class="pg">p. 7</span><span class="wh">1. The Mirror of Māyā మాయా అద్దం</span>
+        <label class="ck"><input type="checkbox" data-id="p109" id="c-p109"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>మాయా అద్దములోనన్</div><div>మేనిమిది నాది యనుకొంటిని ।</div><div>నీవు చూపిన చీలికలో</div><div>నిజమరసి నవ్వితిని తండ్రీ ॥</div><div>భావము · దేహం, రూపం, పాత్ర, గర్వం — ఇవన్నీ అద్దంలో కనిపించిన ప్రతిబింబాలే. భక్తుడు తనను తాను చూసి మోసపోయిన సంగతి గ్రహిస్తున్నాడు. అద్దం పగిలినప్పుడు నాశనం కాలేదు; అబద్ధం బయటపడింది.</div></div>
+    </article>
+    <article class="pas" id="p110">
+      <div class="meta"><span class="pg">p. 9</span><span class="wh">2. The Māyā of Offering నైవేద్య మాయ</span>
+        <label class="ck"><input type="checkbox" data-id="p110" id="c-p110"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>నైవేద్యమని పెట్టి</div><div>నాలుకకై దాచుకొంటిని తల్లీ ।</div><div>నీదని తెలిసిన తరువాత</div><div>నాకేమి మిగిలెనమ్మా? ॥</div><div>భావము · భక్తుడు నైవేద్యం కూడా తన భక్తి కోసం మలిచిన చిన్న మాయను నవ్వుకుంటున్నాడు. దేవునికిచ్చినట్టు చేసి, లోపల తన కోరికను దాచుకున్నాడు. చివరికి అన్నీ అమ్మవారిదే అని గ్రహిస్తున్నాడు.</div></div>
+    </article>
+    <article class="pas" id="p111">
+      <div class="meta"><span class="pg">p. 11</span><span class="wh">3. Kannikattu కన్నికట్టు</span>
+        <label class="ck"><input type="checkbox" data-id="p111" id="c-p111"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>కళ్లుకట్టో కన్నికట్టో</div><div>కట్టితివి నన్ను కారుణ్యమూర్తే ।</div><div>జపమాల గిర్రున తిరిగె;</div><div>భజనలు బిర్రాయె — గుణం సోకలే ॥</div><div>తంతులు చేసితి; తంత్రం</div><div>నేర్చితి — తాయెత్తులెల్ల తెగిపోయె ।</div><div>గంటలు మ్రోగె; గంధం</div><div>అరిగె; గోడు తీరలే గోపాలా ॥</div><div>కర్మంబేదో కానన్;</div><div>ఖర్మశేషము తెలియదు కన్నా ।</div><div>కనిపించి కాపాడుట</div><div>నీకు అంత కష్టమా తండ్రీ? ॥</div><div>నీదు కొడుకుతో కయ్యం</div><div>ఇంక చాలదా? దయ కొంచెము రాదా? ।</div><div>కుచేలునితో నీ కరుణ</div><div>ఖర్చాయెనా కృష్ణా? శరణు సారథీ! ॥</div></div>
+    </article>
+    <article class="pas" id="p112">
+      <div class="meta"><span class="pg">p. 12</span><span class="wh">3. Notes</span>
+        <label class="ck"><input type="checkbox" data-id="p112" id="c-p112"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>భావము · కన్నికట్టు అంటే ఇక్కడ భక్తుని మీద కృష్ణుని మాయా-కరుణ. బయట జపమాల తిరిగింది, భజనలు పెరిగాయి, తంత్రం, తాయెత్తులు, గంటలు, గంధం అన్నీ జరిగాయి. కానీ గుణం అంతరంగంలో తగల్లేదు. చివరికి భక్తుడు సరదాగా అడుగుతున్నాడు: కుచేలునితో నీ కరుణ అంతా ఖర్చైపోయిందా?</div></div>
+    </article>
+    <article class="pas" id="p113">
+      <div class="meta"><span class="pg">p. 15</span><span class="wh">4. Invocation of Kālikā కాళికా ఆవాహన</span>
+        <label class="ck"><input type="checkbox" data-id="p113" id="c-p113"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>ఖట్వాంగధరే కాళికే!</div><div>ఖోదితే ఖడ్గధారిణి!</div><div>ఖేచరసేవితే కపాలధారిణి!</div><div>ముక్తకేశి మహాభీమే,</div><div>రణరంగ మృత్యుభయంకరి ।</div><div>తవ సుతోఽహమంబే,</div><div>రణమధ్యే న మే భయం ॥</div><div>యుద్ధజ్వాలాసు మాతః,</div><div>మా పరిత్యజ మాం క్వచిత్ ।</div><div>వక్షస్థలే కట్యాంకే వా,</div><div>మా ముఞ్చ మాం స్వసుతం శివే ॥</div><div>కాలాగ్నిదహనమూర్తే,</div><div>కాలాంతకసహచారిణి,</div><div>కరుణాపయోనిధే —</div><div>మాం పాలయ జగన్మాతః ।</div><div>భైరవి భద్రకాళి త్వం,</div><div>ధారయ మాం లోకపావని ॥</div></div>
+    </article>
+    <article class="pas" id="p114">
+      <div class="meta"><span class="pg">p. 16</span><span class="wh">4. Notes</span>
+        <label class="ck"><input type="checkbox" data-id="p114" id="c-p114"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>భావము · ఇక్కడ భక్తి మృదువుగా లేదు; శాక్తంగా, ఉగ్రంగా, తల్లికి నేరుగా పిలుపుగా ఉంది. కాళి భయంకరురాలు కాదు. తన బిడ్డకు భయరహిత శరణ్యం.</div></div>
+    </article>
+    <article class="pas" id="p115">
+      <div class="meta"><span class="pg">p. 19</span><span class="wh">5. In Kālikāmbā’s Lap కాళికాంబా ఒడిలో</span>
+        <label class="ck"><input type="checkbox" data-id="p115" id="c-p115"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>కర్మంబు తోసెను; గ్రహగణంబులు గేలి చేసెను;</div><div>దిక్పాలకులు చూచి దయలేక నిలిచిరమ్మా ।</div><div>దుఃఖనష్టశరములు దేహమనస్సులన్ చీల్చగా,</div><div>“అంబకు చెప్పెదన్!” యని అబద్ధధైర్యమున్ నిలిచితిన్ ॥</div><div>ఇప్పుడు తవ ఒడిలోనన్, ప్రతికారాసక్తి చల్లారెను;</div><div>వారును నీ సంతతియై యుండవచ్చునమ్మా ।</div><div>శిక్షింతువో క్షమింతువో — తవ చిత్తమే కాళికే;</div><div>వారి గుణదోషములు నీ దృష్టికే విదితము ॥</div><div>నన్ను మాత్రం విడువకు; మరల భువిలో ఒంటరిగ నడువనీయకు;</div><div>వక్షస్థలే కట్యాంకే వా బిగిగా ధరించుమంబా ।</div><div>గాయములన్నియు నీ కరస్పర్శమందు మసకబడున్;</div><div>నీ ఒడిలో దాగిన బిడ్డను దింపవద్దు జగన్మాతః ॥</div></div>
+    </article>
+    <article class="pas" id="p116">
+      <div class="meta"><span class="pg">p. 20</span><span class="wh">5. Notes</span>
+        <label class="ck"><input type="checkbox" data-id="p116" id="c-p116"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>భావము · భక్తుడు మొదట తనను గాయపరిచిన వారిపై ప్రతీకారం కోరుతున్నట్టు ఉన్నాడు. కానీ అమ్మ ఒడిలో చేరగానే ప్రతీకారం చల్లారుతుంది. వారూ అమ్మ పిల్లలే కావచ్చని భావన వస్తుంది. తాను మాత్రం మళ్ళీ ఒంటరిగా దింపవద్దని అడుగుతున్నాడు.</div></div>
+    </article>
+    <article class="pas" id="p117">
+      <div class="meta"><span class="pg">p. 23</span><span class="wh">6. Only in the Lap ఒడిలోనే</span>
+        <label class="ck"><input type="checkbox" data-id="p117" id="c-p117"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>శుద్ధి చేసి మేను శోభన మార్చినా</div><div>ఆత్మముద్ద నన్ను ఆదరింప ।</div><div>లాలి పాడి నన్ను లాలించి దింపితి</div><div>లాలి పాడి నన్ను లాలిపుచ్చు ॥</div><div>మాయ దాసి నన్ను మాయకు దింపకు</div><div>మాయ దయలు మోసమగును తల్లి ।</div><div>నిన్ను కాని వేళ నాలో భయము నిండె</div><div>మాయ యింట మాయ మింగు తల్లి ॥</div><div>మాత నన్ను మాయకు మరల దింపకు</div><div>మాత చెంత నన్ను మెల్ల దాచు ।</div><div>కట్యమందు నన్ను కదలక దాచుము</div><div>కాళి నన్ను దాచు కట్యమందు ॥</div><div>భావము · శుద్ధి, మేను మార్చుట, ఆత్మకు ముద్ద పెట్టుట, లాలి పాడుట — ఇవన్నీ అమ్మ ఒడిలోనే జరగాలి అని బిడ్డ కోరుతున్నాడు. మాయను దాసి, ఆయా, సవతి వలె భావించి అమ్మకు అప్పగించవద్దని ప్రార్థిస్తున్నాడు.</div></div>
+    </article>
+    <article class="pas" id="p118">
+      <div class="meta"><span class="pg">p. 25</span><span class="wh">7. Brother Bhārgava Rāma రామన్నా భార్గవరామా</span>
+        <label class="ck"><input type="checkbox" data-id="p118" id="c-p118"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>విప్రుడనే విప్రోత్తమా,</div><div>రామన్నా భార్గవరామా ।</div><div>యుగములు చూచితివయ్యా —</div><div>ముందరి కథలు చెప్పవే అన్నా ॥</div><div>దత్తునొద్ద వినితివి;</div><div>శివునిచే పరశు పొందితివి ।</div><div>రామచూపున్ వంగితివి —</div><div>ఆ ముచ్చట్లు విప్పవే పెద్దన్నా ॥</div><div>నేను వారియొడిలోన</div><div>ఇప్పుడే చేరిన బిడ్డనయ్యా ।</div><div>నాకుముందర మన ఇంటి</div><div>కథలన్నియు చెప్పవే ఓరన్నా ॥</div><div>భావము · పరశురాముని దూర అవతారంగా కాక, పెద్ద అన్నగా పిలుస్తున్నాడు. తాను ఇప్పుడు తల్లిదండ్రుల ఒడిలో చేరిన చిన్న బిడ్డ. ముందరి ఇంటి కథలు అన్నీ చెప్పాలి.</div></div>
+    </article>
+    <article class="pas" id="p119">
+      <div class="meta"><span class="pg">p. 27</span><span class="wh">8. Tell Me, Brother Vyāsa వ్యాసన్నా చెప్పవే</span>
+        <label class="ck"><input type="checkbox" data-id="p119" id="c-p119"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>వ్యాసన్నా చెప్పవే</div><div>వేదముల ముద్దు కథలే ।</div><div>నిన్నడిగె బిడ్డనయ్యా</div><div>నిజములు కాదు — మనవే ॥</div><div>కృష్ణుని నవ్వెట్లుండె?</div><div>రాధమ్మ చూపెంత మధురం?</div><div>రాముని నడక వినిపించు</div><div>సీతమ్మ పలుకు చెప్పవే ॥</div><div>భావము · వ్యాసుడు ఇక్కడ గ్రంథకర్త కాదు; గడ్డమన్న. బిడ్డకు వేద రహస్యాలు అవసరం లేదు. తండ్రి-తల్లి, రామ-సీత, రాధా-కృష్ణుల ఇంటి ముచ్చట్లు కావాలి.</div></div>
+    </article>
+    <article class="pas" id="p120">
+      <div class="meta"><span class="pg">p. 29</span><span class="wh">9. Stories in Amma’s Lap అమ్మొడిలో కథలు</span>
+        <label class="ck"><input type="checkbox" data-id="p120" id="c-p120"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>వ్యాసన్నా భార్గవరామా</div><div>వేదమర్మముల్ వద్దయ్యా ।</div><div>సృష్టిరహస్యముల్ చాలయ్యా —</div><div>అమ్మొడిలో ఉండగా అవి దేనికయ్యా? ॥</div><div>అస్త్రమంత్రముల్ వద్దయ్యా;</div><div>అసురవధగాథల్ విననయ్యా ।</div><div>తల్లియొడిలో కూర్చొని</div><div>తండ్రి ముచ్చట్లు చెప్పుడయ్యా ॥</div><div>రామసీతల నవ్వులు,</div><div>రాధాకృష్ణ మురిపాలు ।</div><div>నాకుముందర మనింటి</div><div>వారింత జగన్మోహులేనా? ॥</div><div>ఇప్పుడున్నట్లే అప్పుడున్</div><div>తల్లితండ్రులింత మధురులా? ।</div><div>చెప్పవే గడ్డమన్నా;</div><div>విప్పవే రామన్నా మన కథలు ॥</div></div>
+    </article>
+    <article class="pas" id="p121">
+      <div class="meta"><span class="pg">p. 30</span><span class="wh">9. Notes</span>
+        <label class="ck"><input type="checkbox" data-id="p121" id="c-p121"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>భావము · అమ్మ ఒడిలో ఉన్నప్పుడు రహస్యాలు, మంత్రాలు, యుద్ధగాథలు అవసరం లేదు. మన ఇంటి ముచ్చట్లు కావాలి. ఇక్కడ భక్తి పూర్తిగా కుటుంబ సాన్నిహిత్యంలోకి మారుతుంది.</div></div>
+    </article>
+    <article class="pas" id="p122">
+      <div class="meta"><span class="pg">p. 33</span><span class="wh">10. Service-Play సేవాటలు</span>
+        <label class="ck"><input type="checkbox" data-id="p122" id="c-p122"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>బలము నివైన దీనుల కు తృప్తి నొసంగి నిదాన వాలెదన్ ।</div><div>సలుపు కు నాది నాథున కు మోద గనైన కుమార గాంచెదన్ ।</div><div>అలుపుని జూచి నాన్నయె కు నీవు కుమార నితెమ్మి భూమినన్ ।</div><div>తలపు నివైన బాలుని కు నీవు నిరమ్ము నివైపు తోలుకో ॥</div><div>భావము · అమ్మ అనుమతితో భూమిలో ఉండి ఆడుకుంటున్న బిడ్డ సేవ చేయాలని కోరుతున్నాడు. దీనులకు తృప్తి కలిగించడం తండ్రి సేవ. అలసటను తండ్రి చూసినా, తలపును అమ్మ గుర్తించినా, చివరికి అతన్ని తిరిగి పిలుచుకోవచ్చు.</div></div>
+    </article>
+    <article class="pas" id="p123">
+      <div class="meta"><span class="pg">p. 35</span><span class="wh">11. Silence the Noise Silence the Noise</span>
+        <label class="ck"><input type="checkbox" data-id="p123" id="c-p123"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>మాతవి నీవె; గాచెదవు మాకు వినోదము గాని శోకమే?</div><div>రాతలు నీకు గానమున రాగము జారక కూర్చి రాయనా</div><div>చేతలు నీవిగా మనసు చేసెడి ఘోషను ఆర్పరాదుగా?</div><div>మోతను మోయనూ వలదు; మోహము బాపి కుమారు గాచుమా ॥</div><div>భావము · అమ్మ తల్లి అయితే ఈ శోకం వారి వినోదమా అని భక్తుడు అడుగుతున్నాడు. రాతలు ఆమెకై అయితే రాగం జారకూడదు. చేతలు ఆమెవే అయినా, మనసు చేసే ఘోష భరించలేనిది. కాబట్టి మోహాన్ని తొలగించి కుమారుని కాపాడమని వేడుకుంటాడు.</div></div>
+    </article>
+    <article class="pas" id="p124">
+      <div class="meta"><span class="pg">p. 37</span><span class="wh">12. The Costume of Vairāgya వైరాగ్యవేషం</span>
+        <label class="ck"><input type="checkbox" data-id="p124" id="c-p124"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>విరహం నీకని భారమైమసలునే వైరాగ్యవేషంబిదో ।</div><div>కురులం మాపితి; కాచినా మనసులుం కౌమోదకా కింపరా? ॥</div><div>తిరునాముం చదివేను; కాలినడకై తీర్థాలు జేసేను నా-- ।</div><div>విరహాగ్నేమియు మారగా నిజము దైవాగ్నై సుశాంతైందిగా? ॥</div><div>భావము · భగవద్విరహం నిజమా, లేక వైరాగ్యవేషమా అని భక్తుడు తనను తాను ప్రశ్నిస్తున్నాడు. కురులు మాపినాడు, తిరునామం చదివాడు, కాలినడక తీర్థాలు చేశాడు. కానీ మనసు ఇంకా కాలుతుందా? విరహాగ్ని దైవాగ్ని శాంతించిందా?</div></div>
+    </article>
+    <article class="pas" id="p125">
+      <div class="meta"><span class="pg">p. 39</span><span class="wh">13. Mango-Shoot Colors మావిం చిగురులు</span>
+        <label class="ck"><input type="checkbox" data-id="p125" id="c-p125"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>దేవా గాచుము నీడై</div><div>నీవే బ్రోచెడి విభువని మా నాథుడవని ॥</div><div>నావై మోహము మాపై ।</div><div>మావిం చిగురుల రంగులు మార్చే దువుగద ॥</div><div>భావము · మామిడి చిగురుల రంగులు ఎలా మారుస్తావో, నా మీద మోహరంగును కూడా మార్చి తొలగించవా అని దేవుని అడుగుతున్నాడు. నీడవై కాపాడు; నీవే నాథుడవు.</div></div>
+    </article>
+    <article class="pas" id="p126">
+      <div class="meta"><span class="pg">p. 41</span><span class="wh">14. Lord of Kirīti కిరీటిం పతే</span>
+        <label class="ck"><input type="checkbox" data-id="p126" id="c-p126"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>హరునిం పూనిన భైరవం తమస మోహాకారమున్నా భళే ।</div><div>చరణం పైతడి మాపకుం దతడి కాచానే కిరీటిం పతే ॥</div><div>పరమోద్వేగన వైనతేయునిని నన్ వేగంబుగా పంపవే ।</div><div>దురహంకారము మోహముం చెరప రాద్దేవా దయాంబో హరే ॥</div><div>భావము · హరుని పూనిన భైరవుడు బయటకు తామస, మోహాకారంలా కనిపించినా భక్తునికి మోహనాకారుడే. ఆ రూపం కూడా ఆయనదే అనుకొని పాదతడి ఎండనీయకుండా కన్నీటి పూజ చేశాడు. ఇప్పుడు అది కూడా మాయేనని గ్రహిస్తున్నాడు: భగవంతుడు గుణాతీతుడు. కాబట్టి కిరీటి పతియైన కృష్ణుని వేడుకుంటున్నాడు: వైనతేయుని వేగంగా పంపి దురహంకారమూ మోహమూ చెరిపివేయు.</div></div>
+    </article>
+    <article class="pas" id="p127">
+      <div class="meta"><span class="pg">p. 43</span><span class="wh">15. Where Your Beings Gather భూతాస మాగంహరే</span>
+        <label class="ck"><input type="checkbox" data-id="p127" id="c-p127"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>భూతానా శ్రితవం గతోమి యత్ర త్వా భూతాస మాగంహరే ।</div><div>దాతారో మమలం నిజైతు ధరిష్యా త్రాణైవ హాలాహలం ॥</div><div>పాత్రైర్మా మఖిలం విచ్ఛేదనకురో భంభొలెనాథంభవం ।</div><div>సంతుష్టే భవతుం జయేతు భవతుం సంభోత మంత్వామతే ॥</div></div>
+    </article>
+    <article class="pas" id="p128">
+      <div class="meta"><span class="pg">p. 44</span><span class="wh">15. Notes</span>
+        <label class="ck"><input type="checkbox" data-id="p128" id="c-p128"><span>Checked</span></label></div>
+      <div class="tx" lang="te"><div>భావము · భగవంతుడు భూతములందరికీ ఆశ్రయం. ఇక్కడ భూతములు అంటే కేవలం ప్రేతపిశాచాదులు కాదు; సమస్త జీవరాశులు, సమస్త సృష్టి. భక్తుడు ఎక్కడికి వెళ్లినా, అక్కడ ఆయన భూతములే — ఆయన సృష్టియే — ముందుగానే సమీకృతమై ఉంది. కాబట్టి ఆయన సృష్టికి అతీతంగా వెళ్లుటకు స్థలమే లేదు. ఆయనే అమలమైన జీవబలాన్ని, పవిత్రమైన జీవధారను ప్రసాదించువాడు. అదే సమయంలో హాలాహలాన్ని తన కంఠములోనే ధరించినవాడు కూడా ఆయనే. ఆ విషం పైలోకాలకూ, కింది లోకాలకూ వ్యాపించనీయకుండా, జీవరాశులను కాపాడిన నీలకంఠ తత్త్వం ఇక్కడ అంతర్లీనంగా ఉంది. ఇప్పుడు భక్తుడు తన పాత్రలన్నింటినీ — తాను ధరించిన వేషాలు, పేర్లు, పాత్రలు, అహంకారరూపాలు — విచ్ఛిన్నం చేయమని భవుని, భంభోలేనాథుని ప్రార్థిస్తున్నాడు. అంతరంగములో శంభువు సంతుష్టుడై, జయముతో, మహిమతో నిలవాలని కోరుకుంటున్నాడు.</div></div>
+    </article>
+  </div>
+</section>
+<p class="foot">Text on this sheet is exactly what the website now shows. Anything corrected here needs the same change made in the site’s transcription files.</p>
+</div>
+<script>
+(function(){
+  var KEY="valluru-proof-v1", state={};
+  try{ state=JSON.parse(localStorage.getItem(KEY)||"{}")||{}; }catch(e){ state={}; }
+  function save(){ try{ localStorage.setItem(KEY,JSON.stringify(state)); }catch(e){} }
+  function count(){
+    document.querySelectorAll(".book").forEach(function(b){
+      var n=b.querySelectorAll("input:checked").length;
+      b.querySelector("[data-done]").textContent=n;
+    });
+  }
+  document.querySelectorAll("input[data-id]").forEach(function(c){
+    var id=c.getAttribute("data-id"), card=document.getElementById(id);
+    if(state[id]){ c.checked=true; card.classList.add("is-done"); }
+    c.addEventListener("change",function(){
+      if(c.checked){ state[id]=1; card.classList.add("is-done"); } else { delete state[id]; card.classList.remove("is-done"); }
+      save(); count();
+    });
+  });
+  count();
+})();
+</script>
