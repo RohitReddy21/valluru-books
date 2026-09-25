@@ -760,6 +760,15 @@ study chapters, a Phalaśruti). Booklet seven's chapters were flagged by an earl
 turned out to be ordinary single-column verse with irregular line indentation, not this bug —
 checked directly against its PDF pages before ruling it out, not assumed.
 
+**The reader is ragged-right, not justified.** `.book-flow .rd-p` was `text-align: justify`
+with `hyphens: auto`. In a ~35-character column with short paragraphs and long Sanskrit words,
+justification can only stretch the spaces, so lines like "Grammar.   Poetry.   Prose.   Andhra"
+opened into wide gaps in every booklet — and `text-wrap: pretty` made it worse by breaking
+early to avoid a short last line. Hyphenation cannot be relied on to close them: it works in
+desktop Chrome and does nothing in headless Chromium and some browsers. Left-aligned text has
+no gaps in any browser, so `text-align: left` is the fix; do not go back to `justify` without
+a wider measure.
+
 **`/api/content` strips gated chapters**, so a sweep or diff of text taken from the live API
 only covers the free chapters and can look clean when it is not. Read the database directly
 for anything that must cover a whole booklet.

@@ -322,7 +322,11 @@ a {
 }
 
 /*
- * The printed page: justified, hyphenated, paragraphs separated by space rather than indent.
+ * The printed page: hyphenated, paragraphs separated by space rather than indent. Ragged
+ * right, not justified: a column this narrow (about 35 characters) with short paragraphs
+ * and long Sanskrit words leaves justification nothing to stretch but the spaces, so lines
+ * like "Grammar.   Poetry.   Prose.   Andhra" open into wide gaps — and browsers hyphenate
+ * unevenly (none in some), so hyphenation cannot be relied on to close them.
  *
  * orphans/widows stay at 1: this prose runs short, often one or two lines to a paragraph,
  * by the author's own hand — a table of sentence fragments, not academic body copy. At the
@@ -333,7 +337,7 @@ a {
  */
 .book-flow .rd-p {
   margin-top: 0.72em;
-  text-align: justify;
+  text-align: left;
   hyphens: auto;
   -webkit-hyphens: auto;
   orphans: 1;
