@@ -18,7 +18,8 @@ import {
   getBookletNeighbors,
   hasReadableChapters,
   isChapterFree,
-  isPublished
+  isPublished,
+  toCardBooklet
 } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
 
@@ -382,7 +383,7 @@ export default async function BookletPage({
             */}
             <div className="mt-8 grid gap-3 md:grid-cols-2">
               {relatedBooklets.map((relatedBooklet) => (
-                <BookletRow booklet={relatedBooklet} key={relatedBooklet.slug} />
+                <BookletRow booklet={toCardBooklet(relatedBooklet)} key={relatedBooklet.slug} />
               ))}
             </div>
           </div>

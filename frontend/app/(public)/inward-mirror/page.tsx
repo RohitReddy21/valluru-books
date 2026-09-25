@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { NewsletterForm } from "@/components/newsletter-form";
 import { BookletCard, PageHeader, PageShell, ProseBlocks, Section, WideSection } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
-import { defaultSiteContent, isPublished, seriesBasePath } from "@/lib/site-content";
+import { defaultSiteContent, isPublished, seriesBasePath, toCardBooklet } from "@/lib/site-content";
 
 export const revalidate = 300;
 
@@ -96,7 +96,7 @@ export default async function InwardMirrorPage() {
           {publishedBooklets.length ? (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {publishedBooklets.map((booklet) => (
-                <BookletCard basePath={basePath} booklet={booklet} key={booklet.slug} />
+                <BookletCard basePath={basePath} booklet={toCardBooklet(booklet)} key={booklet.slug} />
               ))}
             </div>
           ) : (

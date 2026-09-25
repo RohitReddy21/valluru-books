@@ -18,7 +18,8 @@ import {
   hasReadableChapters,
   isChapterFree,
   isPublished,
-  seriesBasePath
+  seriesBasePath,
+  toCardBooklet
 } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
 
@@ -366,7 +367,7 @@ export default async function InwardMirrorBookletPage({
               {relatedBooklets.map((relatedBooklet) => (
                 <BookletCard
                   basePath={basePath}
-                  booklet={relatedBooklet}
+                  booklet={toCardBooklet(relatedBooklet)}
                   key={relatedBooklet.slug}
                 />
               ))}

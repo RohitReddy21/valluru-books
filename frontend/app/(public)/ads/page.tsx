@@ -12,7 +12,8 @@ import {
 import { getSiteContent } from "@/lib/content-store";
 import {
   defaultSiteContent,
-  isPublished
+  isPublished,
+  toCardBooklet
 } from "@/lib/site-content";
 
 export const revalidate = 300;
@@ -174,7 +175,7 @@ export default async function AdsPage() {
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {featuredBooklets.map((booklet) => (
-              <BookletCard booklet={booklet} key={booklet.slug} />
+              <BookletCard booklet={toCardBooklet(booklet)} key={booklet.slug} />
             ))}
           </div>
         </div>

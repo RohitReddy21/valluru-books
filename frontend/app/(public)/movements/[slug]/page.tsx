@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { BackLink, HeroBackground, PageShell, PrimaryLink, BookletCard } from "@/components/ui";
 import { MovementPdfReader } from "@/components/movement-pdf-reader";
-import { defaultSiteContent, isBookletInMovement, movementSlug, isPublished } from "@/lib/site-content";
+import { defaultSiteContent, isBookletInMovement, movementSlug, isPublished, toCardBooklet } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
 
 export const revalidate = 300;
@@ -190,7 +190,7 @@ export default async function MovementDetailPage({
             </div>
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {movementBooklets.map((booklet) => (
-                <BookletCard key={booklet.slug} booklet={booklet} />
+                <BookletCard key={booklet.slug} booklet={toCardBooklet(booklet)} />
               ))}
             </div>
           </div>

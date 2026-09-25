@@ -1179,6 +1179,15 @@ export function getBookletCardSubtitle(booklet: Booklet) {
   return booklet.cardSubtitle || booklet.subtitle;
 }
 
+/**
+ * A booklet as a card needs it. BookletCard is a client component, so whatever it is given is
+ * serialized into the page: passed a whole booklet, the /series index shipped the free chapters
+ * of all twenty booklets (430 KB of HTML) to show twenty covers.
+ */
+export function toCardBooklet(booklet: Booklet): Booklet {
+  return { ...booklet, chapters: undefined, faqs: undefined };
+}
+
 export function getBookletCardBody(booklet: Booklet) {
   return booklet.shortCardBody || booklet.description;
 }

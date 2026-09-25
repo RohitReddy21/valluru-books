@@ -1,7 +1,7 @@
 import { NewsletterForm } from "@/components/newsletter-form";
 import { BookletCard, PageHeader, PageShell, ProseBlocks, Section, WideSection } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
-import { defaultSiteContent, isPublished } from "@/lib/site-content";
+import { defaultSiteContent, isPublished, toCardBooklet } from "@/lib/site-content";
 
 export const revalidate = 300;
 
@@ -69,7 +69,7 @@ export default async function SeriesPage() {
           </div>
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {publishedBooklets.map((booklet) => (
-              <BookletCard booklet={booklet} key={booklet.slug} />
+              <BookletCard booklet={toCardBooklet(booklet)} key={booklet.slug} />
             ))}
           </div>
         </div>
