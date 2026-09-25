@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { NewsletterForm } from "@/components/newsletter-form";
 import {
   HeroBackground,
@@ -94,11 +95,12 @@ export default async function HomePage() {
             </div>
             {inwardMirror.heroImage ? (
               <div className="relative overflow-hidden rounded-md border border-gold/15 bg-ink shadow-[0_18px_55px_rgba(0,0,0,0.3)]">
-                <div className="aspect-[4/3] w-full">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                <div className="relative aspect-[4/3] w-full">
+                  <Image
                     alt={inwardMirror.title}
-                    className="h-full w-full object-cover opacity-90"
+                    className="object-cover opacity-90"
+                    fill
+                    sizes="(min-width: 1024px) 36rem, 92vw"
                     src={inwardMirror.heroImage}
                   />
                 </div>

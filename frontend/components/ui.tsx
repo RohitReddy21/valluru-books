@@ -250,10 +250,11 @@ export function MovementCard({
         <div className="relative aspect-[4/5] overflow-hidden border-b border-gold/10 bg-ink flex-shrink-0">
           {movement.coverImage ? (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 alt={movement.title}
-                className="h-full w-full object-cover opacity-90"
+                className="object-cover opacity-90"
+                fill
+                sizes="(min-width: 1024px) 22rem, (min-width: 768px) 45vw, 92vw"
                 src={movement.coverImage}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/30 to-transparent" />
@@ -290,10 +291,11 @@ export function MovementCard({
         <div className="relative aspect-[4/5] overflow-hidden border-b border-gold/10 bg-ink flex-shrink-0">
           {movement.coverImage ? (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 alt={movement.title}
-                className="h-full w-full object-cover opacity-90 transition duration-500 group-hover:scale-[1.03] group-hover:opacity-100"
+                className="object-cover opacity-90 transition duration-500 group-hover:scale-[1.03] group-hover:opacity-100"
+                fill
+                sizes="(min-width: 1024px) 22rem, (min-width: 768px) 45vw, 92vw"
                 src={movement.coverImage}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-ink via-ink/30 to-transparent" />

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { PageHeader, PageShell, ProseBlocks, Section } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
 import { defaultSiteContent } from "@/lib/site-content";
@@ -19,14 +20,14 @@ export default async function AboutPage() {
         <div className="mx-auto max-w-6xl fade-up">
           <div className="grid gap-10 lg:grid-cols-[450px_1fr] lg:items-start">
             {media.authorImage ? (
-              <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 alt={about.title}
                 className="w-full h-auto rounded-md border border-gold/20 object-cover shadow-quiet"
+                height={1125}
+                sizes="(min-width: 1024px) 450px, 92vw"
                 src={media.authorImage}
+                width={900}
               />
-              </>
             ) : (
               <div className="w-full aspect-[4/5] rounded-md border border-gold/20 bg-surface shadow-quiet" />
             )}
