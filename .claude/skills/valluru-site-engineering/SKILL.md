@@ -821,6 +821,13 @@ line starts in places, e.g. section 12, so it is a weak check). Read at 3× per 
 Telugu reader must proof this one — it is the least cross-checked of all the transcriptions.
 Booklets twelve and fourteen have no chapters at all, so there is nothing to fix there.
 
+**Where the damage ends (sweep of every booklet, 2026-09-25).** Booklets four, five, 10, 11,
+the nine Movement booklets and all seven Mirror booklets contain no Telugu or Devanagari, and
+their Latin text has no stray symbols; every booklet that does contain Indic text (one, two,
+three, six, seven, eight, nine) has now been transcribed. The sweep only sees damage that
+leaves stray symbols or Latin letters — a wrong vowel sign (booklet six's `కన్నేందు` for
+`కన్నొందు`) passes it, so "not flagged" is not "proofread".
+
 **The reader is ragged-right, not justified.** `.book-flow .rd-p` was `text-align: justify`
 with `hyphens: auto`. In a ~35-character column with short paragraphs and long Sanskrit words,
 justification can only stretch the spaces, so lines like "Grammar.   Poetry.   Prose.   Andhra"

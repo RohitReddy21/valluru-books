@@ -155,8 +155,26 @@ const LABEL_FRAGMENT = /^(?:[A-Z]{1,2}[’']?|[’']|[ఀ-౿]{1,4})$/;
 /** No header in these booklets is longer than this many fragments. */
 const LABEL_MAX_FRAGMENTS = 18;
 
+/**
+ * Booklet seven prints these headers unspaced, in capitals, running straight into their text
+ * ("MEANING “Father, …”"). Only the all-caps form counts, so an ordinary sentence that starts
+ * with the word never becomes a header.
+ */
+const PLAIN_LABELS = new Map([
+  ["AUTHOR CONTEXT", "Author's Context"],
+  ["MEANING", "Meaning"],
+  ["METER", "Meter"],
+  ["భావము", "భావము"]
+]);
+
 /** Splits a leading section header off a paragraph, or returns null if there is none. */
 function splitSectionLabel(line: string): { label: string; rest: string } | null {
+  const plain = line.match(/^(AUTHOR CONTEXT|MEANING|METER|భావము)(?:\s+([\s\S]*))?$/u);
+
+  if (plain && PLAIN_LABELS.has(plain[1])) {
+    return { label: PLAIN_LABELS.get(plain[1]) as string, rest: (plain[2] ?? "").trim() };
+  }
+
   const fragments = line.split(/\s+/);
   let match: { taken: number; label: string } | null = null;
 
