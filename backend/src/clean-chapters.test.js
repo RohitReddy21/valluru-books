@@ -277,6 +277,68 @@ test("verses whose font was decoded wrong are replaced by the transcription, by 
   assert.equal(verseOf(other.chapters[1]), "నిĶన్నే కోరితి నæన్నేయ");
 });
 
+test("booklet eight's stanzas are rebuilt from the transcription, keeping the extracted English", async () => {
+  const { buildLexicon, cleanBooklet } = await load();
+  const { TRANSCRIBED_STANZAS } = await import("../scripts/lib/transcribed-stanzas.mjs");
+  const stanzas = TRANSCRIBED_STANZAS["booklet-eight"];
+  const count = stanzas.length - 1;
+  const glosses = (n) => stanzas[n].words.map((_, i) => `gloss ${n + 1}.${i + 1}.`);
+  const damagedWordByWord = (n, tail = "") =>
+    `WORD-BY-WORD ${stanzas[n].words.map((_, i) => `జటా (ə जटा) — ${glosses(n)[i]}`).join(" ")}${tail}`;
+  const build = () =>
+    booklet(
+      [
+        ...Array.from({ length: count }, (_, n) => ({
+          title: `${n + 1}.`,
+          // Devanagari of neighbouring stanzas landed here, as the extraction left it.
+          paragraphs: ["జటా ధరా", "जटाधरा əनिजा", "DEVANAGARI TRANSCRIPTION"]
+        })),
+        ...Array.from({ length: count }, (_, n) => ({
+          title: n === count - 1 ? `Stanza ${n + 1}` : `STANZA ${n + 1} Stanza ${n + 1}`,
+          paragraphs: [
+            "జటా ధరా",
+            // Stanza 3 (index 2): the Bhāvam ran on from the last gloss instead of starting its own paragraph.
+            damagedWordByWord(n, n === 2 ? " BHĀVAM / INNER SENSE Run-on bhavam." : ""),
+            ...(n === 2 ? [] : [`BHĀVAM / INNER SENSE Bhavam ${n + 1}.${n === count - 1 ? " PHALAŚRUTI" : ""}`])
+          ]
+        })),
+        { title: "Phalaśruti", paragraphs: ["జటా", damagedWordByWord(count), "BHĀVAM / INNER SENSE Last.", "MEANING Fruit."] }
+      ],
+      "booklet-eight"
+    );
+  const { booklet: cleaned } = cleanBooklet(build(), buildLexicon([]));
+  const words = (paragraph) => paragraph.replace(/^WORD-BY-WORD /, "");
+
+  cleaned.chapters.slice(0, count).forEach((chapter, n) =>
+    assert.deepEqual(chapter.paragraphs, [stanzas[n].te, stanzas[n].dv])
+  );
+
+  const study = (n) => cleaned.chapters[count + n];
+
+  assert.equal(study(0).paragraphs[0], stanzas[0].te);
+  assert.ok(words(study(0).paragraphs[1]).startsWith(`${stanzas[0].words[0][0]} (${stanzas[0].words[0][1]}) — gloss 1.1. `));
+  assert.equal(study(0).paragraphs[2], "BHĀVAM / INNER SENSE Bhavam 1.");
+  assert.deepEqual(study(2).paragraphs.slice(2), ["BHĀVAM / INNER SENSE Run-on bhavam."]);
+  assert.ok(words(study(2).paragraphs[1]).endsWith(`— ${glosses(2).at(-1)}`));
+  assert.equal(study(count - 1).paragraphs[2], `BHĀVAM / INNER SENSE Bhavam ${count}.`, "leaked PHALAŚRUTI heading removed");
+
+  const phalasruti = cleaned.chapters[count * 2];
+  assert.deepEqual(phalasruti.paragraphs.slice(0, 2), [stanzas[count].te, stanzas[count].dv]);
+  assert.deepEqual(phalasruti.paragraphs.slice(3), ["BHĀVAM / INNER SENSE Last.", "MEANING Fruit."]);
+
+  assert.deepEqual(cleanBooklet(cleaned, buildLexicon([])).booklet, cleaned);
+
+  // A different shape, or a different booklet, is left alone rather than guessed at.
+  const short = build();
+  short.chapters.splice(3, 1);
+  const { booklet: untouched, log } = cleanBooklet(short, buildLexicon([]));
+  assert.equal(untouched.chapters[0].paragraphs[0], "జటా ధరా");
+  assert.ok(log.some((line) => line.startsWith("stanzas NOT restored")));
+
+  const { booklet: other } = cleanBooklet({ ...build(), slug: "booklet-two" }, buildLexicon([]));
+  assert.equal(other.chapters[0].paragraphs[0], "జటా ధరా");
+});
+
 test("cleaning twice changes nothing more", async () => {
   const { buildLexicon, cleanBooklet } = await load();
   const source = booklet([

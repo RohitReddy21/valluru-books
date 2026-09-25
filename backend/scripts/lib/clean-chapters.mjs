@@ -11,6 +11,7 @@
  */
 
 import { TRANSCRIBED_VERSES } from "./transcribed-verses.mjs";
+import { TRANSCRIBED_STANZAS } from "./transcribed-stanzas.mjs";
 
 const LATIN = "A-Za-zĀ-ſḀ-ỿ";
 const LOWER = "a-zà-ÿāīūṛṝḷṅñṭḍṇśṣḥṃ";
@@ -467,7 +468,10 @@ const MEASURED_TEXT = [
   { booklet: "booklet-nine", from: "łకంద పద̇కం", to: "కంద పద్యం" },
   { booklet: "booklet-nine", from: "శారūర్దూలవిǪత్రడిőము", to: "శార్దూలవిక్రీడితము" },
   { booklet: "booklet-six", from: "మĲత్తేభవిÓక్రీడితము", to: "మత్తేభవిక్రీడితము" },
-  { booklet: "booklet-six", from: "తంßడ్రీ", to: "తండ్రీ" }
+  { booklet: "booklet-six", from: "తంßడ్రీ", to: "తండ్రీ" },
+  { booklet: "booklet-six", from: "అనన్నేం", to: "అన్నం" },
+  { booklet: "booklet-six", from: "నలె్లుదు్దమీద యముడు", to: "నల్లెద్దుమీద యముడు" },
+  { booklet: "booklet-six", from: "కనురెపక్పావలె", to: "కనురెప్పవలె" }
 ];
 
 /**
@@ -545,6 +549,104 @@ function restoreMeasuredText(booklet, text, changes) {
       out = out.split(fix.from).join(fix.to);
       changes?.push(`measured text restored: "${fix.from}" → "${fix.to}"`);
     }
+  }
+
+  return out;
+}
+
+/** The English after each " — " in a word-by-word paragraph, up to where the next entry's own headword starts. */
+function englishGlosses(wordByWord) {
+  return wordByWord
+    .split(" — ")
+    .slice(1)
+    .map((part) => {
+      // A token holding any Indic letter starts the next entry, even one the damage prefixed
+      // with a stray symbol ("´దంబరేశ").
+      const next = part.search(/\s\S*[ఀ-౿ऀ-ॿ]/);
+      return (next === -1 ? part : part.slice(0, next)).trim();
+    });
+}
+
+/**
+ * Booklet eight sets each stanza as Telugu beside its Devanagari transcription, then again
+ * with a word-by-word gloss. Extraction scattered the Devanagari of stanzas 1–4, 5–8 and 9–12
+ * into whichever chapter happened to follow them, and damaged every Telugu and Devanagari
+ * word. Each numbered chapter becomes [Telugu, Devanagari]; each stanza's study chapter keeps
+ * its English gloss and Bhāvam as extracted and takes the transcribed headwords; the
+ * Phalaśruti carries its Devanagari too. Only runs on the exact shape it was read from — eleven
+ * numbered chapters, eleven stanza chapters and a Phalaśruti — and is safe to run twice.
+ */
+function restoreTranscribedStanzas(booklet, chapters, changes) {
+  const stanzas = TRANSCRIBED_STANZAS[booklet.slug];
+
+  if (!stanzas) {
+    return chapters;
+  }
+
+  const numbered = [];
+  const studies = [];
+  let phalasruti = -1;
+
+  chapters.forEach((chapter, index) => {
+    const title = String(chapter.title).trim();
+
+    if (/^\d{1,2}\.$/.test(title)) {
+      numbered.push(index);
+    } else if (/^stanza\s+\d+/i.test(title)) {
+      studies.push(index);
+    } else if (/^phala[śs]ruti$/i.test(title)) {
+      phalasruti = index;
+    }
+  });
+
+  const stanzaCount = stanzas.length - 1;
+
+  if (numbered.length !== stanzaCount || studies.length !== stanzaCount || phalasruti === -1) {
+    changes?.push(
+      `stanzas NOT restored: found ${numbered.length} numbered, ${studies.length} study chapters, phalaśruti ${phalasruti !== -1}`
+    );
+    return chapters;
+  }
+
+  const out = chapters.map((chapter) => ({ ...chapter, paragraphs: [...chapter.paragraphs] }));
+  let restored = 0;
+
+  const rebuildStudy = (index, stanza, withDevanagari) => {
+    const paragraphs = out[index].paragraphs;
+    const at = paragraphs.findIndex((paragraph) => paragraph.startsWith("WORD-BY-WORD"));
+    // In two stanzas the Bhāvam ran on from the last gloss instead of starting its own paragraph.
+    const bhavam = at === -1 ? -1 : paragraphs[at].search(/\s+BHĀVAM \/ INNER SENSE\b/);
+    const runOn = bhavam === -1 ? [] : [paragraphs[at].slice(bhavam).trim()];
+    const english = at === -1 ? [] : englishGlosses(bhavam === -1 ? paragraphs[at] : paragraphs[at].slice(0, bhavam));
+
+    if (english.length !== stanza.words.length) {
+      changes?.push(`${out[index].title}: word-by-word NOT restored (${english.length} glosses, ${stanza.words.length} headwords)`);
+      return;
+    }
+
+    const wordByWord = `WORD-BY-WORD ${stanza.words.map(([te, dv], i) => `${te} (${dv}) — ${english[i]}`).join(" ")}`;
+    const rest = [...runOn, ...paragraphs.slice(at + 1)].map((paragraph) => paragraph.replace(/\s+PHALAŚRUTI$/, ""));
+    const next = [stanza.te, ...(withDevanagari ? [stanza.dv] : []), wordByWord, ...rest];
+
+    if (JSON.stringify(next) !== JSON.stringify(paragraphs)) {
+      out[index].paragraphs = next;
+      restored += 1;
+    }
+  };
+
+  numbered.forEach((index, n) => {
+    const next = [stanzas[n].te, stanzas[n].dv];
+
+    if (JSON.stringify(next) !== JSON.stringify(out[index].paragraphs)) {
+      out[index].paragraphs = next;
+      restored += 1;
+    }
+  });
+  studies.forEach((index, n) => rebuildStudy(index, stanzas[n], false));
+  rebuildStudy(phalasruti, stanzas[stanzaCount], true);
+
+  if (restored) {
+    changes?.push(`stanzas restored from the printed pages: ${restored} chapters rebuilt`);
   }
 
   return out;
@@ -684,7 +786,7 @@ export function cleanBooklet(booklet, lexicon) {
     booklet: {
       ...booklet,
       // Numbered as they now stand, so a merge leaves no gap.
-      chapters: restoreTranscribedVerses(booklet, repaired, log).map((chapter, index) => ({
+      chapters: restoreTranscribedStanzas(booklet, restoreTranscribedVerses(booklet, repaired, log), log).map((chapter, index) => ({
         ...chapter,
         number: index + 1
       }))

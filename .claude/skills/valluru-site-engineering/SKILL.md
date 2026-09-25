@@ -742,11 +742,27 @@ consonant skeleton of each verse was compared to what survives in the damaged te
 tripwire (verse 1 matches exactly; the rest differ only where the damaged text doubles or
 drops consonants), but the author should proof it once.
 
-**Still not fixed:** booklet eight's Devanagari transcription has the same damage and is not
-yet transcribed (the same method applies; `TRANSCRIBED_VERSES` is keyed by booklet). Booklet
-seven's chapters were flagged by an early heuristic but turned out to be ordinary
-single-column verse with irregular line indentation, not this bug — checked directly
-against its PDF pages before ruling it out, not assumed.
+**Fixed for booklet eight: stanzas, Devanagari and word-by-word.** Same font damage, plus a
+structural mess the column fix left behind: the Devanagari of stanzas 1–4, 5–8 and 9–12 sat in
+whichever chapter followed them (chapters "4.", "8.", "11."), so the free chapters "1."–"3."
+showed no Devanagari at all. `scripts/lib/transcribed-stanzas.mjs` holds, per stanza, the
+Telugu, the Devanagari, and the word-by-word *headwords* as printed; `restoreTranscribedStanzas`
+rebuilds each numbered chapter as [Telugu, Devanagari], each `STANZA n` chapter as [Telugu,
+word-by-word, Bhāvam], and the Phalaśruti with its Devanagari. The English glosses are **not**
+transcribed — they extract correctly, so they are kept as stored and only the headwords are
+replaced (counts checked against the stored glosses: 127 of 127). Two extraction defects
+surfaced and are handled: the Bhāvam of stanzas 3 and 9 ran on from the last gloss (split
+back out) and a leaked "PHALAŚRUTI" heading ended stanza 11's Bhāvam (stripped). Printed
+spellings are kept as printed, including Telugu words that end in a halant where the
+Devanagari beside them ends in a long vowel (`విగ్రహ్` / `विग्रहा`), so a proofreader sees the
+book, not a correction. Only runs on the exact shape it was read from (11 numbered chapters, 11
+study chapters, a Phalaśruti). Booklet seven's chapters were flagged by an early heuristic but
+turned out to be ordinary single-column verse with irregular line indentation, not this bug —
+checked directly against its PDF pages before ruling it out, not assumed.
+
+**`/api/content` strips gated chapters**, so a sweep or diff of text taken from the live API
+only covers the free chapters and can look clean when it is not. Read the database directly
+for anything that must cover a whole booklet.
 
 **Local database trap.** `backend/.env`'s Atlas `MONGODB_URI` contains an unquoted `&`, so
 `set -a; . ./.env` in bash silently does NOT set it — the shell's own preset
