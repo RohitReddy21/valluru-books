@@ -339,6 +339,53 @@ test("booklet eight's stanzas are rebuilt from the transcription, keeping the ex
   assert.equal(other.chapters[0].paragraphs[0], "జటా ధరా");
 });
 
+test("a Mirror booklet's back cover is cut from the closing chapter", async () => {
+  const { buildLexicon, cleanBooklet } = await load();
+  const { booklet: cleaned } = cleanBooklet(
+    booklet([
+      { title: "1. Real Chapter", paragraphs: ["Text."] },
+      {
+        title: "Eight Things This Booklet Is Not Saying",
+        paragraphs: [
+          "The lamp burned. Its glow stayed.",
+          "Booklet 2 of seven · The Inward Mirror Series Sasidhar Valluru",
+          "Light remains; the lamp has done its work.",
+          "THE INWARD MIRROR SERIES · THE GURU WHO DISAPPEARS · TheValluru.org"
+        ]
+      }
+    ]),
+    buildLexicon([])
+  );
+
+  assert.deepEqual(cleaned.chapters[1].paragraphs, ["The lamp burned. Its glow stayed."]);
+  assert.deepEqual(cleaned.chapters[0].paragraphs, ["Text."]);
+});
+
+test("damaged Telugu passages are replaced only where the exact damaged run is found", async () => {
+  const { buildLexicon, cleanBooklet } = await load();
+  const { TRANSCRIBED_PASSAGES } = await import("../scripts/lib/transcribed-passages.mjs");
+  const entry = TRANSCRIBED_PASSAGES.find((candidate) => candidate.booklet === "booklet-two" && candidate.to.length === 4);
+  const build = (slug) =>
+    booklet(
+      [{ title: "3. Verse", paragraphs: ["Before.", ...entry.from, "After."] }, { title: "4. Other", paragraphs: ["Plain."] }],
+      slug
+    );
+  const { booklet: cleaned, log } = cleanBooklet(build("booklet-two"), buildLexicon([]));
+
+  assert.deepEqual(cleaned.chapters[0].paragraphs, ["Before.", ...entry.to, "After."]);
+  assert.ok(log.some((line) => line.startsWith("Telugu passages restored")));
+  assert.deepEqual(cleaned.chapters[1].paragraphs, ["Plain."]);
+  assert.deepEqual(cleanBooklet(cleaned, buildLexicon([])).booklet, cleaned);
+
+  // A different booklet's identical text is not this booklet's damage.
+  const { booklet: other } = cleanBooklet(build("booklet-six"), buildLexicon([]));
+  assert.deepEqual(other.chapters[0].paragraphs, ["Before.", ...entry.from, "After."]);
+
+  // Not damaged and not restored: reported, not silently ignored.
+  const { log: missed } = cleanBooklet(booklet([{ title: "3. Verse", paragraphs: ["Just prose."] }], "booklet-two"), buildLexicon([]));
+  assert.ok(missed.some((line) => line.startsWith("passage NOT restored")));
+});
+
 test("cleaning twice changes nothing more", async () => {
   const { buildLexicon, cleanBooklet } = await load();
   const source = booklet([

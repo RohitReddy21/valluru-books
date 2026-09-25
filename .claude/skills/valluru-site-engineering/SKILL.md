@@ -760,6 +760,33 @@ study chapters, a Phalaśruti). Booklet seven's chapters were flagged by an earl
 turned out to be ordinary single-column verse with irregular line indentation, not this bug —
 checked directly against its PDF pages before ruling it out, not assumed.
 
+**Fixed for booklets one, two and three: damaged Telugu inside running prose.** Same font
+damage, in short passages rather than whole verses: booklet one's Nāda note and Harishchandra
+lines (rendered as `చదువ%ల' (ెదల'` — pure symbol noise), booklet two's five Sanskrit verses
+(hidden control characters, ``, where letters should be), booklet three's Telugu poems and
+quoted phrases. `scripts/lib/transcribed-passages.mjs` holds 23 entries, each replacing one
+*exact run of the damaged paragraphs* with what the page prints, so an entry can only ever touch
+its own passage (`restoreTranscribedPassages`; a passage neither damaged nor restored is logged
+"passage NOT restored"). Entries also re-join paragraphs a line wrap had split around inline
+Telugu, and put verse back one printed line per paragraph, which `groupBlocks` in
+`site-content.ts` regroups into a verse block. Read at 5–14x; still worth a Telugu reader's
+proof — in particular booklet one's `ఔదలు` (a lone vowel glyph at print size), booklet three's
+`భీష్ముపై` and the printed-as-is Tikkana/Pothana lines, which are the author's quotations and
+may differ from the standard text.
+
+**Inward Mirror back cover.** Each Mirror booklet's closing chapter ended with three lines of
+printed back cover read as text: "Booklet N of seven · The Inward Mirror Series …", a tagline
+(usually a repeat of the epilogue's last sentence), and the running footer. `stripBackCover`
+cuts from the first of them (matched by that line's own wording) to the end of the chapter.
+
+**Still not fixed (found by a sweep across every booklet, 2026-09-25):** booklet seven (118 of
+260 Indic paragraphs damaged, no Roman transliteration to lean on) and booklet nine (76 of
+154; each Telugu line has an intact Roman transliteration beneath it, so it can be rebuilt
+from that and checked against the page). Booklets four, five, 10, 11, the nine Movement
+booklets and all seven Mirror booklets have no Indic text; booklets 12 and 14 have no chapters.
+The sweep only sees damage that leaves stray symbols or Latin letters — a wrong vowel sign
+(booklet six's `కన్నేందు` for `కన్నొందు`) passes it, so "not flagged" is not "proofread".
+
 **The reader is ragged-right, not justified.** `.book-flow .rd-p` was `text-align: justify`
 with `hyphens: auto`. In a ~35-character column with short paragraphs and long Sanskrit words,
 justification can only stretch the spaces, so lines like "Grammar.   Poetry.   Prose.   Andhra"

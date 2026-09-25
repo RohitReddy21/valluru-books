@@ -12,6 +12,7 @@
 
 import { TRANSCRIBED_VERSES } from "./transcribed-verses.mjs";
 import { TRANSCRIBED_STANZAS } from "./transcribed-stanzas.mjs";
+import { TRANSCRIBED_PASSAGES } from "./transcribed-passages.mjs";
 
 const LATIN = "A-Za-zĀ-ſḀ-ỿ";
 const LOWER = "a-zà-ÿāīūṛṝḷṅñṭḍṇśṣḥṃ";
@@ -356,6 +357,28 @@ function stripLeakedContentsRun(booklet, chapter, changes) {
   return chapter.paragraphs.slice(0, at);
 }
 
+/**
+ * The Inward Mirror booklets end with a back cover — "Booklet 2 of seven · The Inward Mirror
+ * Series Sasidhar Valluru", a one-line tagline, then "THE INWARD MIRROR SERIES · TITLE ·
+ * TheValluru.org" — which the extractor read as three more paragraphs of the closing chapter,
+ * splitting the epilogue's last line from the rest. Printed furniture, not text: everything
+ * from that first line to the end of the chapter goes. The opening line is specific enough
+ * to match in any booklet.
+ */
+const BACK_COVER = /^Booklet\s+\d+\s+of\s+\w+\s+·\s+The Inward Mirror Series\b/;
+
+function stripBackCover(chapter, paragraphs, changes) {
+  const at = paragraphs.findIndex((paragraph) => BACK_COVER.test(paragraph));
+
+  if (at === -1) {
+    return paragraphs;
+  }
+
+  changes?.push(`${chapter.title}: back cover removed (${paragraphs.length - at} paragraphs)`);
+
+  return paragraphs.slice(0, at);
+}
+
 /** The contents list the extractor left at the foot of the Author's Note. */
 function stripContents(paragraphs, chapterTitles, log) {
   const titles = chapterTitles
@@ -549,6 +572,57 @@ function restoreMeasuredText(booklet, text, changes) {
       out = out.split(fix.from).join(fix.to);
       changes?.push(`measured text restored: "${fix.from}" → "${fix.to}"`);
     }
+  }
+
+  return out;
+}
+
+/**
+ * Puts back Telugu passages the text layer damaged, wherever they sit in a chapter. An entry
+ * matches only an exact run of the damaged paragraphs, so it cannot touch anything else. A
+ * passage already restored is skipped quietly; one that is neither damaged nor restored is
+ * reported, since it means a re-extraction changed what the entry was read against.
+ */
+function restoreTranscribedPassages(booklet, chapters, changes) {
+  const entries = TRANSCRIBED_PASSAGES.filter((entry) => entry.booklet === booklet.slug);
+
+  if (!entries.length) {
+    return chapters;
+  }
+
+  const out = chapters.map((chapter) => ({ ...chapter, paragraphs: [...chapter.paragraphs] }));
+  const runAt = (paragraphs, run) => {
+    for (let i = 0; i + run.length <= paragraphs.length; i += 1) {
+      if (run.every((paragraph, k) => paragraphs[i + k] === paragraph)) {
+        return i;
+      }
+    }
+
+    return -1;
+  };
+  let restored = 0;
+
+  for (const entry of entries) {
+    let done = false;
+
+    for (const chapter of out) {
+      const at = runAt(chapter.paragraphs, entry.from);
+
+      if (at !== -1) {
+        chapter.paragraphs.splice(at, entry.from.length, ...entry.to);
+        restored += 1;
+        done = true;
+        break;
+      }
+    }
+
+    if (!done && !out.some((chapter) => runAt(chapter.paragraphs, entry.to) !== -1)) {
+      changes?.push(`passage NOT restored (no match): ${entry.to[0].slice(0, 40)}`);
+    }
+  }
+
+  if (restored) {
+    changes?.push(`Telugu passages restored from the printed pages: ${restored} of ${entries.length}`);
   }
 
   return out;
@@ -766,7 +840,7 @@ export function cleanBooklet(booklet, lexicon) {
     const paragraphs = restoreTables(
       booklet,
       stripContents(
-        stripLeakedContentsRun(booklet, chapter, log).map((paragraph) =>
+        stripBackCover(chapter, stripLeakedContentsRun(booklet, chapter, log), log).map((paragraph) =>
           restoreMeasuredText(booklet, paragraph, log)
         ),
         bodyTitles,
@@ -786,7 +860,11 @@ export function cleanBooklet(booklet, lexicon) {
     booklet: {
       ...booklet,
       // Numbered as they now stand, so a merge leaves no gap.
-      chapters: restoreTranscribedStanzas(booklet, restoreTranscribedVerses(booklet, repaired, log), log).map((chapter, index) => ({
+      chapters: restoreTranscribedStanzas(
+        booklet,
+        restoreTranscribedPassages(booklet, restoreTranscribedVerses(booklet, repaired, log), log),
+        log
+      ).map((chapter, index) => ({
         ...chapter,
         number: index + 1
       }))
