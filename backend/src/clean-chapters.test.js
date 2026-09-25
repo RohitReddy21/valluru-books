@@ -237,6 +237,46 @@ test("a meter label pdf.js's own text layer decoded wrong is restored, scoped to
   assert.equal(untouched.chapters[0].paragraphs[0], "Meter: łకంద పద̇కం / Kanda Padyam");
 });
 
+test("verses whose font was decoded wrong are replaced by the transcription, by position, and only when the count matches", async () => {
+  const { buildLexicon, cleanBooklet } = await load();
+  const { TRANSCRIBED_VERSES } = await import("../scripts/lib/transcribed-verses.mjs");
+  const verses = TRANSCRIBED_VERSES["booklet-six"];
+  const damaged = () =>
+    booklet(
+      verses.map((_, index) => ({
+        title: `${index + 1}. Poem`,
+        paragraphs: ["Meter: మĲత్తేభవిÓక్రీడితము Bhāva: grief.", "నిĶన్నే కోరితి నæన్నేయ", "Meaning Father."]
+      })),
+      "booklet-six"
+    );
+  const { booklet: cleaned } = cleanBooklet(damaged(), buildLexicon([]));
+  const verseOf = (chapter) => chapter.paragraphs[chapter.paragraphs.findIndex((p) => p.startsWith("Meaning")) - 1];
+  const last = (entry) => (Array.isArray(entry) ? entry[entry.length - 1] : entry);
+
+  assert.equal(cleaned.chapters.length, verses.length);
+  cleaned.chapters.forEach((chapter, index) => assert.equal(verseOf(chapter), last(verses[index])));
+  assert.equal(cleaned.chapters[0].paragraphs[0], "Meter: మత్తేభవిక్రీడితము Bhāva: grief.");
+
+  // A caption the book prints above a verse, which extraction dropped, comes back once.
+  const captioned = verses.findIndex(Array.isArray);
+  assert.equal(cleaned.chapters[captioned].paragraphs.length, 4);
+  assert.equal(cleaned.chapters[captioned].paragraphs[1], verses[captioned][0]);
+
+  const again = cleanBooklet(cleaned, buildLexicon([])).booklet;
+  assert.deepEqual(again, cleaned);
+
+  // Any other verse count means the extraction changed shape: leave the text alone.
+  const short = damaged();
+  short.chapters.pop();
+  const { booklet: untouched, log } = cleanBooklet(short, buildLexicon([]));
+  assert.equal(verseOf(untouched.chapters[1]), "నిĶన్నే కోరితి నæన్నేయ");
+  assert.ok(log.some((line) => line.startsWith("verses NOT restored")));
+
+  // Another booklet's verses are not this booklet's transcription.
+  const { booklet: other } = cleanBooklet({ ...damaged(), slug: "booklet-two" }, buildLexicon([]));
+  assert.equal(verseOf(other.chapters[1]), "నిĶన్నే కోరితి నæన్నేయ");
+});
+
 test("cleaning twice changes nothing more", async () => {
   const { buildLexicon, cleanBooklet } = await load();
   const source = booklet([

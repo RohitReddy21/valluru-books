@@ -725,18 +725,35 @@ this reorders text, so the resplit script's exact-spelling match is designed to 
 `id`, `number`, `images`, `free` and `title` are left alone, and a booklet is skipped
 outright if its chapter count doesn't match the fresh extraction's).
 
-**Still not fixed:** the same booklets still have **character-level glyph damage** inside
-the Telugu (and, in booklet eight, the Devanagari transcription) — a second embedded font,
-used only for verse and captions, decoding some glyphs to the wrong Unicode codepoint
-(confirmed by rendering the page: the printed glyphs are correct, the text layer is not).
-The meter-label fix above and the leaked-contents fix are instances of this same root cause
-that were small and bounded enough to hand-transcribe; the verse text itself is not —
-booklet six alone has ~27 poems, each several lines, each potentially carrying its own
-wrong characters. That is real, separate work (render every affected page, read the
-correct text off it, write it down), not something to start without checking scope first.
-Booklet seven's chapters were flagged by an early heuristic but turned out to be ordinary
+**Fixed for booklet six: character-level glyph damage in the verse.** A second embedded
+font, used only for verse and captions, decodes glyphs to the wrong Unicode codepoint
+(stray Latin letters, wrong vowel signs — the text layer read "కన్నేందు" where the page
+prints "కన్నొందు" — and whole lines dropped: chapter 22's stored verse was its last line and
+a half). No rule recovers it, so all 31 verses were read off the rendered pages
+(`crop-verses`-style crops at 3× zoom, ambiguous words re-checked at 9–10×) and are stored in
+`scripts/lib/transcribed-verses.mjs`; `cleanBooklet` puts them back by position
+(`restoreTranscribedVerses`: the verse is the paragraph before "Meaning"; only runs when the
+booklet still has exactly as many verses as were transcribed, otherwise it logs "verses NOT
+restored" and leaves the text alone; safe to run twice). Chapter 9's printed caption "(the
+form of Kāli standing with Her right foot upon Śiva)", which extraction had lost and the
+Author's Note refers to, is restored as its own paragraph. The meter labels and the note's
+"తండ్రీ" are `MEASURED_TEXT` entries. The transcription is a reading, not a copy-paste: the
+consonant skeleton of each verse was compared to what survives in the damaged text as a
+tripwire (verse 1 matches exactly; the rest differ only where the damaged text doubles or
+drops consonants), but the author should proof it once.
+
+**Still not fixed:** booklet eight's Devanagari transcription has the same damage and is not
+yet transcribed (the same method applies; `TRANSCRIBED_VERSES` is keyed by booklet). Booklet
+seven's chapters were flagged by an early heuristic but turned out to be ordinary
 single-column verse with irregular line indentation, not this bug — checked directly
 against its PDF pages before ruling it out, not assumed.
+
+**Local database trap.** `backend/.env`'s Atlas `MONGODB_URI` contains an unquoted `&`, so
+`set -a; . ./.env` in bash silently does NOT set it — the shell's own preset
+`MONGODB_URI=mongodb://localhost:27017` (a local mongod holding an unrelated `valluru_books`
+and other databases) survives, and a script then reads an empty `valluru_sandbox` there.
+Run scripts as `env -u MONGODB_URI -u MONGODB_DB node --env-file=.env scripts/…`, and
+always confirm the host (masked) before any write.
 
 **`orphans`/`widows` on `.book-flow .rd-p`** (`app/globals.css`) were `3`, the print
 convention for long-form body copy. At the finer paragraph cut most paragraphs here are

@@ -10,6 +10,8 @@
  * text, so the rows are written out by hand from the printed page.
  */
 
+import { TRANSCRIBED_VERSES } from "./transcribed-verses.mjs";
+
 const LATIN = "A-Za-zĀ-ſḀ-ỿ";
 const LOWER = "a-zà-ÿāīūṛṝḷṅñṭḍṇśṣḥṃ";
 
@@ -463,8 +465,77 @@ const MEASURED_TEXT = [
   { booklet: "booklet-nine", from: "ఉőత్పలమాల", to: "ఉత్పలమాల" },
   { booklet: "booklet-nine", from: "మɁక్తభవిǪత్రడిőము", to: "మత్తేభవిక్రీడితము" },
   { booklet: "booklet-nine", from: "łకంద పద̇కం", to: "కంద పద్యం" },
-  { booklet: "booklet-nine", from: "శారūర్దూలవిǪత్రడిőము", to: "శార్దూలవిక్రీడితము" }
+  { booklet: "booklet-nine", from: "శారūర్దూలవిǪత్రడిőము", to: "శార్దూలవిక్రీడితము" },
+  { booklet: "booklet-six", from: "మĲత్తేభవిÓక్రీడితము", to: "మత్తేభవిక్రీడితము" },
+  { booklet: "booklet-six", from: "తంßడ్రీ", to: "తండ్రీ" }
 ];
+
+/**
+ * A verse is the paragraph after a "Meter:" line. Replaces each verse with what the page
+ * prints, by position, so it only runs when the booklet still has exactly as many verses as
+ * were transcribed; any other count means the extraction changed shape and guessing which
+ * verse is which would be worse than leaving the text alone. Safe to run twice.
+ */
+function restoreTranscribedVerses(booklet, chapters, changes) {
+  const verses = TRANSCRIBED_VERSES[booklet.slug];
+
+  if (!verses) {
+    return chapters;
+  }
+
+  const slots = [];
+
+  // The verse is the paragraph just before "Meaning", so a caption already restored above it
+  // is never mistaken for the verse on a second run.
+  chapters.forEach((chapter, chapterIndex) =>
+    chapter.paragraphs.forEach((paragraph, paragraphIndex) => {
+      if (!/^Meter:/.test(paragraph)) {
+        return;
+      }
+
+      const meaning = chapter.paragraphs.findIndex(
+        (candidate, index) => index > paragraphIndex && /^Meaning\b/.test(candidate)
+      );
+
+      if (meaning > paragraphIndex + 1) {
+        slots.push({ chapterIndex, paragraphIndex: meaning - 1 });
+      }
+    })
+  );
+
+  if (slots.length !== verses.length) {
+    changes?.push(`verses NOT restored: found ${slots.length} verses, ${verses.length} transcribed`);
+    return chapters;
+  }
+
+  const out = chapters.map((chapter) => ({ ...chapter, paragraphs: [...chapter.paragraphs] }));
+  let restored = 0;
+
+  for (let n = slots.length - 1; n >= 0; n -= 1) {
+    const { chapterIndex, paragraphIndex } = slots[n];
+    const paragraphs = out[chapterIndex].paragraphs;
+    const entry = verses[n];
+    const verse = Array.isArray(entry) ? entry[entry.length - 1] : entry;
+    const captions = Array.isArray(entry) ? entry.slice(0, -1) : [];
+
+    if (paragraphs[paragraphIndex] !== verse) {
+      paragraphs[paragraphIndex] = verse;
+      restored += 1;
+    }
+
+    for (let c = captions.length - 1; c >= 0; c -= 1) {
+      if (paragraphs[paragraphIndex - (captions.length - c)] !== captions[c]) {
+        paragraphs.splice(paragraphIndex, 0, captions[c]);
+      }
+    }
+  }
+
+  if (restored) {
+    changes?.push(`verses restored from the printed page: ${restored} of ${verses.length}`);
+  }
+
+  return out;
+}
 
 function restoreMeasuredText(booklet, text, changes) {
   let out = text;
@@ -613,7 +684,10 @@ export function cleanBooklet(booklet, lexicon) {
     booklet: {
       ...booklet,
       // Numbered as they now stand, so a merge leaves no gap.
-      chapters: repaired.map((chapter, index) => ({ ...chapter, number: index + 1 }))
+      chapters: restoreTranscribedVerses(booklet, repaired, log).map((chapter, index) => ({
+        ...chapter,
+        number: index + 1
+      }))
     },
     log
   };
