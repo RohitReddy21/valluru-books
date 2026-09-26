@@ -94,11 +94,10 @@ test("a subscriber cookie opens a gated booklet", () => {
   );
 });
 
-test("the legacy per-booklet cookie still opens its own booklet only", () => {
-  const legacy = request({ cookie: "valluru_booklet_booklet-two=true" });
+test("an unsigned per-booklet cookie opens nothing", () => {
+  const forged = request({ cookie: "valluru_booklet_booklet-two=true" });
 
-  assert.equal(hasBookletAccess(legacy, "booklet-two"), true, "grace path must not lock readers out");
-  assert.equal(hasBookletAccess(legacy, "booklet-three"), false);
+  assert.equal(hasBookletAccess(forged, "booklet-two"), false);
 });
 
 test("a token is accepted from the query string or a bearer header", () => {

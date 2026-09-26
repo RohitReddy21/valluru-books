@@ -20,10 +20,8 @@ const {
   resolveChapterAccess
 } = require("./src/content-chapters");
 const {
-  cookieOptions,
   createAccessToken,
   createAdminToken,
-  getCookies,
   getSubscriberFromRequest,
   hasBookletAccess,
   setSubscriberCookie,
@@ -1878,7 +1876,6 @@ registerSubscriptionRoutes(app, {
   buildSubscriberEmail,
   buildOwnerEmail,
   sendResendEmail,
-  cookieOptions,
   createAccessToken,
   setSubscriberCookie
 });
@@ -1975,19 +1972,18 @@ app.post("/api/track-unlock", async (request, response, next) => {
       { upsert: true }
     );
 
-    // If we have name and email, update subscribers
-    if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      const subscribedAt = new Date();
+    // Only someone already subscribed is updated here. This endpoint used to upsert any email
+    // and hand back a subscriber cookie, which made it a way round /api/subscribe: no welcome
+    // email, no owner notice, no sign-up event, and access for an address nobody confirmed.
+    if (subscriberEmail && (recoveredAccessToken || cookieSubscriber)) {
       const subscriberUpdate = {
         $set: {
-          email,
           ...(name ? { name } : {}),
           lastSource: source,
           lastBookletSlug: bookletSlug || null,
           lastBookletTitle: bookletTitle,
-          updatedAt: subscribedAt
-        },
-        $setOnInsert: { createdAt: subscribedAt }
+          updatedAt: new Date()
+        }
       };
 
       if (bookletSlug) {
@@ -1996,11 +1992,7 @@ app.post("/api/track-unlock", async (request, response, next) => {
         };
       }
 
-      await db.collection("subscribers").updateOne({ email }, subscriberUpdate, {
-        upsert: true
-      });
-
-      setSubscriberCookie(response, request, { email, name });
+      await db.collection("subscribers").updateOne({ email: subscriberEmail }, subscriberUpdate);
     }
 
     response.json({ ok: true, ...(recoveredAccessToken ? { accessToken: recoveredAccessToken } : {}) });
@@ -3393,7 +3385,9 @@ app.get("/api/booklets/:slug/chapters", async (request, response, next) => {
     const visible = resolved.filter((chapter) => hasAccess || chapter.free);
 
     // A response carrying gated prose is per-reader and must not reach a shared cache.
-    response.set("Cache-Control", hasAccess ? "private, no-store" : "public, max-age=300");
+    // Private either way: the answer depends on who is asking, and a reader who has just
+    // subscribed must not be served their own browser's cached, gated copy.
+    response.set("Cache-Control", hasAccess ? "private, no-store" : "private, no-cache");
     response.json({
       slug,
       hasAccess,

@@ -19,7 +19,6 @@ function registerSubscriptionRoutes(
     buildSubscriberEmail,
     buildOwnerEmail,
     sendResendEmail,
-    cookieOptions,
     createAccessToken,
     setSubscriberCookie
   }
@@ -46,10 +45,6 @@ function registerSubscriptionRoutes(
         
         console.log("[subscribe] Local dev mode - MongoDB not available, returning success");
         
-        if (bookletSlug) {
-          response.cookie(`valluru_booklet_${bookletSlug}`, "true", cookieOptions(request));
-        }
-
         if (setSubscriberCookie && email) {
           setSubscriberCookie(response, request, { email, name });
         }
@@ -233,10 +228,6 @@ function registerSubscriptionRoutes(
           }
         }
       );
-
-      if (bookletSlug) {
-        response.cookie(`valluru_booklet_${bookletSlug}`, "true", cookieOptions(request));
-      }
 
       if (setSubscriberCookie) {
         setSubscriberCookie(response, request, { email, name });

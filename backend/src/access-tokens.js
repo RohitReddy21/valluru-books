@@ -160,16 +160,13 @@ function setSubscriberCookie(response, request, subscriber) {
  * and the illustrated PDF is part of what sign-up adds.
  *
  * The signed subscriber cookie is the source of truth: it survives a cleared localStorage
- * and works on the reader's other devices. The two checks below it are the grace path —
- * readers who subscribed before this gate existed hold a per-booklet cookie or an access
- * token instead, and must not be locked out of a booklet they already gave an email for.
+ * and works on the reader's other devices. A signed per-booklet access token (query string
+ * or bearer header) is the fallback where a browser drops that cookie. Nothing unsigned is
+ * accepted: the old `valluru_booklet_<slug>=true` cookie could be typed in by anyone, so
+ * readers who only hold that get back in by re-entering their email instead.
  */
 function hasBookletAccess(request, slug) {
   if (getSubscriberFromRequest(request)) {
-    return true;
-  }
-
-  if (getCookies(request)[`valluru_booklet_${slug}`] === "true") {
     return true;
   }
 
