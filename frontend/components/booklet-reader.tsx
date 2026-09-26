@@ -6,6 +6,7 @@ import { PdfBookModal } from "@/components/pdf-book-modal";
 import { trackEmailSubscription } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api";
 import { type Booklet } from "@/lib/site-content";
+import { readAccessToken, recoverAccess } from "@/lib/subscriber";
 
 const globalStorageKey = "valluru_global_subscribed";
 const subscriberInfoKey = "valluru_subscriber_info";
@@ -148,7 +149,14 @@ export function BookletReader({ booklet }: Props) {
         return;
       }
     } else {
-      // Already have access, just mark as success
+      // A subscriber from before the gate holds a browser flag and nothing the server can
+      // verify. Where the API's cookie is dropped (Safari, Firefox) that leaves the PDF
+      // request with no proof of access at all, so ask for a token the way the chapter
+      // gate does. The cookie, where it works, stays the primary proof.
+      if (!readAccessToken(booklet.slug) && (await recoverAccess(booklet))) {
+        setAccessToken(readAccessToken(booklet.slug));
+      }
+
       setStatus("success");
     }
 

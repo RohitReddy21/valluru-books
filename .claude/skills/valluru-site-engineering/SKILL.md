@@ -229,9 +229,28 @@ Subscribe sets both `valluru_subscriber` and the legacy per-booklet cookie.
 
 ### Known limitation
 
-When `booklet.pdf` is a plain `https://` URL the route still 302-redirects to it, so a
-subscriber receives a public URL they can pass on. The gate controls *who gets the link*,
-not what happens after. Phase 4's Supabase signed URLs close this.
+When `booklet.pdf` is a plain `https://` URL that is not in our storage, `/pdf-link` returns it as
+stored (there is nothing to sign), so a subscriber receives a URL they can pass on. For our own
+storage the reader now gets a 5-minute signed link (see "PDF signed links" below) — but every
+booklet PDF sits in the **public** `books` bucket, so the permanent public URL still works for
+anyone who has it. The signed link only becomes a real gate once the PDFs move to a private bucket.
+
+### PDF signed links
+
+`GET /api/booklets/:slug/pdf-link` runs the same checks as `/pdf` (published, access — one shared
+`loadReadableBookletPdf`) and returns `{ url, kind }`: a 5-minute signed Supabase URL
+(`kind: "signed"`), the stored URL for a file hosted elsewhere (`"remote"`), or `url: null`
+meaning "stream from `/pdf`". `src/booklet-pdf.js` resolves it and is tested. `PdfBookModal` takes an
+optional `pdfLinkUrl`: it asks for the link with credentials, then fetches the file from storage
+**without** credentials — storage answers CORS with `Access-Control-Allow-Origin: *`, which a
+credentialed request refuses, so a plain 302 from `/pdf` would not work in a browser. If no link
+comes back, or the signed file will not open, it streams from `/pdf` as before (both fallbacks
+tested). Measured on the sandbox for a 10.5 MB booklet: streamed first byte 3.2–4.0 s, total
+6.6–7.7 s; signed link first byte 0.8 s, total 3.6 s plus about 1.6 s to get the link — and the API
+no longer holds the file in memory. Only booklet twelve (no chapters) still opens this modal;
+movement PDFs are public and load directly. `BookletReader` now also recovers a token for a
+pre-gate subscriber (`recoverAccess`), because with third-party cookies blocked the token
+`track-unlock` returned was being thrown away and the PDF request went out with no proof of access.
 
 ### Still open in Phase 2
 
@@ -944,7 +963,8 @@ booklet six on — and has been deleted.
 
 - Move the API off Render free tier, or make every public page independent of it at
   request time (Phase 1 mostly achieves the latter).
-- Serve PDFs from Supabase via signed URLs instead of streaming through the API.
+- Serve PDFs from Supabase via signed URLs instead of streaming through the API. **Done for
+  booklets** (below); the streaming route remains as the fallback.
 - Split `admin-editor.tsx` (5.4k lines) and `server.js` (3.9k lines) when something else
   already touches them.
 - Strip `console.log` from production request paths.
