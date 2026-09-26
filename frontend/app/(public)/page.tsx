@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import { NewsletterForm } from "@/components/newsletter-form";
 import {
@@ -20,6 +21,10 @@ import {
 } from "@/lib/site-content";
 
 export const revalidate = 300;
+
+export const metadata: Metadata = {
+  alternates: { canonical: "https://www.thevalluru.org/" }
+};
 
 export default async function HomePage() {
   const content = await getSiteContent();

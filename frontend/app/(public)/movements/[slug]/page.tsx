@@ -27,7 +27,8 @@ export async function generateMetadata({
     title: movement
       ? `${movement.title} — The Valluru`
       : "Movement — The Valluru",
-    description: movement?.seo?.description || movement?.description
+    description: movement?.seo?.description || movement?.description,
+    alternates: movement ? { canonical: `https://www.thevalluru.org/movements/${slug}` } : undefined
   };
 }
 

@@ -1786,7 +1786,7 @@ app.get("/api/content", async (request, response, next) => {
                 subtitle: "Dharma, Māyā, and the Inward Journey",
                 description: "This booklet begins with the core problem: the false center called 'I.'",
                 pdf: "https://thevalluru.org/wp-content/uploads/2026/05/when-the-gods-fall-silent-booklet_one.pdf",
-                badge: "Free · Begin Here",
+                badge: "Begin Here",
                 tag: "AVAILABLE",
                 movementIndex: 0
               }

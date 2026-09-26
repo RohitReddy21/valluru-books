@@ -6,6 +6,7 @@ import {
   bookletPublicSlug,
   defaultSiteContent,
   getBookletDetailIntro,
+  hasReadableChapters,
   isPublished,
   type Booklet
 } from "@/lib/site-content";
@@ -93,6 +94,13 @@ export default async function ReadPage() {
                   {booklet.title}
                 </h3>
                 <p className="mt-3 text-lg leading-8 text-parchment/78">{hookLine(booklet)}</p>
+                {hasReadableChapters(booklet) ? null : (
+                  // The one booklet whose PDF has no text layer: nothing to read free yet, so
+                  // the free-chapters promise above does not reach it and it says so.
+                  <p className="mt-3 font-label text-xs uppercase tracking-[0.18em] text-muted">
+                    Not online as text yet · illustrated edition for subscribers
+                  </p>
+                )}
               </Link>
             ))}
           </div>

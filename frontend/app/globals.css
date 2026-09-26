@@ -1137,7 +1137,9 @@ a {
 /* In the book the gate is a whole page, centred, with no card of its own to fill. */
 .book-flow .valluru-gated {
   display: flex;
-  min-height: calc(var(--page-h) - var(--page-margin-block) * 2);
+  /* A few px short of the full column: exactly full, sub-pixel rounding tips it over and
+     the book gains an empty page after the gate. */
+  min-height: calc(var(--page-h) - var(--page-margin-block) * 2 - 4px);
   margin-top: 0;
   align-items: center;
   justify-content: center;
@@ -1190,4 +1192,10 @@ a {
 
 .rd-table tr {
   break-inside: avoid;
+}
+
+/* In the paginated reader a scroll box cannot be split across pages, so the rows that did
+   not fit the first page were cut off. Let the table itself run on to the next page. */
+.book-flow .rd-table-wrap {
+  overflow: visible;
 }

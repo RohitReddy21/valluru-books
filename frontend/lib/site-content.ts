@@ -753,7 +753,7 @@ export const defaultSiteContent: SiteContent = {
           'This booklet begins with the core problem: the false center called "I." It asks how the seeker stands when dharma becomes costly, when power is tested, when knowledge is humbled, when māyā is named, and when even familiar gods seem silent. It brings together the Gita\'s yogic toolkits, Tripura Rahasya\'s recognition of Consciousness, Vijñāna Bhairava\'s direct entry into awareness, and Bhagavatam\'s insistence that the heart must be anchored in bhakti and surrender. This is the first map. Not the whole tradition. Enough to stop floating.',
         pdf:
           "https://thevalluru.org/wp-content/uploads/2026/05/when-the-gods-fall-silent-booklet_one.pdf",
-        badge: "Free · Begin Here",
+        badge: "Begin Here",
         tag: "AVAILABLE",
         movementIndex: 0
       },

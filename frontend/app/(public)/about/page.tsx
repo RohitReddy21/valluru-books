@@ -1,9 +1,23 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import { PageHeader, PageShell, ProseBlocks, Section } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
 import { defaultSiteContent } from "@/lib/site-content";
 
 export const revalidate = 300;
+
+export async function generateMetadata(): Promise<Metadata> {
+  const { about } = await getSiteContent();
+  const title = `${about.title} | The Valluru`;
+
+  return {
+    title,
+    description: about.subtitle,
+    alternates: { canonical: "https://www.thevalluru.org/about" },
+    openGraph: { title, description: about.subtitle, url: "https://www.thevalluru.org/about" },
+    twitter: { title, description: about.subtitle }
+  };
+}
 
 export default async function AboutPage() {
   const content = await getSiteContent();

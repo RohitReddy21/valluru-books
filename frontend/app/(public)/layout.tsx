@@ -129,8 +129,9 @@ export const metadata: Metadata = {
     images: ["https://www.thevalluru.org/og/default.jpg"]
   },
   // A review copy must not compete with the live site in search results.
-  robots: isSandbox ? "noindex, nofollow" : "index, follow",
-  alternates: isSandbox ? undefined : { canonical: "https://www.thevalluru.org" }
+  robots: isSandbox ? "noindex, nofollow" : "index, follow"
+  // No canonical here: a layout-level one is inherited by every page that does not set its
+  // own, which told search engines /series, /about and /movements were copies of the home page.
 };
 
 export const viewport: Viewport = {

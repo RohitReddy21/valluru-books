@@ -822,6 +822,176 @@ function restoreTranscribedBookletSeven(booklet, chapters, changes) {
   return out;
 }
 
+/**
+ * Chapter titles extraction got wrong. "STANZA 1 Stanza 1" is the kicker and the heading of
+ * the same stanza read as one line. Booklet six's chapter 22 heading wraps after "Śānta-" and
+ * the second line, "Tarka", was lost (checked against the PDF, page 33 and the contents).
+ */
+const TITLE_FIXES = [
+  { booklet: "booklet-six", from: "22. Kāśī Gurus and Śānta-", to: "22. Kāśī Gurus and Śānta-Tarka" }
+];
+
+function repairTitles(booklet, chapters, changes) {
+  return chapters.map((chapter) => {
+    const title = String(chapter.title || "");
+    const doubled = title.match(/^STANZA (\d{1,2}) (Stanza \1)$/);
+    const fix = TITLE_FIXES.find((candidate) => candidate.booklet === booklet.slug && candidate.from === title);
+    const next = doubled ? doubled[2] : fix ? fix.to : title;
+
+    if (next === title) {
+      return chapter;
+    }
+
+    changes?.push(`title "${title}" → "${next}"`);
+    return { ...chapter, title: next };
+  });
+}
+
+/**
+ * Sections the extraction left inside a neighbouring chapter because their headings were set
+ * smaller than a chapter title: booklet seven's 25 verse-sections ("5 I Am Not Arjuna"
+ * inside "4 …") and booklet six's 12A–12E inside "11. …". Left merged, the contents list
+ * skips them and the gate's "N more chapters" undercounts. Each heading, when the line after
+ * it opens a verse, starts a chapter of its own, which keeps its parent's free/gated flag.
+ */
+const SECTION_SPLITS = [
+  { booklet: "booklet-seven", heading: /^\d{1,2} \S.{1,80}$/u, opens: /^పద్యం —/u },
+  { booklet: "booklet-six", heading: /^12[A-E]\. \S.{1,80}$/u, opens: /^Meter:/ }
+];
+
+function splitEmbeddedSections(booklet, chapters, changes) {
+  const rule = SECTION_SPLITS.find((candidate) => candidate.booklet === booklet.slug);
+
+  if (!rule) {
+    return chapters;
+  }
+
+  const out = [];
+  let made = 0;
+
+  for (const chapter of chapters) {
+    const paragraphs = chapter.paragraphs || [];
+    let current = { ...chapter, paragraphs: [] };
+    let part = 0;
+
+    paragraphs.forEach((paragraph, index) => {
+      const next = paragraphs[index + 1] || "";
+
+      if (index > 0 && rule.heading.test(paragraph) && rule.opens.test(next)) {
+        out.push(current);
+        part += 1;
+        made += 1;
+        current = {
+          id: `${chapter.id}-${part}`,
+          title: paragraph,
+          paragraphs: [],
+          ...(typeof chapter.free === "boolean" ? { free: chapter.free } : {})
+        };
+        return;
+      }
+
+      current.paragraphs.push(paragraph);
+    });
+
+    out.push(current);
+  }
+
+  if (made) {
+    changes?.push(`sections split into their own chapters: ${made}`);
+  }
+
+  return out;
+}
+
+/**
+ * An Author's Note that extraction ran into a front-matter chapter the reader hides as the
+ * cover or credits page (booklet seven's cover; booklet thirteen's credits page, where the
+ * heading is glued to "© … All rights reserved."). The note is moved into a chapter of its own
+ * so it is read and listed. Only when the booklet has no Author's Note chapter already.
+ */
+const AUTHORS_NOTE_HEADING = /(^|\s)AUTHOR[’']S NOTE$/;
+const isAuthorsNoteTitle = (title) => /^author[’']?s note$/i.test(String(title || "").trim());
+
+function splitBuriedAuthorsNote(booklet, chapters, changes) {
+  if (chapters.some((chapter) => isAuthorsNoteTitle(chapter.title))) {
+    return chapters;
+  }
+
+  const out = [];
+  let moved = false;
+
+  for (const chapter of chapters) {
+    const paragraphs = chapter.paragraphs || [];
+    const at = chapter.frontMatter && !moved ? paragraphs.findIndex((paragraph) => AUTHORS_NOTE_HEADING.test(paragraph)) : -1;
+
+    if (at === -1 || at === paragraphs.length - 1) {
+      out.push(chapter);
+      continue;
+    }
+
+    const before = paragraphs[at].replace(AUTHORS_NOTE_HEADING, "").trim();
+    out.push({ ...chapter, paragraphs: [...paragraphs.slice(0, at), ...(before ? [before] : [])] });
+    out.push({
+      id: `${chapter.id}-note`,
+      title: "Author’s Note",
+      frontMatter: true,
+      free: true,
+      paragraphs: paragraphs.slice(at + 1)
+    });
+    moved = true;
+    changes?.push(`${chapter.title}: Author’s Note moved into its own chapter`);
+  }
+
+  return out;
+}
+
+/**
+ * A printed contents page left at the foot of a front-matter chapter: a run of entries that
+ * each end in a page number ("3. Memory Before Memory 15", the last one often dragging the
+ * next page's "OPENING" with it), the contents page's own title line, and a "CONTENTS" glued
+ * to the sentence before. Four or more such lines at the very end of front matter is a
+ * contents page; prose does not end that way.
+ */
+const CONTENTS_ENTRY = /\s\d{1,3}(?:\s+OPENING)?$/;
+
+function stripTrailingContents(booklet, chapter, changes) {
+  const paragraphs = chapter.paragraphs || [];
+
+  if (!chapter.frontMatter) {
+    return paragraphs;
+  }
+
+  let start = paragraphs.length;
+
+  while (start > 0 && CONTENTS_ENTRY.test(paragraphs[start - 1])) {
+    start -= 1;
+  }
+
+  if (paragraphs.length - start < 4) {
+    return paragraphs;
+  }
+
+  const plain = (text) => String(text || "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+
+  if (start > 0 && plain(paragraphs[start - 1]) === plain(booklet.title)) {
+    start -= 1;
+  }
+
+  if (start > 0 && /^contents$/i.test(paragraphs[start - 1].trim())) {
+    start -= 1;
+  }
+
+  const kept = paragraphs.slice(0, start);
+
+  if (kept.length) {
+    kept[kept.length - 1] = kept[kept.length - 1].replace(/\s+CONTENTS$/, "");
+  }
+
+  changes?.push(`${chapter.title}: printed contents list removed (${paragraphs.length - start} lines)`);
+
+  return kept;
+}
+
 /** The English after each " — " in a word-by-word paragraph, up to where the next entry's own headword starts. */
 function englishGlosses(wordByWord) {
   return wordByWord
@@ -1054,19 +1224,27 @@ export function cleanBooklet(booklet, lexicon) {
     booklet: {
       ...booklet,
       // Numbered as they now stand, so a merge leaves no gap.
-      chapters: restoreTranscribedStanzas(
+      chapters: repairTitles(booklet, splitEmbeddedSections(
         booklet,
-        restoreTranscribedBookletSeven(
+        splitBuriedAuthorsNote(
           booklet,
-          restoreTranscribedBookletNine(
+          restoreTranscribedStanzas(
             booklet,
-            restoreTranscribedPassages(booklet, restoreTranscribedVerses(booklet, repaired, log), log),
+            restoreTranscribedBookletSeven(
+              booklet,
+              restoreTranscribedBookletNine(
+                booklet,
+                restoreTranscribedPassages(booklet, restoreTranscribedVerses(booklet, repaired, log), log),
+                log
+              ),
+              log
+            ),
             log
           ),
           log
-        ),
+        ).map((chapter) => ({ ...chapter, paragraphs: stripTrailingContents(booklet, chapter, log) })),
         log
-      ).map((chapter, index) => ({
+      ), log).map((chapter, index) => ({
         ...chapter,
         number: index + 1
       }))

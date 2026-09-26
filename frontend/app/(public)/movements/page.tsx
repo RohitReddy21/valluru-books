@@ -9,7 +9,8 @@ export const revalidate = 300;
 export const metadata: Metadata = {
   title: "Movements | The Valluru",
   description:
-    "Explore the movements of The Inward Fire Series: doorways into dharma, maya, nada, language, surrender, memory, and the inward journey."
+    "Explore the movements of The Inward Fire Series: doorways into dharma, maya, nada, language, surrender, memory, and the inward journey.",
+  alternates: { canonical: "https://www.thevalluru.org/movements" }
 };
 
 export default async function MovementsPage() {

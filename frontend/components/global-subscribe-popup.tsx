@@ -186,7 +186,7 @@ export function GlobalSubscribePopup() {
           <p className="min-h-6 text-sm italic text-muted">
             {status === "error"
               ? "The form could not be saved. Please try again."
-              : "Booklet one is free to read. Subscribers receive the illustrated PDFs and a note when the next booklet is ready."}
+              : "The first three chapters of every booklet are free to read. Subscribers read every chapter, receive the illustrated editions, and hear when the next booklet is ready."}
           </p>
         </form>
       </div>

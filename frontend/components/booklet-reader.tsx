@@ -178,10 +178,9 @@ export function BookletReader({ booklet }: Props) {
             {booklet.title}
           </h2>
           <p className="mt-4 text-lg leading-7 text-parchment/82">
-            {hasAccess 
-              ? "Open the booklet in an on-page reading window (tracks your read for admin)."
-              : "Unlock to read this booklet (tracks your read for admin)."
-            }
+            {hasAccess
+              ? "This booklet isn't online as text yet. Open the illustrated edition here."
+              : "This booklet isn't online as text yet. Enter your email to read the illustrated edition."}
           </p>
         </div>
         <div className="mt-6 flex flex-wrap gap-3">
