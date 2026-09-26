@@ -252,6 +252,16 @@ movement PDFs are public and load directly. `BookletReader` now also recovers a 
 pre-gate subscriber (`recoverAccess`), because with third-party cookies blocked the token
 `track-unlock` returned was being thrown away and the PDF request went out with no proof of access.
 
+**Making the signed link a real gate (built, not switched on).** `PRIVATE_PDF_BUCKET` names a private
+bucket; when set, a PDF the database records in `books/pdfs/…` is read from `<bucket>/pdfs/…`
+(`toBookletPdfObject`, only that folder — samples, covers and other buckets are untouched), booklet
+PDF uploads go there, and a signing failure returns 503 instead of redirecting to the now-dead public
+URL. Unset, nothing changes. No stored URL is rewritten. The owner copies the files with
+`backend/scripts/copy-booklet-pdfs-to-private-bucket.mjs` (dry run by default, copy-only, refuses a
+public destination, never prints the key) and follows `docs/supabase-private-pdf-bucket.md`.
+Nothing was run against Supabase from this repo. **Do not delete the public copies until production runs
+this code with the setting on** — the sandbox and production may share one Supabase project.
+
 ### Still open in Phase 2
 
 - `localStorage` is no longer the source of truth on the server, but

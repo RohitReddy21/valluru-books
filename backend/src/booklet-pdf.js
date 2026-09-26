@@ -40,4 +40,34 @@ async function resolvePdfLink(pdf, { parseObject, sign }) {
   return { url: null, kind: "none" };
 }
 
-module.exports = { resolvePdfLink };
+/** Where every booklet PDF was stored before there was a private bucket. */
+const LEGACY_PDF_BUCKET = "books";
+const LEGACY_PDF_PREFIX = "pdfs/";
+
+/**
+ * Where a booklet PDF actually lives once a private bucket is configured.
+ *
+ * The public `books` bucket also holds cover images, so it cannot simply be made private.
+ * The PDFs are instead copied, under the same paths, into a bucket that is private, and
+ * this points the backend at them without rewriting a single stored URL: an object the
+ * database still records as `books/pdfs/…` is read from `<private bucket>/pdfs/…`.
+ *
+ * Only the legacy PDF folder is redirected. A sample in `books/samples`, a file in another
+ * bucket, or an object already in the private bucket is left exactly where it is. With no
+ * private bucket configured nothing changes.
+ *
+ * @param object `{ bucket, storagePath }` parsed from a stored URL, or a falsy value
+ */
+function toBookletPdfObject(object, privateBucket) {
+  if (!object || !privateBucket) {
+    return object;
+  }
+
+  if (object.bucket === LEGACY_PDF_BUCKET && String(object.storagePath || "").startsWith(LEGACY_PDF_PREFIX)) {
+    return { bucket: privateBucket, storagePath: object.storagePath };
+  }
+
+  return object;
+}
+
+module.exports = { LEGACY_PDF_BUCKET, LEGACY_PDF_PREFIX, resolvePdfLink, toBookletPdfObject };

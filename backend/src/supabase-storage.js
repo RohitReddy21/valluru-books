@@ -130,9 +130,23 @@ function safeStorageFileName(name = "file") {
   return `${base || "file"}${ext}`;
 }
 
+/**
+ * The private bucket booklet PDFs live in, when one is configured (PRIVATE_PDF_BUCKET).
+ * Empty means the PDFs are still in the public `books` bucket, which is how it has always
+ * worked, so setting nothing changes nothing.
+ */
+function getBookletPdfBucket() {
+  return String(process.env.PRIVATE_PDF_BUCKET || "").trim();
+}
+
 function getStorageTarget(file, requestedFolder = "", purpose = "media") {
   const rawFolder = cleanStoragePath(requestedFolder);
   const knownBuckets = new Set(["books", "movements", "downloads", "media"]);
+  const bookletPdfBucket = getBookletPdfBucket();
+
+  if (bookletPdfBucket) {
+    knownBuckets.add(bookletPdfBucket);
+  }
 
   if (rawFolder) {
     const [first, ...rest] = rawFolder.split("/");
@@ -146,7 +160,7 @@ function getStorageTarget(file, requestedFolder = "", purpose = "media") {
   }
 
   if (purpose === "book-pdf") {
-    return { bucket: "books", folder: "pdfs" };
+    return { bucket: bookletPdfBucket || "books", folder: "pdfs" };
   }
 
   if (purpose === "book-sample") {
@@ -447,6 +461,7 @@ module.exports = {
   createSignedStorageUrl,
   deleteSupabaseFile,
   encodeStoragePath,
+  getBookletPdfBucket,
   getStorageFolder,
   getStorageTarget,
   getSupabaseClient,

@@ -29,10 +29,11 @@ const {
 } = require("./src/access-tokens");
 const { debugLog } = require("./src/debug-log");
 const { readerKey, recentUnlockFilter, resolveTrackedReader } = require("./src/track-unlock");
-const { resolvePdfLink } = require("./src/booklet-pdf");
+const { resolvePdfLink, toBookletPdfObject } = require("./src/booklet-pdf");
 const {
   createSignedStorageUrl,
   deleteSupabaseFile,
+  getBookletPdfBucket,
   getStorageFolder,
   getStorageTarget,
   getSupabaseClient,
@@ -2635,7 +2636,7 @@ app.post("/api/admin/migrate-storage-to-supabase", verifyAdmin, async (request, 
         const booklet = findContentBookletEntry(content, slug)?.booklet;
         const uploaded = await uploadToSupabase(
           { ...tempFile, mimetype: "application/pdf" },
-          getStorageTarget({ ...tempFile, mimetype: "application/pdf" }, "books/pdfs", "book-pdf")
+          getStorageTarget({ ...tempFile, mimetype: "application/pdf" }, `${getBookletPdfBucket() || "books"}/pdfs`, "book-pdf")
         );
         const media = await savePdfAsset({ ...tempFile, mimetype: "application/pdf" }, uploaded, {
           folder: "books/pdfs",
@@ -3011,7 +3012,7 @@ app.post(
       const previousContent = cloneContent(content);
       let uploaded;
       try {
-        const storageTarget = getStorageTarget(file, "books/pdfs", "book-pdf");
+        const storageTarget = getStorageTarget(file, `${getBookletPdfBucket() || "books"}/pdfs`, "book-pdf");
         debugLog("[upload-pdf] Storage target:", storageTarget);
         uploaded = await uploadToSupabase(file, storageTarget);
       } catch (uploadError) {
@@ -3279,6 +3280,15 @@ app.post(
 );
 
 /**
+ * The storage object behind a booklet's stored PDF URL. With PRIVATE_PDF_BUCKET set, a PDF the
+ * database still records in the old public `books/pdfs` folder is read from the private
+ * bucket at the same path; see toBookletPdfObject.
+ */
+function getBookletPdfObject(url) {
+  return toBookletPdfObject(getSupabaseObjectFromUrl(url), getBookletPdfBucket());
+}
+
+/**
  * The checks every read of a booklet's PDF goes through: the booklet exists and is
  * published in a published series, the request holds access, and there is a file.
  *
@@ -3335,7 +3345,7 @@ app.get("/api/booklets/:slug/pdf-link", async (request, response, next) => {
     }
 
     const link = await resolvePdfLink(found.booklet.pdf, {
-      parseObject: getSupabaseObjectFromUrl,
+      parseObject: getBookletPdfObject,
       sign: createSignedStorageUrl
     });
 
@@ -3365,7 +3375,7 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
     // reader along without one of the checks above ever running.
     const pdfCacheControl = "private, no-store";
 
-    const supabaseObject = getSupabaseObjectFromUrl(booklet.pdf);
+    const supabaseObject = getBookletPdfObject(booklet.pdf);
 
     if (supabaseObject) {
       debugLog("[booklets/:slug/pdf] Extracted Supabase object:", {
@@ -3391,10 +3401,18 @@ app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
       // Sign it rather than handing back the stored URL, which is public and would stay
       // usable long after this reader is gone. Falls back to the stored URL only when
       // signing is unavailable, so a misconfigured Supabase cannot break the download.
-      const remoteObject = getSupabaseObjectFromUrl(booklet.pdf);
+      const remoteObject = getBookletPdfObject(booklet.pdf);
       const signed = remoteObject
         ? await createSignedStorageUrl(remoteObject.bucket, remoteObject.storagePath)
         : null;
+
+      // With a private bucket the stored URL is dead, and handing it to the reader would only
+      // send them to a 404; say so plainly instead.
+      if (!signed && getBookletPdfBucket() && remoteObject?.bucket === getBookletPdfBucket()) {
+        debugLog("[booklets/:slug/pdf] Could not sign a private object");
+        response.status(503).json({ error: "This booklet is temporarily unavailable. Please try again." });
+        return;
+      }
 
       debugLog("[booklets/:slug/pdf] Remote URL, redirecting", { signed: Boolean(signed) });
       response.redirect(signed || booklet.pdf);
