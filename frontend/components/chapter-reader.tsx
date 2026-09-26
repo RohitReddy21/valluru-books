@@ -444,6 +444,31 @@ export function ChapterReader({
         return;
       }
 
+      // Tab stays inside the book while it is open, as it would in any modal dialog.
+      if (event.key === "Tab" && dialogRef.current) {
+        const focusable = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(
+            'a[href], button:not([disabled]), input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((element) => element.offsetParent !== null);
+
+        if (focusable.length) {
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          const active = document.activeElement;
+
+          if (event.shiftKey && (active === first || !dialogRef.current.contains(active))) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && (active === last || !dialogRef.current.contains(active))) {
+            event.preventDefault();
+            first.focus();
+          }
+        }
+
+        return;
+      }
+
       // Arrow keys belong to the sign-up field while it has focus, not to the page.
       const target = event.target as HTMLElement | null;
 
@@ -486,7 +511,6 @@ export function ChapterReader({
     // alone left a scrollbar showing behind the book.
     document.documentElement.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
-    dialogRef.current?.focus();
 
     return () => {
       document.body.style.overflow = previousOverflow;
@@ -494,6 +518,23 @@ export function ChapterReader({
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [closeReader, moveTo, open, panel, turn]);
+
+  // Focus moves into the book when it opens and back to whatever opened it when it closes,
+  // so a keyboard reader is not dropped at the top of the page.
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialogRef.current?.focus();
+
+    return () => {
+      if (opener && document.contains(opener)) {
+        opener.focus();
+      }
+    };
+  }, [open]);
 
   // The note that a booklet resumed is a greeting, not a status: it goes after a moment.
   useEffect(() => {

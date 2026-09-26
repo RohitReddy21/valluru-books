@@ -239,6 +239,12 @@ gtag('config', 'G-HYV3VRYR06', { page_path: window.location.pathname });`}
           </>
         )}
 
+        <a
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:border focus:border-gold focus:bg-ink focus:px-4 focus:py-2 focus:font-label focus:text-sm focus:uppercase focus:tracking-[0.18em] focus:text-parchment"
+          href="#main"
+        >
+          Skip to content
+        </a>
         <SiteNav nav={content.nav} />
         {children}
         <SiteFooter footer={content.footer} />

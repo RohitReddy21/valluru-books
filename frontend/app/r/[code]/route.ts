@@ -15,6 +15,30 @@ import { bookletPublicSlug, isPublished } from "@/lib/site-content";
 const SURFACES = new Set(["bio", "story", "highlight", "dm", "comment", "shorts_desc"]);
 const DEFAULT_SURFACE = "bio";
 
+const NUMBER_WORDS = [
+  "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+  "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
+  "eighteen", "nineteen", "twenty"
+];
+
+/** "Booklet Fourteen", "Booklet 14", "Booklet Twenty-One (Capstone)" → 14, 14, 21. */
+function labelNumber(label: string | undefined) {
+  const word = String(label || "").toLowerCase().replace(/^booklet\s+/, "").split(/[\s(]/)[0];
+
+  if (/^\d{1,2}$/.test(word)) {
+    return Number(word);
+  }
+
+  const [tens, ones] = word.split("-");
+  const base = NUMBER_WORDS.indexOf(tens) + 1;
+
+  if (!base) {
+    return null;
+  }
+
+  return ones ? base + NUMBER_WORDS.indexOf(ones) + 1 : base;
+}
+
 /** shorts_desc is the YouTube surface; every other one is Instagram. */
 function sourceForSurface(surface: string) {
   return surface === "shorts_desc" ? "youtube" : "instagram";
@@ -38,7 +62,13 @@ export async function GET(
 
   const match = /^b(\d{1,2})$/i.exec(code);
   const booklets = content.series.booklets.filter((booklet) => isPublished(booklet.status));
-  const booklet = match ? booklets[Number(match[1]) - 1] : undefined;
+  // By the number the booklet carries, not its place in the list: publishing a draft that
+  // sits earlier in the list must not move every link after it onto a different booklet.
+  const wanted = match ? Number(match[1]) : null;
+  const booklet =
+    wanted === null
+      ? undefined
+      : booklets.find((item) => labelNumber(item.numberLabel) === wanted) || booklets[wanted - 1];
 
   // An unknown or retired code still lands somewhere useful rather than on a 404.
   if (!booklet) {

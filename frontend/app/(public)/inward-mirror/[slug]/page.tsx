@@ -159,7 +159,8 @@ export default async function InwardMirrorBookletPage({
     bookFormat: "EBook",
     genre: booklet.categories?.length ? booklet.categories : ["Spiritual Literature"],
     keywords: booklet.tags?.length ? booklet.tags.join(", ") : booklet.seo?.keywords,
-    isAccessibleForFree: !booklet.price || booklet.price === 0,
+    // Matches the Article schema below: the first chapters are free, the rest need sign-up.
+    isAccessibleForFree: !(booklet.chapters ?? []).some((chapter) => !isChapterFree(chapter)),
     author: {
       "@type": "Person",
       name: "Sasidhar Valluru"

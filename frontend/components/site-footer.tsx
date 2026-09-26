@@ -6,7 +6,8 @@ type Props = {
 };
 
 export function SiteFooter({ footer }: Props) {
-  const links = Array.isArray(footer.links) ? footer.links : [];
+  // A link saved without a label would render as an empty, unnamed link.
+  const links = (Array.isArray(footer.links) ? footer.links : []).filter((link) => link.label?.trim());
 
   return (
     <footer className="quiet-divider bg-ink px-5 py-12">

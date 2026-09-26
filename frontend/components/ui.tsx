@@ -15,7 +15,11 @@ import {
 } from "@/lib/site-content";
 
 export function PageShell({ children }: { children: React.ReactNode }) {
-  return <main className="pt-20">{children}</main>;
+  return (
+    <main className="pt-20 focus:outline-none" id="main" tabIndex={-1}>
+      {children}
+    </main>
+  );
 }
 
 export function Section({
