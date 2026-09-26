@@ -840,6 +840,19 @@ three, six, seven, eight, nine) has now been transcribed. The sweep only sees da
 leaves stray symbols or Latin letters — a wrong vowel sign (booklet six's `కన్నేందు` for
 `కన్నొందు`) passes it, so "not flagged" is not "proofread".
 
+**Long paragraphs re-cut from the PDF (2026-09-26).** Some chapters still held several of the
+PDF's paragraphs as one block (Author's Notes of booklets 4, 5, 14, 15, 21; booklet 21's chapters
+1, 2, 6, 13 at over 3,000 characters), because resplit-booklet-paragraphs.mjs only re-cuts a
+chapter whose text matches the extraction letter for letter and cleaning had changed a few
+characters. `scripts/recut-long-paragraphs.mjs` splits only paragraphs over `--min` (1000)
+characters, at the places a fresh extraction starts a paragraph, comparing letters and digits
+only, cutting only after a sentence end, and refusing any cut whose pieces don't rejoin to the
+original text. Booklet 21 sets paragraphs just 16 pt apart on a 12–13 pt line, under the
+extractor's threshold, so its paragraph starts came from splitting on vertical gap > 14.5 pt
+(plus the normal extraction's). Still over 1,000 characters, not yet re-cut: booklets 2, 3, 7,
+16, 17, 19, 20 (one to three paragraphs each) — same method applies. Booklet one's "15. The
+Gist" opens with another flattened table ("Text / Axis Entry-point Main movement…").
+
 **The reader is ragged-right, not justified.** `.book-flow .rd-p` was `text-align: justify`
 with `hyphens: auto`. In a ~35-character column with short paragraphs and long Sanskrit words,
 justification can only stretch the spaces, so lines like "Grammar.   Poetry.   Prose.   Andhra"
