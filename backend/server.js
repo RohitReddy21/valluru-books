@@ -28,6 +28,7 @@ const {
   verifyAdminToken
 } = require("./src/access-tokens");
 const { debugLog } = require("./src/debug-log");
+const { readerKey, recentUnlockFilter, resolveTrackedReader } = require("./src/track-unlock");
 const {
   createSignedStorageUrl,
   deleteSupabaseFile,
@@ -1892,10 +1893,8 @@ app.post("/api/track-unlock", async (request, response, next) => {
     }
 
     const bookletSlug = String(request.body?.bookletSlug || "").trim();
-    const bookletTitle = String(request.body?.bookletTitle || "").trim() || null;
     const cookieSubscriber = getSubscriberFromRequest(request);
-    const name = String(request.body?.name || cookieSubscriber?.name || "").trim();
-    const email = String(request.body?.email || cookieSubscriber?.email || "").trim().toLowerCase();
+    const bodyEmail = String(request.body?.email || cookieSubscriber?.email || "").trim().toLowerCase();
     const source = "track-unlock";
 
     if (!bookletSlug) {
@@ -1908,63 +1907,81 @@ app.post("/api/track-unlock", async (request, response, next) => {
       return response.json({ ok: true });
     }
 
+    // Only a booklet that exists is worth logging a read of, and its title comes from the
+    // content rather than the request: the body is whatever the caller cared to send.
+    const entry = findContentBookletEntry(await getSiteContent(), bookletSlug);
+
+    if (!entry?.booklet) {
+      response.status(404).json({ error: "Booklet not found." });
+      return;
+    }
+
+    const bookletTitle = entry.booklet.title || null;
     const now = new Date();
     const userAgent = request.headers["user-agent"] || null;
     const ip = request.ip || request.socket?.remoteAddress || null;
-    
-    // Check if we have a subscriber with this email to get name/email
-    let subscriberName = name || null;
-    let subscriberEmail = email || null;
+
     // Set when the email belongs to someone already subscribed: it is how a reader who
     // subscribed before the gate existed, and holds nothing but a browser flag, gets in.
     let recoveredAccessToken;
-    
-    if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      const existingSubscriber = await db.collection("subscribers").findOne({ email });
-      if (existingSubscriber) {
-        subscriberName = subscriberName || existingSubscriber.name;
-        subscriberEmail = existingSubscriber.email;
+    let existingSubscriber = null;
 
-        if (bookletSlug) {
-          recoveredAccessToken = createAccessToken(bookletSlug);
-        }
+    if (bodyEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bodyEmail)) {
+      existingSubscriber = await db.collection("subscribers").findOne({ email: bodyEmail });
+
+      if (existingSubscriber) {
+        recoveredAccessToken = createAccessToken(bookletSlug);
         setSubscriberCookie(response, request, {
-          email: subscriberEmail,
-          name: subscriberName || existingSubscriber.name || ""
+          email: existingSubscriber.email,
+          name: existingSubscriber.name || cookieSubscriber?.name || ""
         });
       }
     }
 
-    await db.collection("booklet_unlocks").insertOne({
-      bookletSlug,
-      bookletTitle,
-      name: subscriberName,
-      email: subscriberEmail,
-      source,
-      unlockedAt: now,
-      createdAt: now,
-      updatedAt: now,
-      userAgent,
-      ip
+    // Anyone can call this, so an email or name is recorded only when the server can vouch
+    // for it: a subscriber's address, or the signed subscriber cookie. Everyone else is an
+    // anonymous read keyed by IP, and cannot put an invented reader into the admin reports.
+    const reader = resolveTrackedReader({
+      bodyName: request.body?.name,
+      existingSubscriber,
+      cookieSubscriber
     });
-    
+    const alreadyLogged = await db
+      .collection("booklet_unlocks")
+      .findOne(recentUnlockFilter({ bookletSlug, email: reader.email, ip, now }), { projection: { _id: 1 } });
+
+    // The reader opens a booklet, then the gate checks, then the reader page re-checks: one
+    // sitting was being written as three unlocks and counted as three reads.
+    if (!alreadyLogged) {
+      await db.collection("booklet_unlocks").insertOne({
+        bookletSlug,
+        bookletTitle,
+        name: reader.name,
+        email: reader.email,
+        source,
+        unlockedAt: now,
+        createdAt: now,
+        updatedAt: now,
+        userAgent,
+        ip
+      });
+    }
+
     await db.collection("booklet_readers").updateOne(
-      subscriberEmail ? { email: subscriberEmail, bookletSlug } : { bookletSlug, ip },
+      readerKey({ bookletSlug, email: reader.email, ip }),
       {
         $set: {
           bookletSlug,
           bookletTitle,
-          name: subscriberName,
-          email: subscriberEmail,
+          name: reader.name,
+          email: reader.email,
           source,
           updatedAt: now,
           lastReadAt: now,
           userAgent,
           ip
         },
-        $inc: {
-          readCount: 1
-        },
+        ...(alreadyLogged ? {} : { $inc: { readCount: 1 } }),
         $setOnInsert: {
           createdAt: now
         }
@@ -1975,24 +1992,20 @@ app.post("/api/track-unlock", async (request, response, next) => {
     // Only someone already subscribed is updated here. This endpoint used to upsert any email
     // and hand back a subscriber cookie, which made it a way round /api/subscribe: no welcome
     // email, no owner notice, no sign-up event, and access for an address nobody confirmed.
-    if (subscriberEmail && (recoveredAccessToken || cookieSubscriber)) {
-      const subscriberUpdate = {
-        $set: {
-          ...(name ? { name } : {}),
-          lastSource: source,
-          lastBookletSlug: bookletSlug || null,
-          lastBookletTitle: bookletTitle,
-          updatedAt: new Date()
+    if (reader.verified) {
+      await db.collection("subscribers").updateOne(
+        { email: reader.email },
+        {
+          $set: {
+            ...(reader.name ? { name: reader.name } : {}),
+            lastSource: source,
+            lastBookletSlug: bookletSlug,
+            lastBookletTitle: bookletTitle,
+            updatedAt: new Date()
+          },
+          $addToSet: { subscribedBooklets: bookletSlug }
         }
-      };
-
-      if (bookletSlug) {
-        subscriberUpdate.$addToSet = {
-          subscribedBooklets: bookletSlug
-        };
-      }
-
-      await db.collection("subscribers").updateOne({ email: subscriberEmail }, subscriberUpdate);
+      );
     }
 
     response.json({ ok: true, ...(recoveredAccessToken ? { accessToken: recoveredAccessToken } : {}) });
