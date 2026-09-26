@@ -662,7 +662,7 @@ a {
   border: 1px solid rgba(196, 169, 107, 0.32);
   border-radius: 999px;
   background: rgba(20, 18, 15, 0.94);
-  font-family: var(--font-label), Georgia, serif;
+  font-family: var(--font-body), Georgia, serif;
   font-size: 0.72rem;
   letter-spacing: 0.2em;
   text-transform: uppercase;
@@ -802,7 +802,7 @@ a {
 
 .rd-popover-label {
   margin: 0 0 0.55rem;
-  font-family: var(--font-label), Georgia, serif;
+  font-family: var(--font-body), Georgia, serif;
   font-size: 0.68rem;
   letter-spacing: 0.24em;
   text-transform: uppercase;

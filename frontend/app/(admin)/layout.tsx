@@ -1,4 +1,4 @@
-import { Cormorant_Garamond, Crimson_Pro, Playfair_Display } from "next/font/google";
+import { Crimson_Pro, Playfair_Display } from "next/font/google";
 import "../globals.css";
 import { getSiteContent } from "@/lib/content-store";
 import { MetaPixel } from "@/components/meta-pixel";
@@ -17,13 +17,6 @@ const crimson = Crimson_Pro({
   display: "swap"
 });
 
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  variable: "--font-label",
-  display: "swap",
-  weight: ["500", "600", "700"]
-});
-
 export default async function AdminLayout({
   children
 }: Readonly<{
@@ -33,7 +26,7 @@ export default async function AdminLayout({
 
   return (
     <html
-      className={`${playfair.variable} ${crimson.variable} ${cormorant.variable}`}
+      className={`${playfair.variable} ${crimson.variable}`}
       lang="en"
     >
       <body>

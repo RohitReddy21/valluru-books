@@ -80,12 +80,12 @@ Frontend (`frontend/.env.local`, from `frontend/.env.example`):
 | 3 | The gate is decorative: `verifyAccessToken` defined but **never called**; `/api/booklets/:slug/pdf` checks publish status only | `backend/server.js` | Fixed in Phase 2 |
 | 4 | Access lives in `localStorage` per booklet — no cross-device memory | `frontend/components/booklet-reader.tsx` | Fixed in Phase 2 (server-side; reader UI still reads localStorage as a hint) |
 | 5 | Pop-up has no close button | `frontend/components/global-subscribe-popup.tsx` | Fixed in Phase 2 |
-| 6 | GTM + GA4 + Meta Pixel + Ads all load in `<head>`; GA4 possibly double-counted | `frontend/app/(public)/layout.tsx` | Fixed in Phase 1 |
+| 6 | GTM + GA4 + Meta Pixel + Ads all load in `<head>`; GA4 possibly double-counted | `frontend/app/(public)/layout.tsx` | Fixed in Phase 1. GA4 is not double-counted: the published GTM container `GTM-K6F4DJ54` has no tags (checked 2026-09-26), so the standalone gtag is the only path. The GTM snippet loads ~330 KB that does nothing; removing it is the owner's call. If a GA4 tag is ever added to the container, delete the standalone one. |
 | 7 | `next.config.mjs` empty — no image optimisation, no remote patterns, no cache headers | — | Fixed in Phase 1 |
 | 8 | Reader comments fetched on page load (~1.1s measured) against the sleepy API | `frontend/components/reflection-form.tsx` | Fixed in Phase 1 |
 | 9 | Runtime string-replacement patching content copy ("Seventeen" → "Eighteen booklets") | `frontend/lib/content-store.ts` | Open — clean up when the content model is next touched |
-| 10 | Three Google font families; brand guidelines specify two | `frontend/app/(public)/layout.tsx` | Open — needs visual review |
-| 11 | `admin-editor.tsx` 5.4k lines, `server.js` 3.9k lines; `console.log` in production paths | — | Phase 4 |
+| 10 | Three Google font families; brand guidelines specify two | `frontend/app/(public)/layout.tsx` | Fixed: Cormorant Garamond dropped. Labels, nav and buttons (the `label` role, 235 uses) now use Crimson Pro; headings stay Playfair Display. Compared before/after on home, series and booklet at desktop and phone width: no overflow, page heights unchanged. |
+| 11 | `admin-editor.tsx` 5.4k lines, `server.js` 3.9k lines; `console.log` in production paths | — | `console.log` done: the only request-path one now goes through `debugLog`; the startup email-config check logs on purpose. File splits remain Phase 4, only when something else touches them. |
 
 **Problem 2 is the keystone:** no text version of any booklet exists, which simultaneously
 blocks depth-gating, blocks SEO, and makes mobile heavy.

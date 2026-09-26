@@ -32,7 +32,8 @@ const config: Config = {
       fontFamily: {
         display: ["var(--font-display)", "Georgia", "serif"],
         body: ["var(--font-body)", "Georgia", "serif"],
-        label: ["var(--font-label)", "Georgia", "serif"],
+        // Labels share the body face; the site is set in two families, not three.
+        label: ["var(--font-body)", "Georgia", "serif"],
         /**
          * What the booklets are typeset in. The Telugu family is listed second rather
          * than given its own class: font fallback is per glyph, so Latin takes Noto Serif

@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import {
   Arimo,
-  Cormorant_Garamond,
   Crimson_Pro,
   EB_Garamond,
   Gelasio,
@@ -24,17 +23,17 @@ const playfair = Playfair_Display({
   display: "swap"
 });
 
+/**
+ * Two faces for the site, as the brand guidelines ask: Playfair Display for headings and
+ * Crimson Pro for everything else, labels and buttons included. A third family, Cormorant
+ * Garamond, used to set the uppercase labels; its thin strokes were faint at label sizes
+ * and it cost a download on every page. The `label` role in tailwind.config now resolves
+ * to this face.
+ */
 const crimson = Crimson_Pro({
   subsets: ["latin"],
   variable: "--font-body",
   display: "swap"
-});
-
-const cormorant = Cormorant_Garamond({
-  subsets: ["latin"],
-  variable: "--font-label",
-  display: "swap",
-  weight: ["500", "600", "700"]
 });
 
 /**
@@ -148,7 +147,7 @@ export default async function RootLayout({
 
   return (
     <html
-      className={`${playfair.variable} ${crimson.variable} ${cormorant.variable} ${notoSerif.variable} ${notoSerifTelugu.variable} ${ebGaramond.variable} ${gelasio.variable} ${arimo.variable}`}
+      className={`${playfair.variable} ${crimson.variable} ${notoSerif.variable} ${notoSerifTelugu.variable} ${ebGaramond.variable} ${gelasio.variable} ${arimo.variable}`}
       lang="en"
     >
       <head>
@@ -222,9 +221,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
             </Script>
 
             {/*
-              GA4 also runs through the GTM container above. If G-HYV3VRYR06 is configured
-              there, this standalone tag double-counts and should be deleted — that check
-              needs the container, not the code.
+              This standalone tag is the only GA4 path, so it does not double-count. Checked
+              2026-09-26 against the published container: GTM-K6F4DJ54 has no tags, no rules
+              and no GA4 or Ads configuration (the live gtm.js carries "tags":[]). The GTM
+              snippet above therefore loads a ~330 KB script that does nothing today; if
+              anyone adds a GA4 tag to the container, delete this one or every hit counts
+              twice.
             */}
             <Script
               src="https://www.googletagmanager.com/gtag/js?id=G-HYV3VRYR06"
