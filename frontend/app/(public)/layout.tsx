@@ -197,35 +197,17 @@ export default async function RootLayout({
         {isSandbox ? null : <meta name="google-site-verification" content="GTM-K6F4DJ54" />}
       </head>
       <body>
-        {/* The live GTM container, GA4 property and Meta Pixel stay off the sandbox. */}
+        {/* The live GA4 property and Meta Pixel stay off the sandbox. */}
         {isSandbox ? null : (
           <>
-            {/* Google Tag Manager (noscript) */}
-            <noscript>
-              <iframe
-                src="https://www.googletagmanager.com/ns.html?id=GTM-K6F4DJ54"
-                height="0"
-                width="0"
-                style={{ display: "none", visibility: "hidden" }}
-              />
-            </noscript>
             <MetaPixel />
 
-            {/* Google Tag Manager */}
-            <Script id="gtm" strategy="afterInteractive">
-              {`(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-K6F4DJ54');`}
-            </Script>
-
             {/*
-              This standalone tag is the only GA4 path, so it does not double-count. Checked
-              2026-09-26 against the published container: GTM-K6F4DJ54 has no tags, no rules
-              and no GA4 or Ads configuration (the live gtm.js carries "tags":[]). The GTM
-              snippet above therefore loads a ~330 KB script that does nothing today; if
-              anyone adds a GA4 tag to the container, delete this one or every hit counts
+              GA4 is the only Google tag on the page. There is deliberately no Google Tag
+              Manager snippet: the container (GTM-K6F4DJ54) was checked on 2026-09-26 and had
+              no tags, rules or GA4/Ads configuration, so it loaded ~330 KB on every page to do
+              nothing, and it was removed. If a container is ever wanted again, add its
+              snippet back AND delete this tag if the container sends GA4, or every hit counts
               twice.
             */}
             <Script

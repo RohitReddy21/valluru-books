@@ -80,7 +80,7 @@ Frontend (`frontend/.env.local`, from `frontend/.env.example`):
 | 3 | The gate is decorative: `verifyAccessToken` defined but **never called**; `/api/booklets/:slug/pdf` checks publish status only | `backend/server.js` | Fixed in Phase 2 |
 | 4 | Access lives in `localStorage` per booklet — no cross-device memory | `frontend/components/booklet-reader.tsx` | Fixed in Phase 2 (server-side; reader UI still reads localStorage as a hint) |
 | 5 | Pop-up has no close button | `frontend/components/global-subscribe-popup.tsx` | Fixed in Phase 2 |
-| 6 | GTM + GA4 + Meta Pixel + Ads all load in `<head>`; GA4 possibly double-counted | `frontend/app/(public)/layout.tsx` | Fixed in Phase 1. GA4 is not double-counted: the published GTM container `GTM-K6F4DJ54` has no tags (checked 2026-09-26), so the standalone gtag is the only path. The GTM snippet loads ~330 KB that does nothing; removing it is the owner's call. If a GA4 tag is ever added to the container, delete the standalone one. |
+| 6 | GTM + GA4 + Meta Pixel + Ads all load in `<head>`; GA4 possibly double-counted | `frontend/app/(public)/layout.tsx` | Fixed in Phase 1. GA4 is not double-counted: the published GTM container `GTM-K6F4DJ54` has no tags (checked 2026-09-26), so the standalone gtag is the only path. The GTM snippet loaded ~330 KB that did nothing and was removed (2026-09-26); the layout carries only GA4 and the Pixel. If a container is ever wanted again, add its snippet back and delete the standalone gtag if the container sends GA4. Search Console/Ads ownership that was verified through the GTM method would need re-verifying (see the Phase 1 acceptance checklist below). |
 | 7 | `next.config.mjs` empty — no image optimisation, no remote patterns, no cache headers | — | Fixed in Phase 1 |
 | 8 | Reader comments fetched on page load (~1.1s measured) against the sleepy API | `frontend/components/reflection-form.tsx` | Fixed in Phase 1 |
 | 9 | Runtime string-replacement patching content copy ("Seventeen" → "Eighteen booklets") | `frontend/lib/content-store.ts` | Open — clean up when the content model is next touched |
@@ -112,8 +112,9 @@ Branch `perf/phase-1`.
   should see the change on the next request instead of one more stale copy.
 - **`backend/server.js`** — `PUT /api/content` pings the revalidate route after a
   successful save, fire-and-forget so a failed ping never fails the admin save.
-- **`frontend/app/(public)/layout.tsx`** — GTM, GA4 and Pixel moved out of `<head>` into
-  `next/script` with `strategy="afterInteractive"`; preconnect hints kept.
+- **`frontend/app/(public)/layout.tsx`** — GA4 and Pixel moved out of `<head>` into
+  `next/script` with `strategy="afterInteractive"`; preconnect hints kept. The GTM snippet was
+  removed later: its container was empty.
 - **`frontend/components/reflection-form.tsx`** — comments load via `IntersectionObserver`
   (`rootMargin: "600px 0px"`) with a 1.2s timeout fallback.
 - **`frontend/next.config.mjs`** — was empty; Supabase remote patterns, AVIF/WebP, device
@@ -141,8 +142,9 @@ wrong, or different-length secret, and 200 for the correct secret by query or bo
 
 ### Still to verify on a real deployment
 
-- The GTM container — if GA4 `G-HYV3VRYR06` is configured there too, delete the standalone
-  gtag in the layout or it double-counts. This needs the container, not the code.
+- The GTM container was checked and is empty (2026-09-26), so there is no GA4 double-count and the
+  GTM snippet was removed. Check Search Console / Google Ads for any property that was verified
+  through the Tag Manager method and re-verify it (HTML tag, DNS or the GA4 tag works).
 - GA4 / Ads / Pixel still recording a sign-up end to end.
 - `admin save → /api/revalidate → change visible` against a live backend and frontend with
   a matching `REVALIDATE_SECRET`.
@@ -898,7 +900,7 @@ comparing them.
 
 `lib/site-env.ts`. Set on the sandbox Vercel project only. It adds `noindex` (meta and
 `X-Robots-Tag`), serves a disallow-all `robots.txt` (`app/robots.ts` replaced the static
-file), and leaves out the GTM, GA4 and Pixel tags so a test sign-up cannot reach the live
+file), and leaves out the GA4 and Pixel tags so a test sign-up cannot reach the live
 analytics. **Unset is the live site.** When testing tracking locally, block the collect
 endpoints in Playwright (`analytics.google.com`, `doubleclick.net`, `facebook.com/tr`,
 `google.com/ccm|rmkt`) — the tags fire real hits at the real property.
