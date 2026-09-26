@@ -452,6 +452,23 @@ const TABLE_MARKER = "[[table]]";
  */
 const TABLES = [
   {
+    // "15. The Gist", pages 22–23; the header repeats where the table breaks over the page.
+    booklet: "booklet-one",
+    start: "Spiritual danger it Text / Axis Entry-point Main movement corrects",
+    rows: [
+      ["Text / Axis", "Entry-point", "Main movement", "Spiritual danger it corrects"],
+      ["Gita", "Arjuna’s collapse in duty", "From paralysis to disciplined alignment", "“I can escape action because action is difficult.”"],
+      ["Rāma-Jābāli", "A clever argument against costly dharma", "From convenience to vow", "“Truth changes because opinion changes.”"],
+      ["Tripura Rahasya", "Paraśurāma’s existential collapse", "From power, violence, pride to inquiry into Consciousness", "“I can conquer my way to truth.”"],
+      ["Nirguna-Saguna-Guṇa", "The need to understand manifestation properly", "From childish theology to mature recognition of Śakti and guṇa-play", "“Divine beings and great beings must behave like flat moral diagrams.”"],
+      ["Samvartaka", "Righteousness confronting envy and hierarchy", "From social dependence to terrifying inner freedom", "“High office means freedom from envy.”"],
+      ["Vijñāna Bhairava Tantra", "Devi’s refined doubt", "From doctrine to direct experiential recognition", "“I understand the teaching, therefore I know.”"],
+      ["Bhagavatam", "Vyāsa’s dissatisfaction; Parīkṣit’s death sentence", "From knowledge, duty, and mortality to loving surrender", "“I can finish the journey through knowledge alone.”"],
+      ["Rāvaṇa Brahma and the great complex beings", "Power and knowledge under asura-aṁśa, curse, ego, and māyā", "From cartoon morality to discriminating reverence", "“If someone falls, nothing in him was great.”"],
+      ["Harishchandra test", "Truth when gods, gurus, and consolations fall silent", "From conditional faith to dharma under fire", "“Surrender means I will always receive a visible happy ending.”"]
+    ]
+  },
+  {
     booklet: "booklet-one",
     start: "Yoga / Marga What it re-aligns",
     rows: [

@@ -849,9 +849,12 @@ characters, at the places a fresh extraction starts a paragraph, comparing lette
 only, cutting only after a sentence end, and refusing any cut whose pieces don't rejoin to the
 original text. Booklet 21 sets paragraphs just 16 pt apart on a 12–13 pt line, under the
 extractor's threshold, so its paragraph starts came from splitting on vertical gap > 14.5 pt
-(plus the normal extraction's). Still over 1,000 characters, not yet re-cut: booklets 2, 3, 7,
-16, 17, 19, 20 (one to three paragraphs each) — same method applies. Booklet one's "15. The
-Gist" opens with another flattened table ("Text / Axis Entry-point Main movement…").
+(plus the normal extraction's). Booklets 2, 3, 7, 16 and 17 were then re-cut the same way
+from the normal extraction; 19 and 20 needed a 13.5 pt gap threshold. Booklet one's "15. The
+Gist" flattened table is rebuilt as a second TABLES entry (four columns). Tables of three or
+more columns carry `data-cols` and stack into one entry per row, each cell under its column
+name, when their page is under 560px wide (a container query, so the paginated reader's page
+width decides, not the window's).
 
 **The reader is ragged-right, not justified.** `.book-flow .rd-p` was `text-align: justify`
 with `hyphens: auto`. In a ~35-character column with short paragraphs and long Sanskrit words,

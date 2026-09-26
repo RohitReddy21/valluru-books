@@ -86,7 +86,7 @@ function ChapterBlocks({ blocks, chapterId }: { blocks: ChapterBlock[]; chapterI
 
           return (
             <div className="rd-table-wrap" key={key}>
-              <table className="rd-table">
+              <table className="rd-table" data-cols={head.length}>
                 <thead>
                   <tr>
                     {head.map((cell, cellIndex) => (
@@ -105,7 +105,9 @@ function ChapterBlocks({ blocks, chapterId }: { blocks: ChapterBlock[]; chapterI
                             {cell}
                           </th>
                         ) : (
-                          <td key={`${key}-r${rowIndex}c${cellIndex}`}>{cell}</td>
+                          <td key={`${key}-r${rowIndex}c${cellIndex}`} data-label={head[cellIndex]}>
+                            {cell}
+                          </td>
                         )
                       )}
                     </tr>

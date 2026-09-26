@@ -1233,9 +1233,73 @@ a {
 }
 
 .rd-table tbody th {
-  width: 34%;
   font-weight: 600;
   color: var(--reading-head);
+}
+
+.rd-table[data-cols="2"] tbody th {
+  width: 34%;
+}
+
+/* Three or more columns: sized by the page the table sits in, not the window, since the
+   paginated reader's page is narrower than the screen on a wide one. */
+.rd-table-wrap:has(.rd-table:not([data-cols="2"])) {
+  container-type: inline-size;
+}
+
+.rd-table:not([data-cols="2"]) {
+  font-size: 0.8em;
+}
+
+.rd-table:not([data-cols="2"]) th,
+.rd-table:not([data-cols="2"]) td {
+  padding: 0.5em 0.45em;
+}
+
+.rd-table:not([data-cols="2"]) thead th {
+  letter-spacing: 0.06em;
+}
+
+/* Too narrow for the columns to hold whole words: each row becomes its own small entry, the
+   row name as its heading and every cell under the column name it belongs to. */
+@container (max-width: 560px) {
+  .rd-table:not([data-cols="2"]) {
+    font-size: 0.9em;
+  }
+
+  .rd-table:not([data-cols="2"]) thead {
+    display: none;
+  }
+
+  .rd-table:not([data-cols="2"]),
+  .rd-table:not([data-cols="2"]) tbody,
+  .rd-table:not([data-cols="2"]) tr,
+  .rd-table:not([data-cols="2"]) th,
+  .rd-table:not([data-cols="2"]) td {
+    display: block;
+  }
+
+  .rd-table:not([data-cols="2"]) tr {
+    padding: 0.7em 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--reading-ink) 16%, transparent);
+  }
+
+  .rd-table:not([data-cols="2"]) th,
+  .rd-table:not([data-cols="2"]) td {
+    padding: 0.15em 0;
+    border-bottom: 0;
+  }
+
+  .rd-table:not([data-cols="2"]) td::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.72em;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--reading-label);
+    margin-top: 0.35em;
+  }
 }
 
 .rd-table tr {

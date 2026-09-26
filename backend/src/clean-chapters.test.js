@@ -154,6 +154,24 @@ test("the flattened yoga table becomes a table", async () => {
   assert.equal(cleaned.chapters[0].paragraphs[1].split("\n").length, 11, "the marker, the header and nine rows");
 });
 
+test("the flattened Gist table becomes a four-column table", async () => {
+  const { buildLexicon, cleanBooklet } = await load();
+  const { booklet: cleaned } = cleanBooklet(
+    booklet(
+      [{ title: "15. The Gist", paragraphs: ["Spiritual danger it Text / Axis Entry-point Main movement corrects From paralysis to disciplined Gita Arjuna’s collapse in duty alignment", "If I had to compress all of this into one flow, I would say this."] }],
+      "booklet-one"
+    ),
+    buildLexicon([])
+  );
+  const rows = cleaned.chapters[0].paragraphs[0].split("\n");
+
+  assert.equal(rows[0], "[[table]]");
+  assert.equal(rows[1], "Text / Axis | Entry-point | Main movement | Spiritual danger it corrects");
+  assert.equal(rows.length, 11, "the marker, the header and nine rows");
+  assert.ok(rows.slice(1).every((row) => row.split(" | ").length === 4));
+  assert.equal(cleaned.chapters[0].paragraphs[1], "If I had to compress all of this into one flow, I would say this.");
+});
+
 test("a leaked contents run with no Contents heading to anchor on is stripped, scoped to its booklet", async () => {
   const { buildLexicon, cleanBooklet } = await load();
   const { booklet: cleaned } = cleanBooklet(
