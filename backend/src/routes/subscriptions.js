@@ -43,7 +43,7 @@ function registerSubscriptionRoutes(
         const name = String(request.body?.name || "").trim();
         const bookletSlug = String(request.body.bookletSlug || "").trim();
         
-        console.log("[subscribe] Local dev mode - MongoDB not available, returning success");
+        debugLog("[subscribe] Local dev mode - MongoDB not available, returning success");
         
         if (setSubscriberCookie && email) {
           setSubscriberCookie(response, request, { email, name });
