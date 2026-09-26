@@ -1946,9 +1946,10 @@ app.post("/api/track-unlock", async (request, response, next) => {
       existingSubscriber,
       cookieSubscriber
     });
-    const alreadyLogged = await db
-      .collection("booklet_unlocks")
-      .findOne(recentUnlockFilter({ bookletSlug, email: reader.email, ip, now }), { projection: { _id: 1 } });
+    const recentFilter = recentUnlockFilter({ bookletSlug, email: reader.email, now });
+    const alreadyLogged = recentFilter
+      ? await db.collection("booklet_unlocks").findOne(recentFilter, { projection: { _id: 1 } })
+      : null;
 
     // The reader opens a booklet, then the gate checks, then the reader page re-checks: one
     // sitting was being written as three unlocks and counted as three reads.

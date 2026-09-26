@@ -71,11 +71,13 @@ test("an anonymous read can never match, and so overwrite, a subscriber's row fr
 
 test("repeat calls in one sitting look for an unlock row inside the window", () => {
   const now = new Date("2026-09-26T10:00:00Z");
-  const person = recentUnlockFilter({ bookletSlug: "booklet-one", email: "reader@example.com", ip: "1.2.3.4", now });
-  const device = recentUnlockFilter({ bookletSlug: "booklet-one", email: null, ip: "1.2.3.4", now });
+  const person = recentUnlockFilter({ bookletSlug: "booklet-one", email: "reader@example.com", now });
 
   assert.equal(person.email, "reader@example.com");
   assert.equal("ip" in person, false, "a person is the same person on any network");
-  assert.deepEqual([device.email, device.ip], [null, "1.2.3.4"]);
   assert.equal(person.unlockedAt.$gte.getTime(), now.getTime() - UNLOCK_DEDUPE_MS);
+});
+
+test("an anonymous read is never treated as a repeat: the IP behind the proxy is shared", () => {
+  assert.equal(recentUnlockFilter({ bookletSlug: "booklet-one", email: null }), null);
 });

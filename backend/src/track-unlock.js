@@ -39,11 +39,21 @@ function resolveTrackedReader({ bodyName, existingSubscriber, cookieSubscriber }
   return { email, name, verified: true };
 }
 
-/** The unlock row that already covers this reader and booklet, if any, within the window. */
-function recentUnlockFilter({ bookletSlug, email, ip, now = new Date() }) {
+/**
+ * The unlock row that already covers this reader and booklet, if any, within the window.
+ *
+ * Null for an anonymous read: the only thing to match it on is request.ip, and behind
+ * Render that is the platform's internal proxy address, shared by every visitor. Treating
+ * it as a person would let one anonymous read hide all the others for half an hour.
+ */
+function recentUnlockFilter({ bookletSlug, email, now = new Date() }) {
+  if (!email) {
+    return null;
+  }
+
   return {
     bookletSlug,
-    ...(email ? { email } : { email: null, ip: ip || null }),
+    email,
     unlockedAt: { $gte: new Date(now.getTime() - UNLOCK_DEDUPE_MS) }
   };
 }
