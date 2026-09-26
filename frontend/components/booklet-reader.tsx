@@ -53,6 +53,10 @@ export function BookletReader({ booklet }: Props) {
   const pdfUrl = accessToken
     ? apiUrl(`/api/booklets/${booklet.slug}/pdf?token=${encodeURIComponent(accessToken)}`)
     : apiUrl(`/api/booklets/${booklet.slug}/pdf`);
+  // The signed-link twin of the URL above; the modal streams from pdfUrl if it cannot answer.
+  const pdfLinkUrl = accessToken
+    ? apiUrl(`/api/booklets/${booklet.slug}/pdf-link?token=${encodeURIComponent(accessToken)}`)
+    : apiUrl(`/api/booklets/${booklet.slug}/pdf-link`);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -225,6 +229,7 @@ export function BookletReader({ booklet }: Props) {
           numberLabel={booklet.numberLabel}
           onClose={() => setReaderOpen(false)}
           open={readerOpen}
+          pdfLinkUrl={pdfLinkUrl}
           pdfUrl={pdfUrl}
           title={booklet.title}
         />

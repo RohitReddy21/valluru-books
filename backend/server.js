@@ -29,6 +29,7 @@ const {
 } = require("./src/access-tokens");
 const { debugLog } = require("./src/debug-log");
 const { readerKey, recentUnlockFilter, resolveTrackedReader } = require("./src/track-unlock");
+const { resolvePdfLink } = require("./src/booklet-pdf");
 const {
   createSignedStorageUrl,
   deleteSupabaseFile,
@@ -3277,53 +3278,84 @@ app.post(
   }
 );
 
-app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
+/**
+ * The checks every read of a booklet's PDF goes through: the booklet exists and is
+ * published in a published series, the request holds access, and there is a file.
+ *
+ * Sends the error itself and returns null when any of them fails, so a route using this
+ * simply stops on null. Shared by the streaming route and the signed-link route so the two
+ * can never disagree about who may read.
+ */
+async function loadReadableBookletPdf(request, response, label) {
+  const { slug } = request.params;
+  debugLog(`[${label}] Request for:`, slug);
+
+  const entry = findContentBookletEntry(await getSiteContent(), slug);
+  const booklet = entry?.booklet;
+
+  // A draft booklet, or one in a draft series, stays unreachable, so a guessed URL cannot
+  // leak its PDF.
+  if (
+    !booklet ||
+    (booklet.status && booklet.status !== "published") ||
+    !isPublishedStatus(entry.series?.status)
+  ) {
+    debugLog(`[${label}] Booklet not found or not published:`, slug);
+    response.status(404).json({ error: "Booklet not found." });
+    return null;
+  }
+
+  if (!hasBookletAccess(request, slug)) {
+    response.status(401).json({ error: "Subscribe to read this booklet." });
+    return null;
+  }
+
+  if (!booklet.pdf) {
+    debugLog(`[${label}] No PDF available`);
+    response.status(404).json({ error: "No uploaded PDF is available for this booklet yet." });
+    return null;
+  }
+
+  return { slug, booklet };
+}
+
+/**
+ * The reader's way to a booklet PDF that does not go through this server: the same checks
+ * as /pdf, then a short-lived signed link the browser fetches straight from storage.
+ * `url: null` means no link could be made and the reader falls back to streaming from /pdf.
+ *
+ * The answer is per reader and is a credential while it lasts, so it is never cached.
+ */
+app.get("/api/booklets/:slug/pdf-link", async (request, response, next) => {
   try {
-    const { slug } = request.params;
-    debugLog("[booklets/:slug/pdf] Request for:", slug);
+    const found = await loadReadableBookletPdf(request, response, "booklets/:slug/pdf-link");
 
-    const content = await getSiteContent();
-    const entry = findContentBookletEntry(content, slug);
-    const booklet = entry?.booklet;
+    if (!found) {
+      return;
+    }
 
-    debugLog("[booklets/:slug/pdf] Booklet metadata:", {
-      slug,
-      bookletFound: !!booklet,
-      seriesKey: entry?.key,
-      status: booklet?.status,
-      published: booklet?.status === "published" || !booklet?.status
+    const link = await resolvePdfLink(found.booklet.pdf, {
+      parseObject: getSupabaseObjectFromUrl,
+      sign: createSignedStorageUrl
     });
 
-    if (!booklet) {
-      debugLog("[booklets/:slug/pdf] Booklet not found");
-      response.status(404).json({ error: "Booklet not found." });
+    debugLog("[booklets/:slug/pdf-link] Resolved", { slug: found.slug, kind: link.kind });
+    response.set("Cache-Control", "private, no-store");
+    response.json({ url: link.url, kind: link.kind });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/booklets/:slug/pdf", async (request, response, next) => {
+  try {
+    const found = await loadReadableBookletPdf(request, response, "booklets/:slug/pdf");
+
+    if (!found) {
       return;
     }
 
-    if (booklet.status && booklet.status !== "published") {
-      debugLog("[booklets/:slug/pdf] Booklet not published:", booklet.status);
-      response.status(404).json({ error: "Booklet not found." });
-      return;
-    }
-
-    // Booklets in an unpublished series stay unreachable, so a draft series cannot leak
-    // its PDFs through a guessed URL.
-    if (!isPublishedStatus(entry.series?.status)) {
-      debugLog("[booklets/:slug/pdf] Series not published:", entry.series?.status);
-      response.status(404).json({ error: "Booklet not found." });
-      return;
-    }
-
-    if (!hasBookletAccess(request, slug)) {
-      response.status(401).json({ error: "Subscribe to read this booklet." });
-      return;
-    }
-
-    if (!booklet.pdf) {
-      debugLog("[booklets/:slug/pdf] No PDF available");
-      response.status(404).json({ error: "No uploaded PDF is available for this booklet yet." });
-      return;
-    }
+    const { slug, booklet } = found;
 
     debugLog("[booklets/:slug/pdf] PDF available:", {
       pdfUrl: booklet.pdf.substring(0, 100)

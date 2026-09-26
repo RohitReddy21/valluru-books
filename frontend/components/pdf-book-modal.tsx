@@ -8,6 +8,13 @@ type Props = {
   open: boolean;
   onClose: () => void;
   pdfUrl: string;
+  /**
+   * Where to ask for a short-lived signed link to the file. When it answers, the PDF is
+   * fetched straight from storage instead of through the API, which has to download the
+   * whole file before it can send a byte. Omitted, or when it cannot answer, `pdfUrl` is
+   * streamed exactly as before.
+   */
+  pdfLinkUrl?: string;
   title: string;
   numberLabel: string;
   accessToken?: string;
@@ -22,10 +29,34 @@ type PdfPage = {
 
 const PDFJS_ASSET_PATH = "/pdfjs/";
 
+/** The API sleeps on Render's free tier; past this, stream from it rather than wait more. */
+const LINK_TIMEOUT_MS = 15000;
+
+async function fetchSignedLink(linkUrl: string, accessToken?: string) {
+  try {
+    const response = await fetch(linkUrl, {
+      credentials: "include",
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
+      signal: AbortSignal.timeout(LINK_TIMEOUT_MS)
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as { url?: string | null };
+
+    return payload.url || null;
+  } catch {
+    return null;
+  }
+}
+
 export function PdfBookModal({
   open,
   onClose,
   pdfUrl,
+  pdfLinkUrl,
   title,
   numberLabel,
   accessToken
@@ -47,25 +78,40 @@ export function PdfBookModal({
         const pdfjs = await import("pdfjs-dist");
         pdfjs.GlobalWorkerOptions.workerSrc = `${PDFJS_ASSET_PATH}pdf.worker.min.mjs`;
 
-        const isExternal = /^https?:\/\//.test(pdfUrl);
-        const loadingParams = {
-          url: pdfUrl,
-          cMapPacked: true,
-          cMapUrl: `${PDFJS_ASSET_PATH}cmaps/`,
-          httpHeaders: (!isExternal && accessToken)
-            ? {
-                Authorization: `Bearer ${accessToken}`
-              }
-            : undefined,
-          iccUrl: `${PDFJS_ASSET_PATH}iccs/`,
-          standardFontDataUrl: `${PDFJS_ASSET_PATH}standard_fonts/`,
-          useWasm: true,
-          wasmUrl: `${PDFJS_ASSET_PATH}wasm/`,
-          // The API is a different origin in production, which is exactly when the
-          // subscriber cookie needs sending — so this must not be conditional on that.
-          withCredentials: true
-        } as Parameters<typeof pdfjs.getDocument>[0];
-        const pdf = await pdfjs.getDocument(loadingParams).promise;
+        // `fromApi` is whether this request goes to our API, which needs the subscriber
+        // cookie and token, or to storage with a signed link, which must carry neither:
+        // storage answers with a wildcard CORS origin, which a credentialed request refuses.
+        const load = (url: string, fromApi: boolean) => {
+          const isExternal = /^https?:\/\//.test(url);
+          const loadingParams = {
+            url,
+            cMapPacked: true,
+            cMapUrl: `${PDFJS_ASSET_PATH}cmaps/`,
+            httpHeaders: (fromApi && !isExternal && accessToken)
+              ? {
+                  Authorization: `Bearer ${accessToken}`
+                }
+              : undefined,
+            iccUrl: `${PDFJS_ASSET_PATH}iccs/`,
+            standardFontDataUrl: `${PDFJS_ASSET_PATH}standard_fonts/`,
+            useWasm: true,
+            wasmUrl: `${PDFJS_ASSET_PATH}wasm/`,
+            // The API is a different origin in production, which is exactly when the
+            // subscriber cookie needs sending — so for the API this is not conditional.
+            withCredentials: fromApi
+          } as Parameters<typeof pdfjs.getDocument>[0];
+
+          return pdfjs.getDocument(loadingParams).promise;
+        };
+
+        // A signed link when the API will give one; otherwise, or if that file cannot be
+        // opened (an expired link, a storage hiccup), stream it through the API as before.
+        const signedUrl = pdfLinkUrl ? await fetchSignedLink(pdfLinkUrl, accessToken) : null;
+        let pdf = signedUrl ? await load(signedUrl, false).catch(() => null) : null;
+
+        if (!pdf) {
+          pdf = await load(pdfUrl, true);
+        }
         const renderedPages: PdfPage[] = [];
 
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
@@ -121,7 +167,7 @@ export function PdfBookModal({
     return () => {
       cancelledRef.current = true;
     };
-  }, [accessToken, open, pdfUrl]);
+  }, [accessToken, open, pdfLinkUrl, pdfUrl]);
 
   useEffect(() => {
     if (!open) {
