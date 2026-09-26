@@ -666,7 +666,7 @@ file), which no gate can see. Whether they stay is the owner's call.
 
 ### Sign-up is email only
 
-No Name field anywhere (newsletter, pop-up, ads, booklet reader). The API never required
+No Name field anywhere (newsletter, pop-up, ads, booklet reader, and since 2026-09-26 the reader reflection form, whose API no longer requires one; new reflections show as "Reader"). The API never required
 one; it now leaves a stored name alone when none is sent, and the emails no longer say
 "Dear ,".
 
