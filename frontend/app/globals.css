@@ -1150,7 +1150,55 @@ a {
 .book-flow .gate-card {
   width: 100%;
   max-width: none;
-  padding: 1.6em 1.1em 1.3em;
+  padding: 1.2em 1em 1.1em;
+}
+
+/* The card must fit one page, a phone page included, or its foot spills onto a page of its
+   own and the form is cut in two. A book page is shorter than the page the card was drawn
+   for, so it sets tighter here. */
+.book-flow .gate-ornament {
+  margin-bottom: 0.9rem;
+}
+
+.book-flow .gate-title {
+  font-size: 1.38em;
+}
+
+.book-flow .gate-next {
+  max-height: 6.4em;
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+}
+
+.book-flow .gate-next::after {
+  height: 2.6em;
+}
+
+.book-flow .gate-form {
+  margin-top: 0.9rem;
+}
+
+/* The grid's one column otherwise sizes to the button's unbroken label, which is wider than
+   a narrow book page: the field and the button then run past the card's edge. */
+.gate-form {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.book-flow .gate-button {
+  padding-inline: 0.8rem;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+/* Set by ChapterGate when the card does not fit the page: the count and the email field
+   always stay. */
+.book-flow .gate-card[data-fit="1"] .gate-next-teaser,
+.book-flow .gate-card[data-fit="1"] .gate-next::after {
+  display: none;
+}
+
+.book-flow .gate-card[data-fit="2"] .gate-next {
+  display: none;
 }
 
 /* ── Tables the booklets print (the yoga toolkit in booklet one) ──────────────────── */

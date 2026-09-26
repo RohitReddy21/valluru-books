@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowRight, Loader2, Mail } from "lucide-react";
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { ChapterArticle, splitChapterTitle, type ReadableChapter } from "@/components/chapter-body";
 import { trackEmailSubscription } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api";
@@ -24,6 +24,46 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "saving" | "error">("idle");
   const [slow, setSlow] = useState(false);
+
+  /*
+   * In the book the card must fit one page, and how tall a page is depends on the screen and
+   * the booklet's type size, so it is measured rather than guessed. A card the columns have
+   * split in two sheds the teaser line first, then the whole "next chapter" preview.
+   */
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [fit, setFit] = useState(0);
+
+  useLayoutEffect(() => {
+    const card = cardRef.current;
+    const flow = card?.closest(".book-flow");
+
+    if (!card || !flow || fit >= 2) {
+      return;
+    }
+
+    // The book lays itself out after it opens and again on every resize, so the check runs
+    // whenever the page box changes size, not only once on mount.
+    const check = () => {
+      if (card.getClientRects().length > 1) {
+        setFit((current) => Math.min(2, current + 1));
+      }
+    };
+    const observer = new ResizeObserver(check);
+
+    observer.observe(flow);
+    observer.observe(card);
+    check();
+
+    return () => observer.disconnect();
+  }, [fit]);
+
+  useEffect(() => {
+    const reset = () => setFit(0);
+    window.addEventListener("resize", reset);
+
+    return () => window.removeEventListener("resize", reset);
+  }, []);
+
 
   /**
    * The server never puts gated prose in the page, so the only way to know whether this
@@ -181,7 +221,7 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
    */
   return (
     <div className="valluru-gated">
-      <div className="gate-card">
+      <div className="gate-card" data-fit={fit} ref={cardRef}>
         <span aria-hidden="true" className="gate-ornament" />
         <p className="gate-eyebrow">The free reading ends here</p>
         <h3 className="gate-title">
