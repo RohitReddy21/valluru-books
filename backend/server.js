@@ -2909,12 +2909,8 @@ app.post("/api/reflections", async (request, response, next) => {
 
     const rating = Number(request.body?.rating);
     const bookletSlug = String(request.body?.bookletSlug || "");
+    // No name is asked for any more; older clients may still send one, and it is kept.
     const name = String(request.body?.name || "").trim();
-
-    if (!name) {
-      response.status(400).json({ error: "Name is required." });
-      return;
-    }
 
     if (!bookletSlug || !rating || rating < 1 || rating > 5) {
       response.status(400).json({
@@ -2930,7 +2926,7 @@ app.post("/api/reflections", async (request, response, next) => {
 
     const comment = {
       bookletSlug,
-      name,
+      ...(name ? { name } : {}),
       rating,
       comment: String(request.body.comment || "").trim(),
       createdAt: new Date()
