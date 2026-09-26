@@ -4,6 +4,7 @@ import { AdsSubscriptionGate } from "@/components/ads-subscription-gate";
 import { NewsletterForm } from "@/components/newsletter-form";
 import {
   BookletCard,
+  HeroBackground,
   PageShell,
   PrimaryLink,
   SecondaryLink,
@@ -59,16 +60,18 @@ export default async function AdsPage() {
       <AdsSubscriptionGate>
 
       {/* ── HERO ─────────────────────────────────────────────────────── */}
-      <section
-        className="hero-texture px-4 pb-16 pt-24 sm:px-5 sm:pb-24 sm:pt-36"
-        style={
-          media.homeHeroImage
-            ? {
-                backgroundImage: `linear-gradient(90deg, rgba(15,14,12,0.97) 0%, rgba(15,14,12,0.90) 50%, rgba(15,14,12,0.45) 80%), linear-gradient(180deg, rgba(15,14,12,0.1), rgba(15,14,12,0.9)), url("${media.homeHeroImage}")`
-              }
-            : undefined
-        }
-      >
+      <section className="hero-texture relative isolate overflow-hidden px-4 pb-16 pt-24 sm:px-5 sm:pb-24 sm:pt-36">
+        {media.homeHeroImage ? (
+          // The two gradients the CSS background stacked over this image, now an overlay above
+          // a next/image: heavier on the left where the headline sits, settling into the page
+          // below. Same image and same look as before, but sized to the screen and served as
+          // AVIF/WebP with a long cache instead of the full file at every width.
+          <HeroBackground
+            overlayClassName="bg-[linear-gradient(90deg,rgba(15,14,12,0.97)_0%,rgba(15,14,12,0.90)_50%,rgba(15,14,12,0.45)_80%),linear-gradient(180deg,rgba(15,14,12,0.1),rgba(15,14,12,0.9))]"
+            priority
+            src={media.homeHeroImage}
+          />
+        ) : null}
         <div className="mx-auto grid min-h-[min(700px,calc(100dvh-6rem))] max-w-6xl items-center">
           <div className="max-w-3xl fade-up">
             {/* Eyebrow */}
