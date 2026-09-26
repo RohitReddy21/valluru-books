@@ -922,6 +922,16 @@ They hold a flag and an email in localStorage and nothing verifiable. `/api/trac
 returns an access token when the email is already a subscriber, and `ChapterGate` calls it
 once (`recoverAccess`) before showing the form.
 
+**What track-unlock may log** (`backend/src/track-unlock.js`, tested). The endpoint is open to
+anyone, so the body is not evidence of who is reading. An email and name are recorded only when
+the address belongs to a subscriber or the request carries the signed subscriber cookie;
+everyone else is an anonymous read (email/name null). The booklet must exist (404 otherwise)
+and its title comes from the content, not the request. Repeats by an identified reader within
+30 minutes are one unlock and one read. Anonymous reads are not de-duplicated: `request.ip`
+behind Render is one of a few internal proxy addresses (`10.x`) shared by every visitor, so
+anonymous rows keyed by it are counts, not devices. Fixing that means reading the client IP
+from X-Forwarded-For, which changes `trust proxy` and was left alone.
+
 ### Sitemap
 
 `app/sitemap.ts`, built from the published content (Inward Fire, Inward Mirror, movements).
