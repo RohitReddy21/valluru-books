@@ -49,15 +49,12 @@ export function BookletReader({ booklet }: Props) {
   );
 
   // The subscriber cookie is what normally proves access, but it is a third-party cookie
-  // to this origin and some browsers drop it. The token rides along in the URL so readers
-  // who subscribed before the gate existed keep working either way.
-  const pdfUrl = accessToken
-    ? apiUrl(`/api/booklets/${booklet.slug}/pdf?token=${encodeURIComponent(accessToken)}`)
-    : apiUrl(`/api/booklets/${booklet.slug}/pdf`);
+  // to this origin and some browsers drop it. The token is the fallback — carried as an
+  // Authorization header by the modal (PdfBookModal), not in the URL, so it never ends up
+  // in a server access log the way a query string does.
+  const pdfUrl = apiUrl(`/api/booklets/${booklet.slug}/pdf`);
   // The signed-link twin of the URL above; the modal streams from pdfUrl if it cannot answer.
-  const pdfLinkUrl = accessToken
-    ? apiUrl(`/api/booklets/${booklet.slug}/pdf-link?token=${encodeURIComponent(accessToken)}`)
-    : apiUrl(`/api/booklets/${booklet.slug}/pdf-link`);
+  const pdfLinkUrl = apiUrl(`/api/booklets/${booklet.slug}/pdf-link`);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {

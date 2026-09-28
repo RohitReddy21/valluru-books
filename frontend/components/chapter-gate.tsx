@@ -80,18 +80,19 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
        *
        * In production the API is on another domain, so the subscriber cookie is a
        * third-party cookie that Safari and Firefox drop by default — and a subscriber
-       * whose cookie is dropped was being told they had no access at all. The PDF link
-       * has carried this token since Phase 2 for exactly the same reason.
+       * whose cookie is dropped was being told they had no access at all. The token has
+       * carried this fallback since Phase 2 for exactly the same reason.
+       *
+       * It rides in the Authorization header, not the URL: a query string ends up in
+       * server access logs verbatim, and the backend already accepts either — see
+       * hasBookletAccess in access-tokens.js.
        */
       const token = readAccessToken(bookletSlug);
       const response = await fetch(
-        apiUrl(
-          `/api/booklets/${encodeURIComponent(bookletSlug)}/chapters${
-            token ? `?token=${encodeURIComponent(token)}` : ""
-          }`
-        ),
+        apiUrl(`/api/booklets/${encodeURIComponent(bookletSlug)}/chapters`),
         {
           credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
           signal: AbortSignal.timeout(CHAPTERS_FETCH_TIMEOUT_MS)
         }
       );

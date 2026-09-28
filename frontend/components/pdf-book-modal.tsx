@@ -3,6 +3,7 @@
 import { Loader2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { getApiBaseUrl } from "@/lib/api";
 
 type Props = {
   open: boolean;
@@ -78,27 +79,32 @@ export function PdfBookModal({
         const pdfjs = await import("pdfjs-dist");
         pdfjs.GlobalWorkerOptions.workerSrc = `${PDFJS_ASSET_PATH}pdf.worker.min.mjs`;
 
-        // `fromApi` is whether this request goes to our API, which needs the subscriber
-        // cookie and token, or to storage with a signed link, which must carry neither:
-        // storage answers with a wildcard CORS origin, which a credentialed request refuses.
-        const load = (url: string, fromApi: boolean) => {
-          const isExternal = /^https?:\/\//.test(url);
+        // Credentials go to our own API and nowhere else: a movement's PDF can be a raw
+        // external URL rather than one of our routes, and sending our subscriber cookie
+        // and token to a third-party host on every such request would be a real leak.
+        // Comparing origins is what actually tells the two apart — the URL's own shape
+        // does not, since both are equally `https://...`, which previously left this
+        // condition always false and the header dead code on every request.
+        const apiOrigin = new URL(getApiBaseUrl()).origin;
+        const load = (url: string, mayCarryCredentials: boolean) => {
+          const isOwnApi = mayCarryCredentials && new URL(url, window.location.href).origin === apiOrigin;
           const loadingParams = {
             url,
             cMapPacked: true,
             cMapUrl: `${PDFJS_ASSET_PATH}cmaps/`,
-            httpHeaders: (fromApi && !isExternal && accessToken)
-              ? {
-                  Authorization: `Bearer ${accessToken}`
-                }
-              : undefined,
+            httpHeaders:
+              isOwnApi && accessToken
+                ? {
+                    Authorization: `Bearer ${accessToken}`
+                  }
+                : undefined,
             iccUrl: `${PDFJS_ASSET_PATH}iccs/`,
             standardFontDataUrl: `${PDFJS_ASSET_PATH}standard_fonts/`,
             useWasm: true,
             wasmUrl: `${PDFJS_ASSET_PATH}wasm/`,
             // The API is a different origin in production, which is exactly when the
             // subscriber cookie needs sending — so for the API this is not conditional.
-            withCredentials: fromApi
+            withCredentials: isOwnApi
           } as Parameters<typeof pdfjs.getDocument>[0];
 
           return pdfjs.getDocument(loadingParams).promise;

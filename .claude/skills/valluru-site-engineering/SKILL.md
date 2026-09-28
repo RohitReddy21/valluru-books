@@ -82,7 +82,7 @@ Frontend (`frontend/.env.local`, from `frontend/.env.example`):
 | 5 | Pop-up has no close button | `frontend/components/global-subscribe-popup.tsx` | Fixed in Phase 2 |
 | 6 | GTM + GA4 + Meta Pixel + Ads all load in `<head>`; GA4 possibly double-counted | `frontend/app/(public)/layout.tsx` | Fixed in Phase 1. GA4 is not double-counted: the published GTM container `GTM-K6F4DJ54` has no tags (checked 2026-09-26), so the standalone gtag is the only path. The GTM snippet loaded ~330 KB that did nothing and was removed (2026-09-26); the layout carries only GA4 and the Pixel. If a container is ever wanted again, add its snippet back and delete the standalone gtag if the container sends GA4. Search Console/Ads ownership that was verified through the GTM method would need re-verifying (see the Phase 1 acceptance checklist below). |
 | 7 | `next.config.mjs` empty — no image optimisation, no remote patterns, no cache headers | — | Fixed in Phase 1. The `/ads` hero was the last CSS-background image; it now uses `HeroBackground` like every other page (2026-09-26): AVIF at the screen's width (about 4 KB at 414 px, 17 KB at 1280 px, against the 32.7 KB WebP it loaded before) with a 30-day cache. It also now covers the whole hero: the old CSS set no size or position, so the picture drew at natural size, pinned top-left, and ended in a visible seam. |
-| 8 | Reader comments fetched on page load (~1.1s measured) against the sleepy API | `frontend/components/reflection-form.tsx` | Fixed in Phase 1 |
+| 8 | Reader comments fetched on page load (~1.1s measured) against the sleepy API | `frontend/components/reflection-form.tsx` | Fixed in Phase 1. Hardened 2026-09-28 (see below); could not reproduce the reviewer's "stuck on Loading comments" across a real cold API, a warm one, real scroll, no scroll, client-side navigation between booklets, both reader types — the fetch always fired and resolved. |
 | 9 | Runtime string-replacement patching content copy ("Seventeen" → "Eighteen booklets") | `frontend/lib/content-store.ts` | Open — clean up when the content model is next touched |
 | 10 | Three Google font families; brand guidelines specify two | `frontend/app/(public)/layout.tsx` | Fixed: Cormorant Garamond dropped. Labels, nav and buttons (the `label` role, 235 uses) now use Crimson Pro; headings stay Playfair Display. Compared before/after on home, series and booklet at desktop and phone width: no overflow, page heights unchanged. |
 | 11 | `admin-editor.tsx` 5.4k lines, `server.js` 3.9k lines; `console.log` in production paths | — | `console.log` done: the only request-path one now goes through `debugLog`; the startup email-config check logs on purpose. File splits remain Phase 4, only when something else touches them. |
@@ -116,7 +116,18 @@ Branch `perf/phase-1`.
   `next/script` with `strategy="afterInteractive"`; preconnect hints kept. The GTM snippet was
   removed later: its container was empty.
 - **`frontend/components/reflection-form.tsx`** — comments load via `IntersectionObserver`
-  (`rootMargin: "600px 0px"`) with a 1.2s timeout fallback.
+  (`rootMargin: "600px 0px"`), with a scroll/resize listener (rAF-throttled, checks the
+  section's own `getBoundingClientRect`) as a second, independent trigger — added
+  2026-09-28 after a reviewer reported the section stuck on "Loading comments..." forever,
+  which repeated testing against the live sandbox could not reproduce (see the problem
+  table above), so this closes the gap defensively rather than from a confirmed cause. The
+  fetch itself: a 1.2s attempt, and only on failure a single retry at 20s (a real cold start
+  measured at ~26s TTFB; the old 1.2s **timeout was the only attempt**, so a reader arriving
+  while the API slept saw a permanent "could not be loaded" with nothing that ever tried
+  again — this is the closer, demonstrated failure). The error state now has a "Try again"
+  button. Both new timers are deferred at least one tick past the effect's own body, since a
+  set-state-in-effect lint rule (correctly) does not want a state update in an effect's
+  synchronous execution.
 - **`frontend/next.config.mjs`** — was empty; Supabase remote patterns, AVIF/WebP, device
   sizes, 30-day minimum cache TTL, `poweredByHeader: false`, `compress: true`, and
   `headers()` with `nosniff` / `Referrer-Policy` / `X-Frame-Options: SAMEORIGIN`
@@ -204,12 +215,23 @@ quiet day — and the grace path below is what keeps that from locking people ou
   different origin, which is precisely when the subscriber cookie needs sending — so it was
   never sent. Now unconditionally `true`.
 - **The same file only attached `Authorization: Bearer` when the URL was same-origin**, so
-  in production the access token never reached the server either. The token now rides in
-  the query string (`?token=`), which works cross-origin and on a plain `<a href>` download.
+  in production the access token never reached the server either. Fixed at the time by
+  putting the token in the query string (`?token=`) instead, which works regardless of
+  origin and would also work on a plain `<a href>` download.
+
+  **That same-origin check was still broken (found 2026-09-28):** it tested whether the URL
+  started with `http(s)://`, which is true of every absolute URL, our own API included — so
+  the header this was meant to fix stayed dead code, on every request, the whole time. Fixed
+  by comparing the URL's origin to the API's own instead. A reviewer separately flagged the
+  chapters fetch's `?token=` for landing in server access logs; with the header now actually
+  working, the token was moved out of the URL and into `Authorization: Bearer` for the
+  chapters fetch, the PDF stream and the PDF signed-link request — nothing today serves it
+  through a plain `<a href>`, so nothing needs the query string. `hasBookletAccess` still
+  reads either, so this is not a wire-format change on the server.
 
 That second one matters beyond the bug: the subscriber cookie is third-party to the site's
-origin, so Safari and Chrome's third-party cookie restrictions can drop it. The URL token
-is what keeps the gate working when that happens.
+origin, so Safari and Chrome's third-party cookie restrictions can drop it. The token is
+what keeps the gate working when that happens.
 
 ### Verified locally (2026-09-18)
 
@@ -643,16 +665,20 @@ not the first `[role=dialog]`.
 ### ⚠ Anything that proves access must carry the token, not just the cookie
 
 The subscriber cookie is a **third-party cookie in production** — the API is on another
-domain — so Safari and Firefox drop it by default. Phase 2 gave the PDF link a `?token=`
+domain — so Safari and Firefox drop it by default. Phase 2 gave the PDF link a token
 fallback for exactly this, but `ChapterGate`'s chapter fetch was left on the cookie alone,
 and a subscriber whose cookie was dropped was told they had no access at all: the free
 chapters and the sign-up form, with their subscription invisible. Reproduced in the
 browser with a valid token in hand.
 
-`hasBookletAccess` accepts a `?token=` query parameter, a bearer header or the cookie.
-**Every request that asks whether this reader may have something must send the token**,
-which `readAccessToken(slug)` in `lib/subscriber.ts` returns. `/api/subscribe` hands the
-token back in its response; store it with `storeAccessToken`.
+`hasBookletAccess` accepts a `?token=` query parameter, a bearer header or the cookie — the
+server still reads both, kept for anything that cannot set a header. The three frontend
+call sites (`ChapterGate`'s chapter fetch, the PDF stream, the PDF signed-link request) send
+it as `Authorization: Bearer` instead, since 2026-09-28: a query string lands in server
+access logs in plain text, which a reviewer flagged. **Every request that asks whether this
+reader may have something must send the token**, which `readAccessToken(slug)` in
+`lib/subscriber.ts` returns. `/api/subscribe` hands the token back in its response; store it
+with `storeAccessToken`.
 - `generate-sitemap.js` hardcodes its booklet list, so it can drift from the content in
   MongoDB. Worth driving from content when something else touches it.
 

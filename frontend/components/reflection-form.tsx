@@ -4,8 +4,15 @@ import { Star } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiUrl } from "@/lib/api";
 
-/** The API sleeps on Render's free tier; fail fast rather than spin on a cold start. */
+/**
+ * The API sleeps on Render's free tier; a first try fails fast rather than spinning on a
+ * cold visit. A real cold start takes on the order of 20-30s, far longer than this, so a
+ * failed first try is retried once with a much longer timeout instead of giving up — the
+ * quick timeout used to be the only attempt, which meant a reader who arrived while the
+ * API was asleep saw a permanent "could not be loaded" with nothing that ever tried again.
+ */
 const COMMENTS_FETCH_TIMEOUT_MS = 1200;
+const COMMENTS_RETRY_TIMEOUT_MS = 20000;
 
 type ReaderComment = {
   name?: string;
@@ -18,25 +25,21 @@ export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [comments, setComments] = useState<ReaderComment[]>([]);
-  const [commentsStatus, setCommentsStatus] = useState<"loading" | "ready" | "error">(
-    "loading"
-  );
+  const [commentsStatus, setCommentsStatus] = useState<
+    "loading" | "slow" | "ready" | "error"
+  >("loading");
   const [status, setStatus] = useState<"idle" | "saving" | "success" | "error">(
     "idle"
   );
   const sectionRef = useRef<HTMLElement | null>(null);
 
-  const loadComments = useCallback(async (showLoading = true) => {
-    if (showLoading) {
-      setCommentsStatus("loading");
-    }
-
-    try {
+  const fetchComments = useCallback(
+    async (timeoutMs: number) => {
       const response = await fetch(
         apiUrl(`/api/reflections?bookletSlug=${encodeURIComponent(bookletSlug)}`),
         {
           credentials: "include",
-          signal: AbortSignal.timeout(COMMENTS_FETCH_TIMEOUT_MS)
+          signal: AbortSignal.timeout(timeoutMs)
         }
       );
       const payload = (await response.json().catch(() => null)) as {
@@ -44,40 +47,128 @@ export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
       } | null;
 
       if (!response.ok || !payload?.comments) {
-        setCommentsStatus("error");
-        return;
+        throw new Error("comments request failed");
       }
 
-      setComments(payload.comments);
-      setCommentsStatus("ready");
-    } catch {
-      setCommentsStatus("error");
-    }
-  }, [bookletSlug]);
+      return payload.comments;
+    },
+    [bookletSlug]
+  );
+
+  const loadComments = useCallback(
+    async (showLoading = true) => {
+      if (showLoading) {
+        setCommentsStatus("loading");
+      }
+
+      try {
+        setComments(await fetchComments(COMMENTS_FETCH_TIMEOUT_MS));
+        setCommentsStatus("ready");
+        return;
+      } catch {
+        // Likely the free-tier API asleep: worth one more try with much more patience
+        // before telling the reader anything failed.
+      }
+
+      if (showLoading) {
+        setCommentsStatus("slow");
+      }
+
+      try {
+        setComments(await fetchComments(COMMENTS_RETRY_TIMEOUT_MS));
+        setCommentsStatus("ready");
+      } catch {
+        setCommentsStatus("error");
+      }
+    },
+    [fetchComments]
+  );
 
   // Comments sit well below the fold, so the fetch waits until the reader is heading
   // towards them instead of competing with the booklet itself on load.
+  //
+  // Two independent triggers arm this, not just the observer: a scroll/resize listener
+  // checks the section's position too, so a browser or extension that never delivers an
+  // intersection callback still gets a fetch once the section is actually reachable.
   useEffect(() => {
     const section = sectionRef.current;
 
-    if (!section || typeof IntersectionObserver === "undefined") {
-      void loadComments(false);
+    if (!section) {
       return;
+    }
+
+    if (typeof IntersectionObserver === "undefined") {
+      // Deferred a tick: an effect's own body should only synchronize with the DOM, not
+      // itself trigger a state update — the timeout hands this to its own task instead.
+      const fallbackId = window.setTimeout(() => void loadComments(false), 0);
+      return () => window.clearTimeout(fallbackId);
+    }
+
+    let fired = false;
+    const REACH_MARGIN_PX = 600;
+
+    function fire() {
+      if (fired) {
+        return;
+      }
+
+      fired = true;
+      cleanup();
+      void loadComments(false);
+    }
+
+    function isReachable() {
+      if (!section) {
+        return false;
+      }
+
+      const rect = section.getBoundingClientRect();
+      return rect.top <= window.innerHeight + REACH_MARGIN_PX;
     }
 
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries.some((entry) => entry.isIntersecting)) {
-          observer.disconnect();
-          void loadComments(false);
+          fire();
         }
       },
-      { rootMargin: "600px 0px" }
+      { rootMargin: `${REACH_MARGIN_PX}px 0px` }
     );
 
     observer.observe(section);
 
-    return () => observer.disconnect();
+    let frame = 0;
+
+    function onScrollOrResize() {
+      if (frame) {
+        return;
+      }
+
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+
+        if (isReachable()) {
+          fire();
+        }
+      });
+    }
+
+    window.addEventListener("scroll", onScrollOrResize, { passive: true });
+    window.addEventListener("resize", onScrollOrResize);
+    // Whichever page the reader lands on may already have the section on screen.
+    onScrollOrResize();
+
+    function cleanup() {
+      observer.disconnect();
+      window.removeEventListener("scroll", onScrollOrResize);
+      window.removeEventListener("resize", onScrollOrResize);
+
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
+    }
+
+    return cleanup;
   }, [loadComments]);
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -158,9 +249,21 @@ export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
         {commentsStatus === "loading" ? (
           <p className="mt-4 text-base italic text-muted">Loading comments...</p>
         ) : null}
+        {commentsStatus === "slow" ? (
+          <p className="mt-4 text-base italic text-muted">
+            The reading room is waking up. One moment.
+          </p>
+        ) : null}
         {commentsStatus === "error" ? (
           <p className="mt-4 text-base italic text-muted">
-            Comments could not be loaded right now.
+            Comments could not be loaded right now.{" "}
+            <button
+              className="underline underline-offset-2 hover:text-parchment"
+              onClick={() => loadComments()}
+              type="button"
+            >
+              Try again
+            </button>
           </p>
         ) : null}
         {commentsStatus === "ready" && comments.length === 0 ? (
