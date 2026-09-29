@@ -1,7 +1,14 @@
 import { notFound } from "next/navigation";
 import { BackLink, HeroBackground, PageShell, PrimaryLink, BookletCard } from "@/components/ui";
 import { MovementPdfReader } from "@/components/movement-pdf-reader";
-import { defaultSiteContent, isBookletInMovement, movementSlug, isPublished, toCardBooklet } from "@/lib/site-content";
+import {
+  bookletPublicSlug,
+  defaultSiteContent,
+  isBookletInMovement,
+  movementSlug,
+  isPublished,
+  toCardBooklet
+} from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
 
 export const revalidate = 300;
@@ -120,16 +127,47 @@ export default async function MovementDetailPage({
             <div className="mt-10">
               <BackLink href="/movements" label="Back to all Movements" />
             </div>
-            {movement.pdf ? (
-              <MovementPdfReader
-                movement={movement}
-                movementIndex={movementIndex}
-              />
+            {/*
+              A movement is a themed grouping of booklets, not a text of its own — reading
+              it has always meant reading those booklets. The primary action here is the
+              same "Read Booklet" a booklet card offers, landing on the same chapter reader,
+              same free-chapters-then-gate, same everything: a movement reads exactly like a
+              booklet because it opens one. Where a movement spans several, this opens the
+              first and the rest are listed below; where it has none yet, there is nothing
+              to open. The illustrated PDF, where one exists, stays a secondary way to have
+              the movement rather than the way to read it.
+            */}
+            {movementBooklets.length > 0 ? (
+              <div className="mt-10">
+                <PrimaryLink
+                  cta={{
+                    label: "Begin Reading",
+                    href: `/series/${bookletPublicSlug(movementBooklets[0])}`
+                  }}
+                />
+                {movementBooklets.length > 1 ? (
+                  <p className="mt-3 text-sm text-muted">
+                    Opens with {movementBooklets[0].title}, the first of{" "}
+                    {movementBooklets.length} booklets in this movement.
+                  </p>
+                ) : null}
+              </div>
             ) : (
               <div className="mt-8 rounded-md border border-gold/20 bg-surface/50 p-6">
-                <p className="text-muted">PDF content not yet available for this movement.</p>
+                <p className="text-muted">Reading not yet available for this movement.</p>
               </div>
             )}
+            {movement.pdf ? (
+              <div className="mt-6">
+                <p className="font-label text-xs uppercase tracking-[0.2em] text-muted">
+                  Also available
+                </p>
+                <MovementPdfReader
+                  movement={movement}
+                  movementIndex={movementIndex}
+                />
+              </div>
+            ) : null}
           </article>
 
           <aside className="fade-up lg:sticky lg:top-28 lg:self-start">
@@ -178,7 +216,12 @@ export default async function MovementDetailPage({
         </div>
       </section>
 
-      {movementBooklets.length > 0 && (
+      {/*
+        Skipped at exactly one booklet: the hero's "Begin Reading" already goes straight to
+        it, so a second, identical "Read Booklet" card here would be the same three-buttons-
+        for-one-booklet problem already fixed on the booklet pages themselves.
+      */}
+      {movementBooklets.length > 1 && (
         <section className="quiet-divider px-4 py-12 sm:px-5 sm:py-20">
           <div className="mx-auto max-w-7xl">
             <div className="mb-12">
