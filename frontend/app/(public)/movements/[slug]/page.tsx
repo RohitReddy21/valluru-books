@@ -4,6 +4,7 @@ import { MovementPdfReader } from "@/components/movement-pdf-reader";
 import {
   bookletPublicSlug,
   defaultSiteContent,
+  getBookletReadButtonText,
   isBookletInMovement,
   movementSlug,
   isPublished,
@@ -141,7 +142,7 @@ export default async function MovementDetailPage({
               <div className="mt-10">
                 <PrimaryLink
                   cta={{
-                    label: "Begin Reading",
+                    label: getBookletReadButtonText(movementBooklets[0]),
                     href: `/series/${bookletPublicSlug(movementBooklets[0])}`
                   }}
                 />
@@ -217,7 +218,7 @@ export default async function MovementDetailPage({
       </section>
 
       {/*
-        Skipped at exactly one booklet: the hero's "Begin Reading" already goes straight to
+        Skipped at exactly one booklet: the hero's own read button already goes straight to
         it, so a second, identical "Read Booklet" card here would be the same three-buttons-
         for-one-booklet problem already fixed on the booklet pages themselves.
       */}
