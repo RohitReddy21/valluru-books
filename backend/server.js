@@ -6,12 +6,19 @@ const multer = require("multer");
 const { Resend } = require("resend");
 const { createClient } = require("@supabase/supabase-js");
 const crypto = require("node:crypto");
+const dns = require("node:dns");
 const fs = require("node:fs");
 const fsp = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 const { Readable } = require("node:stream");
 const { pipeline } = require("node:stream/promises");
+
+// Node's resolver on Windows can get ECONNREFUSED for the MongoDB Atlas SRV lookup
+// (e.g. behind a VPN/virtual adapter), so use public DNS servers for local dev.
+if (process.platform === "win32") {
+  dns.setServers(["1.1.1.1", "8.8.8.8"]);
+}
 const {
   preserveRedactedChapters,
   preserveRedactedPdfs,
