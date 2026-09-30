@@ -717,9 +717,36 @@ PDF as a free sample (`FREE_BOOKLET_SLUGS`, a `freeSample` option on `hasBooklet
 `isFree` flag in `booklet-reader.tsx`). That gated by booklet, not by depth, and contradicted
 the review's "the PDF endpoint refuses requests without the cookie", so all three are gone:
 `hasBookletAccess(request, slug)` has one rule for every booklet, and every PDF response is
-`private, no-store`. The Movements pages are a separate hole: their PDFs are direct public
-Supabase URLs (Movement 1's is booklet one's full PDF, Movement 3's the "Grief as Fire" print
-file), which no gate can see. Whether they stay is the owner's call.
+`private, no-store`.
+
+**Movements read like their booklets now (2026-09-29).** A movement is a themed grouping of
+booklets (`movement.booklets`, e.g. `"6-7"`, or `bookletIndices`), not a text of its own —
+`movements/[slug]/page.tsx`'s hero now opens straight into the first booklet's own page (same
+chapter reader, same gate) via a `getBookletReadButtonText`-labelled `PrimaryLink`, computed
+from `movementBooklets[0]` (the same array the "Explore Booklets in This Movement" cards already
+used) rather than the stored `href` field, which is unset for 2 of 7 movements. That card section
+now skips rendering at exactly one booklet, to avoid the same one-booklet-three-buttons problem
+already fixed on the booklet pages. The illustrated `movement.pdf`, where set, is kept as a
+secondary "Also available" panel below, unchanged (`MovementPdfReader`) — it was the *only*
+reading path before, and was a separate hole: the PDF a movement points at is direct public
+Supabase URLs, which no gate can see. Whether it stays available to non-subscribers, once it
+works, is the owner's call; the gate now only matters for the booklets, which is the actual
+reading path.
+
+**Both `movement.pdf` URLs are dead right now, in production too, not just the sandbox** —
+found while wiring the above. Movement 1's and Movement 3's ("Grief as Fire") stored PDFs both
+point at `flhdjkcifickhbglxnok.supabase.co`, which no longer resolves (NXDOMAIN, confirmed
+against 8.8.8.8) — some earlier migration moved cover images to the current project
+(`fzmwvffvaweczspopcei.supabase.co`, confirmed live) and never brought the PDFs along; the other
+5 movements have no `pdf` field at all. Movement 3's source file is sitting locally
+(`Downloads/Grief_as_Fire_Movement_Three_PrePublishing_Print_Ready_compressed.pdf`, has a real
+text layer, 218 pages) and turns out to be **booklets six and seven repackaged as one illustrated
+"coffee-table" volume** (its own credits page says so) — re-extracting it was considered and
+rejected: it would reproduce the same font/OCR damage already found and painstakingly
+transcribed in booklet six and seven's own separately-uploaded PDFs, as a second, divergent copy
+of the same text. Re-uploading the movement PDFs to the current Supabase project, so the
+illustrated panel resolves again, is an owner action (no local Supabase write credentials here,
+and the source files live outside the repo).
 
 ### Sign-up is email only
 
