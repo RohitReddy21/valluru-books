@@ -16,6 +16,7 @@ import { MetaPixel } from "@/components/meta-pixel";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
 import { GlobalSubscribePopup } from "@/components/global-subscribe-popup";
+import { ScrollToTop } from "@/components/scroll-to-top";
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -233,6 +234,7 @@ gtag('config', 'G-HYV3VRYR06', { page_path: window.location.pathname });`}
         {children}
         <SiteFooter footer={content.footer} />
         <GlobalSubscribePopup />
+        <ScrollToTop />
       </body>
     </html>
   );
