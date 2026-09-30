@@ -123,7 +123,7 @@ export function BookletReader({ booklet }: Props) {
         } | null;
 
         if (response.ok) {
-          trackEmailSubscription();
+          trackEmailSubscription("booklet_reader", booklet.slug);
           if (payload?.accessToken) {
             setAccessToken(payload.accessToken);
             window.localStorage.setItem(accessStorageKey, payload.accessToken);

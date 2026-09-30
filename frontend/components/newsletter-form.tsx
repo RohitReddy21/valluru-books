@@ -23,7 +23,7 @@ export function NewsletterForm({ microcopy }: { microcopy: string }) {
     });
 
     if (response.ok) {
-      trackEmailSubscription();
+      trackEmailSubscription("newsletter");
       setEmail("");
       setStatus("success");
     } else {

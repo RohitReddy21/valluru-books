@@ -48,7 +48,7 @@ export function AdsSubscriptionGate({ children }: { children: ReactNode }) {
         return;
       }
 
-      trackEmailSubscription();
+      trackEmailSubscription("ads_page");
       setStatus("success");
       // Save subscriber info before clearing the email
       const subscriberEmail = email;

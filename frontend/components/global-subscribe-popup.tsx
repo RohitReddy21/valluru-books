@@ -98,7 +98,7 @@ export function GlobalSubscribePopup() {
         return;
       }
 
-      trackEmailSubscription();
+      trackEmailSubscription("popup");
       setStatus("success");
       // Save subscriber info before clearing the email
       const subscriberEmail = email;

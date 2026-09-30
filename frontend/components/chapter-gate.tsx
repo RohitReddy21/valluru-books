@@ -173,7 +173,7 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
       const payload = (await response.json().catch(() => null)) as { accessToken?: string } | null;
       storeAccessToken(bookletSlug, payload?.accessToken || "");
 
-      trackEmailSubscription();
+      trackEmailSubscription("chapter_gate", bookletSlug);
 
       const unlocked = await fetchChapters();
 
