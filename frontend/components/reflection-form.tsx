@@ -13,6 +13,7 @@ import { apiUrl } from "@/lib/api";
  */
 const COMMENTS_FETCH_TIMEOUT_MS = 1200;
 const COMMENTS_RETRY_TIMEOUT_MS = 20000;
+const IDLE_FALLBACK_MS = 6000;
 
 type ReaderComment = {
   name?: string;
@@ -158,7 +159,13 @@ export function ReflectionForm({ bookletSlug }: { bookletSlug: string }) {
     // Whichever page the reader lands on may already have the section on screen.
     onScrollOrResize();
 
+    // Last resort: both triggers above depend on the browser painting frames, which a
+    // background or automated tab never does, leaving "Loading comments..." up for good.
+    // A few seconds after load the page is idle, so the fetch no longer competes with it.
+    const idleFallbackId = window.setTimeout(fire, IDLE_FALLBACK_MS);
+
     function cleanup() {
+      window.clearTimeout(idleFallbackId);
       observer.disconnect();
       window.removeEventListener("scroll", onScrollOrResize);
       window.removeEventListener("resize", onScrollOrResize);
