@@ -9,7 +9,8 @@ const nextConfig = {
         hostname: "*.supabase.co",
         pathname: "/storage/v1/object/public/**"
       },
-      { protocol: "https", hostname: "www.thevalluru.org" }
+      { protocol: "https", hostname: "www.thevalluru.org" },
+      { protocol: "https", hostname: "thevalluru.org" }
     ],
     formats: ["image/avif", "image/webp"],
     deviceSizes: [360, 414, 640, 828, 1080, 1280, 1920],
