@@ -1124,13 +1124,17 @@ function warnMongoUnavailable(error) {
   );
 }
 
-async function getSiteContent() {
+async function getSiteContentDoc() {
   if (!hasMongoConfig()) {
     return null;
   }
 
   const db = await getDb();
-  const doc = await db.collection("content").findOne({ key: "site-content" });
+  return db.collection("content").findOne({ key: "site-content" });
+}
+
+async function getSiteContent() {
+  const doc = await getSiteContentDoc();
   return doc?.content || null;
 }
 
@@ -1709,8 +1713,11 @@ app.get("/api/content", async (request, response, next) => {
     // Check if MongoDB is available
     let hasMongo = true;
     let content = null;
+    let updatedAt = null;
     try {
-      content = await getSiteContent();
+      const doc = await getSiteContentDoc();
+      content = doc?.content || null;
+      updatedAt = doc?.updatedAt ? new Date(doc.updatedAt).toISOString() : null;
     } catch (error) {
       hasMongo = false;
       warnMongoUnavailable(error);
@@ -1840,7 +1847,8 @@ app.get("/api/content", async (request, response, next) => {
       });
     }
 
-    response.json({ content: redactBookletPdfs(redactGatedChapters(content)) });
+    // updatedAt feeds the sitemap's lastmod, so search engines get a real date.
+    response.json({ content: redactBookletPdfs(redactGatedChapters(content)), updatedAt });
   } catch (error) {
     next(error);
   }

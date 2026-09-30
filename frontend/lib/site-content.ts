@@ -43,7 +43,12 @@ export function movementSlug(movement: Pick<Movement, "slug" | "title">, index =
   );
 }
 
-function slugSegment(value: string) {
+/**
+ * The slug as it was built before diacritics were folded: "Nāda" became "n-da", so a
+ * booklet lived at /series/booklet-six-when-grief-became-n-da. Kept only so those old
+ * addresses, which are out in the world, still resolve and redirect to the clean ones.
+ */
+function legacySlugSegment(value: string) {
   return value
     .toLowerCase()
     .replace(/['"]/g, "")
@@ -51,14 +56,31 @@ function slugSegment(value: string) {
     .replace(/^-|-$/g, "");
 }
 
-export function bookletPublicSlug(booklet: Pick<Booklet, "slug" | "numberLabel" | "title">) {
+/** Folds "Nāda" to "nada" and "Līlā Mādhava" to "lila-madhava" before slugging. */
+function slugSegment(value: string) {
+  return legacySlugSegment(value.normalize("NFD").replace(/\p{M}+/gu, ""));
+}
+
+type SluggedBooklet = Pick<Booklet, "slug" | "numberLabel" | "title">;
+
+export function bookletPublicSlug(booklet: SluggedBooklet) {
   const numberPart = slugSegment(booklet.numberLabel || "booklet");
   const titlePart = slugSegment(booklet.title || booklet.slug || "booklet");
   return `${numberPart}-${titlePart}`;
 }
 
-export function bookletMatchesSlug(booklet: Pick<Booklet, "slug" | "numberLabel" | "title">, slug: string) {
-  return booklet.slug === slug || bookletPublicSlug(booklet) === slug;
+function legacyBookletPublicSlug(booklet: SluggedBooklet) {
+  const numberPart = legacySlugSegment(booklet.numberLabel || "booklet");
+  const titlePart = legacySlugSegment(booklet.title || booklet.slug || "booklet");
+  return `${numberPart}-${titlePart}`;
+}
+
+export function bookletMatchesSlug(booklet: SluggedBooklet, slug: string) {
+  return (
+    booklet.slug === slug ||
+    bookletPublicSlug(booklet) === slug ||
+    legacyBookletPublicSlug(booklet) === slug
+  );
 }
 
 export type PublishStatus = "draft" | "published" | "archived";

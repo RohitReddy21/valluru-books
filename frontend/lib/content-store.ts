@@ -701,7 +701,11 @@ export const getSiteContent = cache(async function getSiteContent(): Promise<Sit
 
     const payload = (await response.json()) as {
       content?: Partial<SiteContent> | null;
+      updatedAt?: string | null;
     };
+
+    const savedAt = payload.updatedAt ? new Date(payload.updatedAt) : null;
+    lastContentUpdatedAt = savedAt && !Number.isNaN(savedAt.getTime()) ? savedAt : null;
 
     lastGoodContent = normalizeContent(payload.content);
 
@@ -714,6 +718,17 @@ export const getSiteContent = cache(async function getSiteContent(): Promise<Sit
     return contentUnavailable(error instanceof Error ? error.message : "request failed");
   }
 });
+
+/**
+ * When the content was last saved in the admin, as reported by the backend that served the
+ * last good read. Null until the backend says so (an older backend does not), in which case
+ * the sitemap leaves lastmod out rather than claiming every page changed just now.
+ */
+let lastContentUpdatedAt: Date | null = null;
+
+export function getContentUpdatedAt() {
+  return lastContentUpdatedAt;
+}
 
 export function getContentSource() {
   return "backend API";

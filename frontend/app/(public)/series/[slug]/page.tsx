@@ -22,6 +22,7 @@ import {
   toCardBooklet
 } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
+import { DEFAULT_OG_IMAGE, seoDescription } from "@/lib/seo";
 
 export const revalidate = 300;
 
@@ -49,8 +50,10 @@ export async function generateMetadata({
   }
 
   const title = `${booklet.title} — The Valluru`;
-  const description = booklet.seo?.description || getBookletDetailIntro(booklet) || "A booklet from The Inward Fire Series";
-  const ogImage = booklet.coverImage || "https://www.thevalluru.org/og/default.jpg";
+  const description = seoDescription(
+    booklet.seo?.description || getBookletDetailIntro(booklet) || "A booklet from The Inward Fire Series"
+  );
+  const ogImage = booklet.coverImage || DEFAULT_OG_IMAGE;
   const publicSlug = bookletPublicSlug(booklet);
 
   return {
@@ -110,7 +113,7 @@ export default async function BookletPage({
   const relatedBooklets = (booklet.relatedBookletSlugs || [])
     .map((relatedSlug) =>
       publishedBooklets.find(
-        (item) => item.slug === relatedSlug || bookletPublicSlug(item) === relatedSlug
+        (item) => bookletMatchesSlug(item, relatedSlug)
       )
     )
     .filter((item): item is typeof publishedBooklets[number] => Boolean(item))

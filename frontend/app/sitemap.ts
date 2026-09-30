@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { getSiteContent } from "@/lib/content-store";
+import { getContentUpdatedAt, getSiteContent } from "@/lib/content-store";
 import {
   bookletPublicSlug,
   isPublished,
@@ -21,7 +21,9 @@ const BASE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.thevalluru.or
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const content = await getSiteContent();
-  const lastModified = new Date();
+  // The date the content was last saved, not "now": a lastmod that changes on every crawl
+  // teaches search engines to ignore it. Omitted entirely when the backend does not say.
+  const lastModified = getContentUpdatedAt() ?? undefined;
   const entry = (
     path: string,
     changeFrequency: "weekly" | "monthly",
