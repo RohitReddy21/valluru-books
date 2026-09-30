@@ -35,6 +35,19 @@ function titleLabel(title) {
 }
 
 /**
+ * A chapter number that is not at the start of the title: extraction sometimes leaves the
+ * previous chapter's closing pull-quote in front of the next heading, giving a title like
+ * "A good actor enters fully. But he returns. CHAPTER 3 WHEN LIFE…" or "…optimizing? 2.
+ * Mā…". Only trusted by the caller when it is the very next number in sequence.
+ */
+const EMBEDDED_LABEL = /(?:\bchapter\s+(\d{1,2})\b|[.?!”"’']\s+(\d{1,2})\.\s+\S)/i;
+
+function embeddedTitleLabel(title) {
+  const match = String(title ?? "").match(EMBEDDED_LABEL);
+  return match ? Number(match[1] ?? match[2]) : null;
+}
+
+/**
  * Resolves which chapters are free. The gate sits after chapter 3 as the booklet numbers
  * it, so a reader gets everything up to the end of "3." however many unnumbered pages
  * lead in: the title page, the Author's Note, the Opening. None of those spends one of
@@ -51,17 +64,31 @@ function resolveChapterAccess(chapters, freeCount = FREE_CHAPTER_COUNT) {
     return [];
   }
 
+  // A heading can be numbered only by a label buried behind a pull-quote, so those count.
   const numbered = chapters.some(
-    (chapter) => !chapter?.frontMatter && titleLabel(chapter?.title) !== null
+    (chapter) =>
+      !chapter?.frontMatter &&
+      (titleLabel(chapter?.title) !== null || embeddedTitleLabel(chapter?.title) !== null)
   );
 
   let bodyChaptersSoFar = 0;
   // The last numbered chapter passed; null while still in the lead-in.
   let currentLabel = null;
+  // Once a body chapter falls behind the gate everything after it stays locked, even if a
+  // later title starts counting again ("Stanza 1, 2, 3" in a second part).
+  let gateClosed = false;
 
   return chapters.map((chapter) => {
     const frontMatter = Boolean(chapter?.frontMatter);
-    const label = frontMatter ? null : titleLabel(chapter?.title);
+    let label = frontMatter ? null : titleLabel(chapter?.title);
+
+    if (label === null && !frontMatter && numbered) {
+      const embedded = embeddedTitleLabel(chapter?.title);
+
+      if (embedded !== null && embedded === (currentLabel ?? 0) + 1) {
+        label = embedded;
+      }
+    }
 
     if (!frontMatter) {
       bodyChaptersSoFar += 1;
@@ -74,10 +101,15 @@ function resolveChapterAccess(chapters, freeCount = FREE_CHAPTER_COUNT) {
     const byDepth = numbered
       ? currentLabel === null || currentLabel <= freeCount
       : bodyChaptersSoFar <= freeCount;
+    const openByDepth = !gateClosed && (frontMatter || byDepth);
+
+    if (!frontMatter && !byDepth) {
+      gateClosed = true;
+    }
 
     return {
       ...chapter,
-      free: typeof chapter?.free === "boolean" ? chapter.free : frontMatter || byDepth
+      free: typeof chapter?.free === "boolean" ? chapter.free : openByDepth
     };
   });
 }

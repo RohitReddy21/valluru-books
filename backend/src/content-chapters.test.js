@@ -240,3 +240,59 @@ test("CHAPTER-labelled titles and a piece that follows chapter 3 both stay free"
 test("a booklet with no numbered titles falls back to counting body chapters", () => {
   assert.deepEqual(access(["A", "B", "C", "D"]), ["free: A", "free: B", "free: C", "gated: D"]);
 });
+
+test("a chapter number buried behind a pull-quote still counts, in sequence", () => {
+  // Extraction leaves the previous chapter's closing quote in front of the next heading,
+  // so no title starts with a number. The gate must still fall between chapters 3 and 4.
+  const resolved = resolveChapterAccess([
+    { number: 1, title: "Booklet title", frontMatter: true },
+    { number: 2, title: "Author's Note", frontMatter: true },
+    { number: 3, title: "Opening" },
+    { number: 4, title: "A quote from before. CHAPTER 1 THE FIRST" },
+    { number: 5, title: "Another quote. CHAPTER 2 THE SECOND" },
+    { number: 6, title: "Closing line. CHAPTER 3 THE THIRD" },
+    { number: 7, title: "Last quote. CHAPTER 4 THE FOURTH" },
+    { number: 8, title: "Quote again. CHAPTER 5 THE FIFTH" }
+  ]);
+
+  assert.deepEqual(
+    resolved.map((c) => c.free),
+    [true, true, true, true, true, true, false, false],
+    "chapter 3 should be the last free one"
+  );
+});
+
+test("a stray number inside a title out of sequence is not read as a chapter", () => {
+  const resolved = resolveChapterAccess([
+    { number: 1, title: "1. One" },
+    { number: 2, title: "It began in 1947. 9. Hmm, not a chapter" },
+    { number: 3, title: "2. Two" },
+    { number: 4, title: "3. Three" },
+    { number: 5, title: "4. Four" }
+  ]);
+
+  assert.deepEqual(
+    resolved.map((c) => c.free),
+    [true, true, true, true, false]
+  );
+});
+
+test("once the gate has closed, a later title that restarts numbering stays locked", () => {
+  // Booklet eight lists stanzas 1-8 and then a second part numbered "Stanza 1, 2, 3".
+  const resolved = resolveChapterAccess([
+    { number: 1, title: "1." },
+    { number: 2, title: "2." },
+    { number: 3, title: "3." },
+    { number: 4, title: "4." },
+    { number: 5, title: "5." },
+    { number: 6, title: "Stanza 1" },
+    { number: 7, title: "Stanza 2" },
+    { number: 8, title: "Stanza 3" }
+  ]);
+
+  assert.deepEqual(
+    resolved.map((c) => c.free),
+    [true, true, true, false, false, false, false, false],
+    "sections after the gate must not reopen"
+  );
+});
