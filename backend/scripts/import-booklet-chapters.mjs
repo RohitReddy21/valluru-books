@@ -25,7 +25,12 @@ const { MongoClient } = require("mongodb");
 const sharp = require("sharp");
 const { preserveRedactedChapters, preserveRedactedPdfs } = require("../src/content-chapters.js");
 
-/** Databases this script must never write to, whatever the flags say. */
+// Same Windows-only workaround as backend/server.js for the Atlas SRV lookup.
+if (process.platform === "win32") {
+  require("node:dns").setServers(["1.1.1.1", "8.8.8.8"]);
+}
+
+/** Databases this script must not write to without --allow-production. */
 const PROTECTED_DATABASES = new Set(["valluru_books"]);
 
 const NUMBER_WORDS = {
@@ -335,11 +340,24 @@ function tidyMirrorChapters(chapters) {
 
 const options = parseArgs(process.argv.slice(2));
 
-if (PROTECTED_DATABASES.has(options.db)) {
-  console.error(
-    `Refusing to import into "${options.db}". That is the production database; pass --db valluru_sandbox or another non-production name.`
-  );
-  process.exit(1);
+// Writing to production is opt-in and, even then, only from the database's own stored
+// content (export-site-content.mjs): the public /api/content payload has its PDF links
+// and gated chapters redacted, and saving that back would destroy them.
+if (PROTECTED_DATABASES.has(options.db) && !options.dryRun) {
+  if (options["allow-production"] !== options.db) {
+    console.error(
+      `Refusing to import into "${options.db}". That is the production database; pass --db valluru_sandbox or another non-production name, ` +
+        `or --allow-production ${options.db} together with --source <export-site-content.mjs output>.`
+    );
+    process.exit(1);
+  }
+
+  if (!String(options.source || "").endsWith(".stored.json")) {
+    console.error(
+      `Refusing: --source must be a *.stored.json file written by export-site-content.mjs, not a public /api/content payload.`
+    );
+    process.exit(1);
+  }
 }
 
 if (!options.source) {
