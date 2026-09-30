@@ -334,6 +334,39 @@ function embeddedTitleLabel(title: string | undefined) {
 }
 
 /**
+ * The chapter number each section belongs to, or null for unnumbered pieces and front
+ * matter. A number at the start of a title always counts; one buried behind a pull-quote
+ * counts only when it is the next in sequence, so a stray "1947." is never read as one.
+ */
+export function chapterLabels<T extends Pick<BookletChapter, "frontMatter"> & { title?: string }>(
+  chapters: T[]
+): Array<number | null> {
+  let current: number | null = null;
+
+  return chapters.map((chapter) => {
+    if (chapter.frontMatter) {
+      return null;
+    }
+
+    let label = titleLabel(chapter.title);
+
+    if (label === null) {
+      const embedded = embeddedTitleLabel(chapter.title);
+
+      if (embedded !== null && embedded === (current ?? 0) + 1) {
+        label = embedded;
+      }
+    }
+
+    if (label !== null) {
+      current = label;
+    }
+
+    return label;
+  });
+}
+
+/**
  * Resolves which chapters are free. The gate sits after chapter 3 as the booklet numbers
  * it, so a reader gets everything up to the end of "3." however many unnumbered pages
  * lead in: the title page, the Author's Note, the Opening. None of those spends one of
