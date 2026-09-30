@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { BreadcrumbSchema } from "@/components/breadcrumb";
 import { notFound } from "next/navigation";
 import { NewsletterForm } from "@/components/newsletter-form";
 import { BookletCard, PageHeader, PageShell, ProseBlocks, Section, WideSection } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
+import { DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { defaultSiteContent, isPublished, seriesBasePath, toCardBooklet } from "@/lib/site-content";
 
 export const revalidate = 300;
@@ -29,12 +31,14 @@ export async function generateMetadata(): Promise<Metadata> {
       type: "website",
       title,
       description,
-      url: canonical
+      url: canonical,
+      images: [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: title }]
     },
     twitter: {
       card: "summary_large_image",
       title,
-      description
+      description,
+      images: [DEFAULT_OG_IMAGE]
     },
     alternates: {
       canonical
@@ -68,6 +72,7 @@ export default async function InwardMirrorPage() {
 
   return (
     <PageShell>
+      <BreadcrumbSchema crumbs={[{ label: "Home", href: "/" }, { label: "The Inward Mirror", href: "/inward-mirror" }]} />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(seriesSchema) }}

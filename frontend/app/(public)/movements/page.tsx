@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { BreadcrumbSchema } from "@/components/breadcrumb";
 import { NewsletterForm } from "@/components/newsletter-form";
 import { PageHeader, PageShell, Section, MovementCard } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
 import { defaultSiteContent, movementSlug } from "@/lib/site-content";
+import { DEFAULT_OG_IMAGE } from "@/lib/seo";
 
 export const revalidate = 300;
 
@@ -10,7 +12,13 @@ export const metadata: Metadata = {
   title: "Movements | The Valluru",
   description:
     "Explore the movements of The Inward Fire Series: doorways into dharma, maya, nada, language, surrender, memory, and the inward journey.",
-  alternates: { canonical: "https://www.thevalluru.org/movements" }
+  alternates: { canonical: "https://www.thevalluru.org/movements" },
+  openGraph: {
+    title: "Movements | The Valluru",
+    url: "https://www.thevalluru.org/movements",
+    images: [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: "Movements | The Valluru" }]
+  },
+  twitter: { card: "summary_large_image", images: [DEFAULT_OG_IMAGE] }
 };
 
 export default async function MovementsPage() {
@@ -21,6 +29,7 @@ export default async function MovementsPage() {
 
   return (
     <PageShell>
+      <BreadcrumbSchema crumbs={[{ label: "Home", href: "/" }, { label: "Movements", href: "/movements" }]} />
       <PageHeader
         backgroundImage={media.pageHeroImage}
         title="Movements"

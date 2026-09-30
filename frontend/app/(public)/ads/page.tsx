@@ -22,7 +22,10 @@ export const revalidate = 300;
 export const metadata: Metadata = {
   title: "The Inward Fire Series | The Valluru",
   description:
-    "Books on dharma, grief, language, surrender, and the inner life."
+    "Books on dharma, grief, language, surrender, and the inner life.",
+  // A landing page for paid traffic. It repeats the series page, so keeping it out of the
+  // index avoids two pages competing for the same search; its links are still followed.
+  robots: { index: false, follow: true }
 };
 
 const pillars = [

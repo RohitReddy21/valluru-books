@@ -9,14 +9,18 @@ import {
   Playfair_Display
 } from "next/font/google";
 import Script from "next/script";
+import { Suspense } from "react";
 import "../globals.css";
 import { getSiteContent } from "@/lib/content-store";
 import { isSandbox } from "@/lib/site-env";
+import { GaPageView } from "@/components/ga-page-view";
 import { MetaPixel } from "@/components/meta-pixel";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteNav } from "@/components/site-nav";
 import { GlobalSubscribePopup } from "@/components/global-subscribe-popup";
 import { ScrollToTop } from "@/components/scroll-to-top";
+
+const googleSiteVerification = process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION;
 
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -168,6 +172,7 @@ export default async function RootLayout({
               "@type": "Organization",
               name: "The Valluru",
               url: "https://www.thevalluru.org",
+              logo: "https://www.thevalluru.org/valluru-logo.png",
               email: "sasi@theValluru.org",
               author: {
                 "@type": "Person",
@@ -195,13 +200,23 @@ export default async function RootLayout({
         />
 
         {/* Google Site Verification */}
-        {isSandbox ? null : <meta name="google-site-verification" content="GTM-K6F4DJ54" />}
+        {/*
+          Search Console's verification token, set as NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION.
+          This tag used to carry the GTM container id, which Search Console does not accept
+          as a token, so it verified nothing.
+        */}
+        {isSandbox || !googleSiteVerification ? null : (
+          <meta name="google-site-verification" content={googleSiteVerification} />
+        )}
       </head>
       <body>
         {/* The live GA4 property and Meta Pixel stay off the sandbox. */}
         {isSandbox ? null : (
           <>
             <MetaPixel />
+            <Suspense fallback={null}>
+              <GaPageView />
+            </Suspense>
 
             {/*
               GA4 is the only Google tag on the page. There is deliberately no Google Tag

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { BreadcrumbSchema } from "@/components/breadcrumb";
 import { NewsletterForm } from "@/components/newsletter-form";
 import { BookletCard, PageHeader, PageShell, ProseBlocks, Section, WideSection } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
+import { DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { defaultSiteContent, isPublished, toCardBooklet } from "@/lib/site-content";
 
 export const revalidate = 300;
@@ -14,8 +16,13 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description: series.subtitle,
     alternates: { canonical: "https://www.thevalluru.org/series" },
-    openGraph: { title, description: series.subtitle, url: "https://www.thevalluru.org/series" },
-    twitter: { title, description: series.subtitle }
+    openGraph: {
+      title,
+      description: series.subtitle,
+      url: "https://www.thevalluru.org/series",
+      images: [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: title }]
+    },
+    twitter: { card: "summary_large_image", title, description: series.subtitle, images: [DEFAULT_OG_IMAGE] }
   };
 }
 
@@ -29,6 +36,7 @@ export default async function SeriesPage() {
 
   return (
     <PageShell>
+      <BreadcrumbSchema crumbs={[{ label: "Home", href: "/" }, { label: "The Series", href: "/series" }]} />
       <PageHeader
         backgroundImage={media.pageHeroImage}
         title={series.title}

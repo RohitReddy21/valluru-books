@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { BreadcrumbSchema } from "@/components/breadcrumb";
 import { BackLink, HeroBackground, PageShell, PrimaryLink, BookletCard } from "@/components/ui";
 import { MovementPdfReader } from "@/components/movement-pdf-reader";
 import {
@@ -11,6 +12,7 @@ import {
   toCardBooklet
 } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/content-store";
+import { DEFAULT_OG_IMAGE, seoDescription } from "@/lib/seo";
 
 export const revalidate = 300;
 
@@ -31,12 +33,21 @@ export async function generateMetadata({
     (item, index) => movementSlug(item, index) === slug && isPublished(item.status)
   );
 
+  if (!movement) {
+    return { title: "Movement — The Valluru", robots: { index: false, follow: false } };
+  }
+
+  const title = `${movement.title} — The Valluru`;
+  const description = seoDescription(movement.seo?.description || movement.description);
+  const url = `https://www.thevalluru.org/movements/${slug}`;
+  const image = movement.coverImage || DEFAULT_OG_IMAGE;
+
   return {
-    title: movement
-      ? `${movement.title} — The Valluru`
-      : "Movement — The Valluru",
-    description: movement?.seo?.description || movement?.description,
-    alternates: movement ? { canonical: `https://www.thevalluru.org/movements/${slug}` } : undefined
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: { type: "website", title, description, url, images: [{ url: image, width: 1200, height: 630, alt: movement.title }] },
+    twitter: { card: "summary_large_image", title, description, images: [image] }
   };
 }
 
@@ -75,6 +86,7 @@ export default async function MovementDetailPage({
 
   return (
     <PageShell>
+      <BreadcrumbSchema crumbs={[{ label: "Home", href: "/" }, { label: "Movements", href: "/movements" }, { label: movement.title, href: `/movements/${slug}` }]} />
       <section className="valluru-hero-image relative isolate overflow-hidden px-4 pb-12 pt-24 sm:px-5 sm:pt-32">
         {media.pageHeroImage ? <HeroBackground priority src={media.pageHeroImage} /> : null}
         <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,1fr)_18rem]">

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { BreadcrumbSchema } from "@/components/breadcrumb";
 import Image from "next/image";
 import { PageHeader, PageShell, ProseBlocks, Section } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
+import { DEFAULT_OG_IMAGE, seoDescription } from "@/lib/seo";
 import { defaultSiteContent } from "@/lib/site-content";
 
 export const revalidate = 300;
@@ -9,13 +11,24 @@ export const revalidate = 300;
 export async function generateMetadata(): Promise<Metadata> {
   const { about } = await getSiteContent();
   const title = `${about.title} | The Valluru`;
+  // The stored subtitle is a five-word credit line, too thin for a search snippet.
+  const description = seoDescription(
+    about.subtitle.length >= 70
+      ? about.subtitle
+      : `${about.subtitle}. Sasidhar Valluru writes contemplative booklets on dharma, grief, language, surrender and the inner life.`
+  );
 
   return {
     title,
-    description: about.subtitle,
+    description,
     alternates: { canonical: "https://www.thevalluru.org/about" },
-    openGraph: { title, description: about.subtitle, url: "https://www.thevalluru.org/about" },
-    twitter: { title, description: about.subtitle }
+    openGraph: {
+      title,
+      description,
+      url: "https://www.thevalluru.org/about",
+      images: [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: title }]
+    },
+    twitter: { card: "summary_large_image", title, description, images: [DEFAULT_OG_IMAGE] }
   };
 }
 
@@ -25,6 +38,7 @@ export default async function AboutPage() {
   const media = { ...defaultSiteContent.media, ...(content.media || {}) };
   return (
     <PageShell>
+      <BreadcrumbSchema crumbs={[{ label: "Home", href: "/" }, { label: "About", href: "/about" }]} />
       <PageHeader
         backgroundImage={media.pageHeroImage}
         title={about.title}

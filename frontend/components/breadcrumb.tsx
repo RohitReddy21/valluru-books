@@ -9,19 +9,31 @@ interface BreadcrumbProps {
   crumbs: Crumb[];
 }
 
-export function Breadcrumb({ crumbs }: BreadcrumbProps) {
-  const schemaItems = crumbs.map((crumb, index) => ({
-    "@type": "ListItem",
-    position: index + 1,
-    name: crumb.label,
-    item: `https://www.thevalluru.org${crumb.href}`
-  }));
-
-  const schema = {
+function breadcrumbSchema(crumbs: Crumb[]) {
+  return {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
-    itemListElement: schemaItems
+    itemListElement: crumbs.map((crumb, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: crumb.label,
+      item: `https://www.thevalluru.org${crumb.href}`
+    }))
   };
+}
+
+/** The same markup without the visible trail, for pages whose header already says where you are. */
+export function BreadcrumbSchema({ crumbs }: BreadcrumbProps) {
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema(crumbs)) }}
+    />
+  );
+}
+
+export function Breadcrumb({ crumbs }: BreadcrumbProps) {
+  const schema = breadcrumbSchema(crumbs);
 
   return (
     <>

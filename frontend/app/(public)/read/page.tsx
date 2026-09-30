@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { BreadcrumbSchema } from "@/components/breadcrumb";
 import Link from "next/link";
 import { PageHeader, PageShell, Section } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
@@ -46,6 +47,7 @@ export default async function ReadPage() {
 
   return (
     <PageShell>
+      <BreadcrumbSchema crumbs={[{ label: "Home", href: "/" }, { label: "Start reading", href: "/read" }]} />
       <PageHeader
         backgroundImage={media.pageHeroImage}
         title="Start reading"
