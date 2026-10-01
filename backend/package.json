@@ -5,7 +5,7 @@
     "node": ">=20.9.0"
   },
   "scripts": {
-    "build": "node --check server.js && node --check src/content-chapters.js && node --check src/access-tokens.js && node --check src/supabase-storage.js && node --check src/debug-log.js && node --check src/routes/admin-data.js && node --check src/routes/images.js && node --check src/routes/subscriptions.js",
+    "build": "node --check server.js && node --check src/content-chapters.js && node --check src/cors-origins.js && node --check src/access-tokens.js && node --check src/supabase-storage.js && node --check src/debug-log.js && node --check src/routes/admin-data.js && node --check src/routes/images.js && node --check src/routes/subscriptions.js",
     "dev": "node --watch server.js",
     "start": "node server.js",
     "test": "node --test \"src/**/*.test.js\"",

@@ -23,6 +23,12 @@ services:
         sync: false
       - key: FRONTEND_ORIGIN
         sync: false
+      # Optional. Accepts Vercel preview builds, which get a new address each deploy. An
+      # anchored regex, as narrow as this project's addresses, e.g.
+      #   ^https://valluru-books-[a-z0-9-]+-rohitreddy21s-projects.vercel.app$
+      # A preview that passes reaches this service's real data; leave unset to refuse them.
+      - key: PREVIEW_ORIGIN_PATTERN
+        sync: false
       - key: MONGODB_DB
         sync: false
       - key: MONGODB_URI

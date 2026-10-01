@@ -44,6 +44,7 @@ const {
   streamSupabaseFile,
   uploadToSupabase
 } = require("./src/supabase-storage");
+const { isAllowedOrigin, parsePreviewOriginPattern } = require("./src/cors-origins");
 const { registerAdminDataRoutes } = require("./src/routes/admin-data");
 const { registerImageRoutes } = require("./src/routes/images");
 const { registerBookletAccessRoutes } = require("./src/routes/booklet-access");
@@ -126,11 +127,19 @@ const allowedOrigins = (process.env.FRONTEND_ORIGIN ||
   .map((origin) => origin.trim().replace(/^`+|`+$/g, "")) // Remove backticks
   .filter(Boolean);
 
+const { pattern: previewOriginPattern, problem: previewOriginProblem } = parsePreviewOriginPattern(
+  process.env.PREVIEW_ORIGIN_PATTERN
+);
+
+if (previewOriginProblem) {
+  console.warn(`[cors] ${previewOriginProblem}; ignoring it`);
+}
+
 app.use(
   cors({
     credentials: true,
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (isAllowedOrigin(origin, allowedOrigins, previewOriginPattern)) {
         callback(null, true);
         return;
       }
