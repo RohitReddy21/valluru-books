@@ -160,10 +160,12 @@ export function SiteNav({ nav }: Props) {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/valluru-logo.png"
+            src="/valluru-logo-sm.png"
             alt="The Valluru"
             className="h-14 w-auto sm:h-16 lg:h-20"
+            height={160}
             loading="eager"
+            width={206}
           />
         </Link>
 

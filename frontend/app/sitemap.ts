@@ -27,12 +27,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entry = (
     path: string,
     changeFrequency: "weekly" | "monthly",
-    priority: number
+    priority: number,
+    image?: string
   ): MetadataRoute.Sitemap[number] => ({
     url: `${BASE_URL}${path}`,
     lastModified,
     changeFrequency,
-    priority
+    priority,
+    // The cover goes in the sitemap so it can surface in image search too.
+    ...(image ? { images: [image] } : {})
   });
 
   const pages: MetadataRoute.Sitemap = [
@@ -46,7 +49,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   for (const booklet of content.series.booklets) {
     if (isPublished(booklet.status)) {
-      pages.push(entry(`/series/${bookletPublicSlug(booklet)}`, "monthly", 0.8));
+      pages.push(entry(`/series/${bookletPublicSlug(booklet)}`, "monthly", 0.8, booklet.coverImage || undefined));
     }
   }
 
@@ -59,14 +62,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     for (const booklet of mirror.booklets) {
       if (isPublished(booklet.status)) {
-        pages.push(entry(`${base}/${bookletPublicSlug(booklet)}`, "monthly", 0.8));
+        pages.push(entry(`${base}/${bookletPublicSlug(booklet)}`, "monthly", 0.8, booklet.coverImage || undefined));
       }
     }
   }
 
   content.home.seriesOverview.movements.forEach((movement, index) => {
     if (isPublished(movement.status)) {
-      pages.push(entry(`/movements/${movementSlug(movement, index)}`, "monthly", 0.8));
+      pages.push(entry(`/movements/${movementSlug(movement, index)}`, "monthly", 0.8, movement.coverImage || undefined));
     }
   });
 

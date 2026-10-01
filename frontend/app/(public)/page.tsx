@@ -13,6 +13,7 @@ import {
   MovementCard
 } from "@/components/ui";
 import { getSiteContent } from "@/lib/content-store";
+import { DEFAULT_OG_IMAGE, seoDescription } from "@/lib/seo";
 import {
   defaultSiteContent,
   isPublished,
@@ -22,8 +23,24 @@ import {
 
 export const revalidate = 300;
 
+const HOME_TITLE = "The Valluru — Booklets on Dharma, Grief & the Inner Life";
+const HOME_DESCRIPTION = seoDescription(
+  "Contemplative booklets by Sasidhar Valluru on dharma, grief, language and surrender, for the seeker who needs an inward anchor. Read the first chapters free."
+);
+
 export const metadata: Metadata = {
-  alternates: { canonical: "https://www.thevalluru.org/" }
+  // "absolute": the home page names the site itself, so no "| The Valluru" is appended.
+  title: { absolute: HOME_TITLE },
+  description: HOME_DESCRIPTION,
+  alternates: { canonical: "https://www.thevalluru.org/" },
+  openGraph: {
+    type: "website",
+    title: HOME_TITLE,
+    description: HOME_DESCRIPTION,
+    url: "https://www.thevalluru.org/",
+    images: [{ url: DEFAULT_OG_IMAGE, width: 1200, height: 630, alt: HOME_TITLE }]
+  },
+  twitter: { card: "summary_large_image", title: HOME_TITLE, description: HOME_DESCRIPTION, images: [DEFAULT_OG_IMAGE] }
 };
 
 export default async function HomePage() {

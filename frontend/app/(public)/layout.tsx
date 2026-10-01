@@ -105,8 +105,8 @@ export const metadata: Metadata = {
   authors: [{ name: "Sasidhar Valluru" }],
   creator: "Sasidhar Valluru",
   icons: {
-    icon: "/valluru-logo.png",
-    apple: "/valluru-logo.png"
+    icon: "/valluru-logo-192.png",
+    apple: "/valluru-logo-192.png"
   },
   openGraph: {
     type: "website",
