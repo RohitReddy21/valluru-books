@@ -160,8 +160,8 @@ function setSubscriberCookie(response, request, subscriber) {
  * and the illustrated PDF is part of what sign-up adds.
  *
  * The signed subscriber cookie is the source of truth: it survives a cleared localStorage
- * and works on the reader's other devices. A signed per-booklet access token (query string
- * or bearer header) is the fallback where a browser drops that cookie. Nothing unsigned is
+ * and works on the reader's other devices. A signed access token (bearer header only,
+ * never the query string) is the fallback where a browser drops that cookie. Nothing unsigned is
  * accepted: the old `valluru_booklet_<slug>=true` cookie could be typed in by anyone, so
  * readers who only hold that get back in by re-entering their email instead.
  */
@@ -173,7 +173,9 @@ function hasBookletAccess(request, slug) {
   const bearer = String(request.get("authorization") || "")
     .replace(/^Bearer\s+/i, "")
     .trim();
-  const token = String(request.query?.token || "").trim() || bearer;
+  // Header only. A token in the query string leaks through history, access logs and the
+  // Referer header, and nothing in the site sends one that way any more.
+  const token = bearer;
 
   // A "*" token predates per-booklet tokens and grants every booklet.
   return Boolean(token) && (verifyAccessToken(token, slug) || verifyAccessToken(token, "*"));

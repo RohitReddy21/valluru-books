@@ -100,10 +100,11 @@ test("an unsigned per-booklet cookie opens nothing", () => {
   assert.equal(hasBookletAccess(forged, "booklet-two"), false);
 });
 
-test("a token is accepted from the query string or a bearer header", () => {
+test("a token is accepted from a bearer header, and ignored in the query string", () => {
   const token = createAccessToken("booklet-two");
 
-  assert.equal(hasBookletAccess(request({ query: { token } }), "booklet-two"), true);
+  // A URL ends up in history, server logs and the Referer header, so it is never a way in.
+  assert.equal(hasBookletAccess(request({ query: { token } }), "booklet-two"), false);
   assert.equal(
     hasBookletAccess(request({ authorization: `Bearer ${token}` }), "booklet-two"),
     true
@@ -113,8 +114,8 @@ test("a token is accepted from the query string or a bearer header", () => {
 test("a wildcard token opens every booklet", () => {
   const token = createAccessToken("*");
 
-  assert.equal(hasBookletAccess(request({ query: { token } }), "booklet-two"), true);
-  assert.equal(hasBookletAccess(request({ query: { token } }), "booklet-nine"), true);
+  assert.equal(hasBookletAccess(request({ authorization: `Bearer ${token}` }), "booklet-two"), true);
+  assert.equal(hasBookletAccess(request({ authorization: `Bearer ${token}` }), "booklet-nine"), true);
 });
 
 test("the all-booklets token opens every booklet; a per-booklet token opens only its own", () => {

@@ -139,7 +139,7 @@ test("chapters: a stranger gets the three free chapters and a subscriber gets th
   assert.equal(stranger.headers["Cache-Control"], "private, no-cache");
 
   const token = createAccessToken("booklet-a");
-  const subscriber = await call(handler, { params: { slug: "booklet-a" }, query: { token } });
+  const subscriber = await call(handler, { params: { slug: "booklet-a" }, headers: { authorization: `Bearer ${token}` } });
 
   assert.equal(subscriber.body.hasAccess, true);
   assert.equal(subscriber.body.chapters.length, 5);
@@ -150,7 +150,7 @@ test("chapters: a token for another booklet opens nothing here", async () => {
   const { routes } = setup();
   const result = await call(routes["GET /api/booklets/:slug/chapters"], {
     params: { slug: "booklet-a" },
-    query: { token: createAccessToken("booklet-b") }
+    headers: { authorization: `Bearer ${createAccessToken("booklet-b")}` }
   });
 
   assert.equal(result.body.hasAccess, false);
@@ -162,17 +162,17 @@ test("pdf-link: refuses without access, and for a booklet that is unknown, a dra
   const token = createAccessToken("booklet-a");
 
   assert.equal((await call(handler, { params: { slug: "booklet-a" } })).status, 401);
-  assert.equal((await call(handler, { params: { slug: "booklet-a" }, query: { token: createAccessToken("booklet-b") } })).status, 401);
-  assert.equal((await call(handler, { params: { slug: "nope" }, query: { token } })).status, 404);
-  assert.equal((await call(handler, { params: { slug: "draft-booklet" }, query: { token: createAccessToken("draft-booklet") } })).status, 404);
-  assert.equal((await call(handler, { params: { slug: "booklet-b" }, query: { token: createAccessToken("booklet-b") } })).status, 404);
+  assert.equal((await call(handler, { params: { slug: "booklet-a" }, headers: { authorization: `Bearer ${createAccessToken("booklet-b")}` } })).status, 401);
+  assert.equal((await call(handler, { params: { slug: "nope" }, headers: { authorization: `Bearer ${token}` } })).status, 404);
+  assert.equal((await call(handler, { params: { slug: "draft-booklet" }, headers: { authorization: `Bearer ${createAccessToken("draft-booklet")}` } })).status, 404);
+  assert.equal((await call(handler, { params: { slug: "booklet-b" }, headers: { authorization: `Bearer ${createAccessToken("booklet-b")}` } })).status, 404);
 });
 
 test("pdf-link: with access, answers with a link, never cached", async () => {
   const { routes } = setup();
   const result = await call(routes["GET /api/booklets/:slug/pdf-link"], {
     params: { slug: "booklet-a" },
-    query: { token: createAccessToken("booklet-a") }
+    headers: { authorization: `Bearer ${createAccessToken("booklet-a")}` }
   });
 
   assert.equal(result.status, 200);
