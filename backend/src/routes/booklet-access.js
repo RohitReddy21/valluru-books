@@ -157,7 +157,12 @@ function registerBookletAccessRoutes(app, { getDb, getSiteContent, findContentBo
         );
       }
 
-      response.json({ ok: true, ...(recoveredAccessToken ? { accessToken: recoveredAccessToken } : {}) });
+      response.json({
+        ok: true,
+        ...(recoveredAccessToken
+          ? { accessToken: recoveredAccessToken, siteAccessToken: createAccessToken("*") }
+          : {})
+      });
     } catch (error) {
       next(error);
     }

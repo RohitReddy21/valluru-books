@@ -6,7 +6,7 @@ import { PdfBookModal } from "@/components/pdf-book-modal";
 import { trackEmailSubscription } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api";
 import { type Booklet } from "@/lib/site-content";
-import { readAccessToken, recoverAccess } from "@/lib/subscriber";
+import { readAccessToken, recoverAccess, storeAccessTokens } from "@/lib/subscriber";
 
 const globalStorageKey = "valluru_global_subscribed";
 const subscriberInfoKey = "valluru_subscriber_info";
@@ -120,6 +120,7 @@ export function BookletReader({ booklet }: Props) {
 
         const payload = (await response.json().catch(() => null)) as {
           accessToken?: string;
+          siteAccessToken?: string;
         } | null;
 
         if (response.ok) {
@@ -128,6 +129,7 @@ export function BookletReader({ booklet }: Props) {
             setAccessToken(payload.accessToken);
             window.localStorage.setItem(accessStorageKey, payload.accessToken);
           }
+          storeAccessTokens(booklet.slug, payload);
           window.localStorage.setItem(globalStorageKey, "subscribed");
           window.localStorage.setItem(
             subscriberInfoKey,

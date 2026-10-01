@@ -116,3 +116,22 @@ test("a wildcard token opens every booklet", () => {
   assert.equal(hasBookletAccess(request({ query: { token } }), "booklet-two"), true);
   assert.equal(hasBookletAccess(request({ query: { token } }), "booklet-nine"), true);
 });
+
+test("the all-booklets token opens every booklet; a per-booklet token opens only its own", () => {
+  const site = createAccessToken("*");
+  const one = createAccessToken("booklet-one");
+
+  // A browser that drops the cross-site subscriber cookie sends this as a Bearer header.
+  for (const slug of ["booklet-one", "booklet-two", "the-guru-who-disappears"]) {
+    assert.equal(hasBookletAccess(request({ authorization: `Bearer ${site}` }), slug), true, slug);
+  }
+
+  assert.equal(hasBookletAccess(request({ authorization: `Bearer ${one}` }), "booklet-one"), true);
+  assert.equal(hasBookletAccess(request({ authorization: `Bearer ${one}` }), "booklet-two"), false);
+});
+
+test("a token made with another secret opens nothing", () => {
+  const forged = "eyJzbHVnIjoiKiIsImV4cCI6OTk5OTk5OTk5OTk5OX0.not-a-real-signature";
+
+  assert.equal(hasBookletAccess(request({ authorization: `Bearer ${forged}` }), "booklet-one"), false);
+});

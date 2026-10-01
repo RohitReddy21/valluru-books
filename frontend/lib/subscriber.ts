@@ -78,13 +78,16 @@ export async function recoverAccess(booklet: { slug: string; title?: string }) {
       credentials: "include",
       body: JSON.stringify({ bookletSlug: booklet.slug, bookletTitle: booklet.title || "", email })
     });
-    const payload = (await response.json().catch(() => null)) as { accessToken?: string } | null;
+    const payload = (await response.json().catch(() => null)) as {
+      accessToken?: string;
+      siteAccessToken?: string;
+    } | null;
 
     if (!response.ok || !payload?.accessToken) {
       return false;
     }
 
-    storeAccessToken(booklet.slug, payload.accessToken);
+    storeAccessTokens(booklet.slug, payload);
     return true;
   } catch {
     return false;
@@ -102,16 +105,37 @@ function accessTokenKey(slug: string) {
   return `valluru_access_token_${slug}`;
 }
 
-export function readAccessToken(slug: string) {
-  if (typeof window === "undefined") {
-    return "";
-  }
+/** Slug of the token that opens every booklet: what a sign-up hands back for the whole series. */
+const SITE_TOKEN_SLUG = "*";
 
+function readStoredToken(slug: string) {
   try {
     return window.localStorage.getItem(accessTokenKey(slug)) || "";
   } catch {
     return "";
   }
+}
+
+/**
+ * The reader's token for a booklet: its own if it has one, else the all-booklets token
+ * from their sign-up. Without the fallback, a reader whose browser drops the cross-site
+ * subscriber cookie (Safari, in-app browsers) was asked to sign up again on every booklet.
+ */
+export function readAccessToken(slug: string) {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  return readStoredToken(slug) || readStoredToken(SITE_TOKEN_SLUG);
+}
+
+/** Keeps what /api/subscribe or /api/track-unlock handed back: this booklet's token and the all-booklets one. */
+export function storeAccessTokens(
+  slug: string,
+  payload: { accessToken?: string; siteAccessToken?: string } | null
+) {
+  storeAccessToken(slug, payload?.accessToken || "");
+  storeAccessToken(SITE_TOKEN_SLUG, payload?.siteAccessToken || "");
 }
 
 export function storeAccessToken(slug: string, token: string) {

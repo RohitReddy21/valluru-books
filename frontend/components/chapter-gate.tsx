@@ -5,7 +5,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import { ChapterArticle, splitChapterTitle, type ReadableChapter } from "@/components/chapter-body";
 import { trackEmailSubscription } from "@/lib/analytics";
 import { apiUrl } from "@/lib/api";
-import { readAccessToken, recoverAccess, storeAccessToken } from "@/lib/subscriber";
+import { readAccessToken, recoverAccess, storeAccessTokens } from "@/lib/subscriber";
 
 type Props = {
   bookletSlug: string;
@@ -170,8 +170,11 @@ export function ChapterGate({ bookletSlug, nextChapter, remainingCount }: Props)
 
       // Kept so the chapters request can send it: it is what proves access where the
       // subscriber cookie has been dropped.
-      const payload = (await response.json().catch(() => null)) as { accessToken?: string } | null;
-      storeAccessToken(bookletSlug, payload?.accessToken || "");
+      const payload = (await response.json().catch(() => null)) as {
+        accessToken?: string;
+        siteAccessToken?: string;
+      } | null;
+      storeAccessTokens(bookletSlug, payload);
 
       trackEmailSubscription("chapter_gate", bookletSlug);
 

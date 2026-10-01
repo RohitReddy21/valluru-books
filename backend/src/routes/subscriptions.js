@@ -55,7 +55,10 @@ function registerSubscriptionRoutes(
             subscriber: "skipped_local",
             owner: "skipped_local"
           },
-          accessToken: bookletSlug ? createAccessToken(bookletSlug) : undefined
+          accessToken: bookletSlug ? createAccessToken(bookletSlug) : undefined,
+          // A subscriber has the whole series, as the subscriber cookie already says, so a
+          // browser that drops that cookie still needs one token that opens every booklet.
+          siteAccessToken: createAccessToken("*")
         });
       }
 
@@ -239,7 +242,10 @@ function registerSubscriptionRoutes(
           subscriber: emailDelivery.subscriber.status,
           owner: emailDelivery.owner.status
         },
-        accessToken: bookletSlug ? createAccessToken(bookletSlug) : undefined
+        accessToken: bookletSlug ? createAccessToken(bookletSlug) : undefined,
+          // A subscriber has the whole series, as the subscriber cookie already says, so a
+          // browser that drops that cookie still needs one token that opens every booklet.
+          siteAccessToken: createAccessToken("*")
       });
     } catch (error) {
       next(error);
